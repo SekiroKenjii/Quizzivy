@@ -8541,6 +8541,16 @@ export interface components {
              *     student's payload only under `review.showScore`.
              */
             band?: components["schemas"]["Band"];
+            /**
+             * @description Who graded the paper, on the student's result only (D-072). Present
+             *     only under `review.showScore`, only when every hand-graded answer
+             *     was graded by the same account, and only while that account keeps
+             *     its name (it has not been anonymised). Otherwise absent. Name only:
+             *     no id, no avatar.
+             */
+            gradedBy?: {
+                name: string;
+            };
         };
         Attempt: {
             id: components["schemas"]["Uuid"];

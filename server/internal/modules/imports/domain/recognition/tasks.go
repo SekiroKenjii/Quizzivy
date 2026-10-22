@@ -3,6 +3,7 @@ package recognition
 import (
 	questions "quizzivy/internal/modules/questions/domain"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode"
@@ -124,7 +125,7 @@ func countValue(word string) int {
 	return n
 }
 
-var imperative = regexp.MustCompile(`(?i)^[^\pL]*(?:choose|circle|find|read|complete|write|rewrite|finish|identify|decide|match|fill|give|put|listen|mark|use|make|supply|change|select|underline|pick|answer|look|arrange|combine|correct|each of the following|chọn|tìm|đọc|hoàn thành|viết|điền|sắp xếp|nối)\b`)
+var imperative = regexp.MustCompile(`(?i)^[^\pL]*(choose|circle|find|read|complete|write|rewrite|finish|identify|decide|match|fill|give|put|listen|mark|use|make|supply|change|select|underline|pick|answer|look|arrange|combine|correct|each of the following|chọn|tìm|đọc|hoàn thành|viết|điền|sắp xếp|nối)\b`)
 
 // headingLegend matches the lines of the IELTS answer legend that follow a question-range heading without an
 // imperative: "Do the following statements agree…", "In boxes 1-4 on your answer sheet, write", "TRUE if…".
@@ -139,6 +140,117 @@ func isInstruction(text string) bool {
 	r, _ := utf8.DecodeRuneInString(text[first:])
 	return unicode.IsUpper(r) && imperative.MatchString(text)
 }
+
+// readsAsStatement reports whether an imperative-led line is a statement that only opens like a command (see
+// declarative) and names no answer format. Only a heading that already has its instruction asks it: anywhere else
+// an imperative line is an instruction, so a real one is never lost to the grammar (QC-R6GRM-1).
+func readsAsStatement(text string) bool {
+	text = strings.TrimSpace(text)
+	m := imperative.FindStringSubmatchIndex(text)
+	if _, after, labelled := strings.Cut(text, ":"); labelled && imperative.MatchString(strings.TrimSpace(after)) {
+		// A label and then the command: "Use of English: choose the correct answer."
+		return false
+	}
+	return m != nil && !answerFormat(text) && declarative(text[m[3]:])
+}
+
+// declarative reads what follows an imperative verb, rest, and reports whether the line is a statement that only
+// opens like a command: "Use of mobile phones has grown…", "Mark Twain once wrote…", "Look at the river and you will
+// see…", "Make no mistake: …", "Đọc sách là thói quen tốt…". It reads grammar, not task words, so an instruction it
+// knows nothing about ("Choose TWO.", "Chọn phương án đúng nhất.") stays an instruction. The cues, all in the first
+// sentence:
+//   - the verb is a noun: "of" follows it ("Use of");
+//   - the verb is a name: a capitalised word that is neither a function word nor a count follows it, and a lower-case
+//     word follows that ("Mark Twain once"; not "Complete Table 1" or "Fill In The Blanks");
+//   - "no" follows the verb and does not open a limit ("Make no mistake"; not "Write no more than");
+//   - the command is the condition of a promise that is not the task's: "… and you will / you'll / you can …", but
+//     not "… and you will find the answers";
+//   - in Vietnamese, the verb phrase is the subject of a predicate: "là", "giúp", "khiến" or "ngày càng", in a
+//     sentence that asks nothing.
+func declarative(rest string) bool {
+	sentence := rest
+	if i := strings.IndexAny(sentence, ".?!:"); i >= 0 {
+		sentence = sentence[:i]
+	}
+	words := strings.Fields(sentence)
+	if len(words) == 0 {
+		return false
+	}
+	switch next := strings.ToLower(words[0]); {
+	case next == "of":
+		return true
+	case next == "no":
+		return len(words) == 1 || !strings.EqualFold(words[1], "more")
+	case len(words) > 1 && named(words[0]) && startsLower(words[1]):
+		return true
+	}
+	if loc := promise.FindStringIndex(sentence); loc != nil && !taskPromise.MatchString(sentence[loc[1]:]) {
+		return true
+	}
+	return vietnamesePredicate(sentence)
+}
+
+var (
+	promise         = regexp.MustCompile(`(?i)\band\s+you(?:'ll|\s+(?:will|would|can|could|may|might)\b)`)
+	taskPromise     = regexp.MustCompile(`(?i)\b(?:answers?|questions?)\b`)
+	vietnameseMarks = [][]string{{"là"}, {"giúp"}, {"khiến"}, {"ngày", "càng"}}
+	// vietnameseAsks holds the question words that make a sentence the task's question ("… là từ nào"), and the word
+	// that makes "là" a gloss ("có nghĩa là"), not a predicate.
+	vietnameseAsks = map[string]bool{"nào": true, "gì": true, "ai": true, "đâu": true, "nghĩa": true}
+	// notNames holds the capitalised words of a title-case instruction ("Fill In The Blanks") that content.go's
+	// functionWords leaves out.
+	notNames = map[string]bool{"into": true, "out": true, "up": true, "down": true, "each": true, "every": true, "all": true, "your": true, "this": true, "these": true, "those": true, "which": true, "what": true, "any": true, "some": true, "yes": true, "not": true}
+)
+
+// named reports whether word reads as a name: capitalised, then lower case, and neither a function word, a count nor
+// an answer word ("Write True if…", "Write Yes if…").
+func named(word string) bool {
+	word = strings.TrimSuffix(strings.TrimRight(word, ",;"), "'s")
+	r, size := utf8.DecodeRuneInString(word)
+	if !unicode.IsUpper(r) || len(word) == size || strings.ToLower(word[size:]) != word[size:] || !unicode.IsLetter([]rune(word[size:])[0]) {
+		return false
+	}
+	lower := strings.ToLower(word)
+	_, count := numberWords[lower]
+	_, answer := trueFalseValue(word)
+	return !notNames[lower] && !functionWords[lower] && !count && !answer
+}
+
+func startsLower(word string) bool {
+	r, _ := utf8.DecodeRuneInString(word)
+	return unicode.IsLower(r)
+}
+
+// vietnamesePredicate reports whether the first sentence of a Vietnamese line holds a predicate word, matched as
+// whole words (Go's \b only knows ASCII letters, so "là" inside "làm" must not count), and asks nothing: a sentence
+// with a question word or a gloss ("Tìm từ khác loại là từ nào", "Chọn từ có nghĩa là …") is the task.
+func vietnamesePredicate(sentence string) bool {
+	words := strings.Fields(norm.NFC.String(strings.ToLower(sentence)))
+	if slices.ContainsFunc(words, func(w string) bool { return vietnameseAsks[w] }) {
+		return false
+	}
+	for i := range words {
+		for _, mark := range vietnameseMarks {
+			if i+len(mark) <= len(words) && slices.Equal(words[i:i+len(mark)], mark) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// letterChoice matches a run of option letters that names an answer format: "A, B, C or D", "A–H", "A-E".
+var letterChoice = regexp.MustCompile(`(?:^|[^\pL])[A-H](?:\s*,\s*[A-H])*\s*,?\s*(?:(?i:or|and|hoặc|và)\s+|[-–]\s*)[A-H](?:[^\pL]|$)`)
+
+// answerFormat reports whether text names how to answer: True / False / Not given in either language, a word limit,
+// "Choose N" or a run of option letters. A line that does is an instruction whatever grammar surrounds it.
+func answerFormat(text string) bool {
+	text = norm.NFC.String(text)
+	return tasksOf(text).has(taskTFNG|taskTrueFalse) || chooseCount.MatchString(text) || wordLimit.MatchString(text) || vietnameseWordLimit.MatchString(text) || letterChoice.MatchString(text)
+}
+
+// vietnameseWordLimit matches "không quá hai từ", with a word boundary Go's ASCII-only \b cannot give.
+var vietnameseWordLimit = regexp.MustCompile(`(?i)(?:^|[^\pL])không\s+quá\s+(?:\pL+|\d+)\s+từ(?:[^\pL]|$)`)
 
 func normalizedInstruction(text string) string {
 	return strings.ToLower(strings.Join(strings.Fields(strings.Trim(text, " .:;-–")), " "))

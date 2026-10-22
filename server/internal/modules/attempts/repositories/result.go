@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/bands"
+	"quizzivy/internal/shared/retention"
 	"quizzivy/internal/shared/schedule"
 	"strings"
 	"time"
@@ -118,7 +119,33 @@ func (s *Postgres) markedQuestions(ctx context.Context, a domain.AttemptRecord, 
 	if err != nil {
 		return nil, nil, err
 	}
-	return questions, &domain.Score{Earned: earned, Total: total, PendingManual: pending, Band: band}, nil
+	grader, err := s.graderName(ctx, a.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return questions, &domain.Score{Earned: earned, Total: total, PendingManual: pending, Band: band, GradedBy: grader}, nil
+}
+
+// graderName is the name of the one account that graded every hand-graded
+// answer of the attempt (D-072). It is nil when nothing was graded by hand,
+// when two accounts graded, when a grader's account is gone, or when the
+// grader has been anonymised.
+func (s *Postgres) graderName(ctx context.Context, attemptID string) (*string, error) {
+	var name *string
+	if err := s.QueryRow(ctx, `
+		WITH graded AS (
+		  SELECT graded_by FROM app.attempt_answers
+		   WHERE attempt_id = $1::uuid AND (manual_score IS NOT NULL OR graded_by IS NOT NULL)
+		), one AS (
+		  SELECT min(graded_by::text)::uuid AS id FROM graded
+		  HAVING count(*) > 0 AND count(graded_by) = count(*) AND count(DISTINCT graded_by) = 1
+		)
+		SELECT coalesce(u.display_name, u.full_name)
+		  FROM one JOIN app.users u ON u.id = one.id
+		 WHERE `+retention.NotAnonymous, attemptID).Scan(&name); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("attempts: read the grader: %w", err)
+	}
+	return name, nil
 }
 
 func (s *Postgres) classAverageOf(ctx context.Context, assignmentID string, stored domain.ReviewPolicy, withheld, closed bool) (*float64, error) {

@@ -74,7 +74,13 @@ func (h Attempts) GetAssignmentMonitor(ctx context.Context, request openapi.GetA
 }
 
 func toAPIScore(sc domain.Score) *openapi.AttemptScore {
-	return &openapi.AttemptScore{Earned: sc.Earned, Total: sc.Total, PendingManual: sc.PendingManual, Band: sc.Band}
+	out := &openapi.AttemptScore{Earned: sc.Earned, Total: sc.Total, PendingManual: sc.PendingManual, Band: sc.Band}
+	if sc.GradedBy != nil {
+		out.GradedBy = &struct {
+			Name string `json:"name"`
+		}{Name: *sc.GradedBy}
+	}
+	return out
 }
 
 type reviewAnswer = struct {

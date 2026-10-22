@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -247,10 +249,20 @@ func (e *exam) rangeLine(l *line) bool {
 	if !ok {
 		return false
 	}
+	whole := segment{l, 0, len(l.text)}
+	if e.bareHeading() {
+		// Two headings with nothing between them ("Questions 1-13" / "Questions 1-4", or "1-2" / "3-4") share the
+		// instruction that follows: one group holds the questions either names, so neither heading is left over.
+		g := e.group
+		g.first, g.last = min(g.first, first), max(g.last, last)
+		g.instruction = append(g.instruction, whole)
+		g.source = append(g.source, whole.refs()...)
+		l.consumeAll()
+		return true
+	}
 	e.closeQuestion()
 	e.closeGroup()
 	e.ensureSection()
-	whole := segment{l, 0, len(l.text)}
 	e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, heading: true, first: first, last: last, accepting: true, source: whole.refs()}
 	e.section.items = append(e.section.items, item{group: e.group})
 	l.consumeAll()
@@ -265,13 +277,47 @@ func (e *exam) extendsHeading(text string) bool {
 	if g == nil || !g.heading || !g.accepting || len(g.questions) > 0 || len(g.stimulus) > 0 {
 		return false
 	}
-	return isInstruction(text) || headingLegend.MatchString(text)
+	return (isInstruction(text) && !e.headingPassage(text)) || headingLegend.MatchString(text) || e.carriesOnHeading(text)
 }
 
-// bareHeading reports whether the open group is a range heading with nothing under it yet.
+// headingPassage reports whether text, an imperative-led line under a heading that already has its instruction,
+// reads as a statement (readsAsStatement): it opens the passage, not a second instruction line.
+func (e *exam) headingPassage(text string) bool {
+	g := e.group
+	return g != nil && g.heading && g.accepting && len(g.questions) == 0 && len(g.stimulus) == 0 && !e.bareHeading() && readsAsStatement(text)
+}
+
+// carriesOnHeading reports whether text carries on the heading's last instruction line, which has not ended its
+// sentence, as text copied from a PDF breaks it over hard lines:
+//   - a lower-case line after a comma or straight after the heading ("In boxes 1-4 on your answer sheet," / "write"),
+//     one that is itself a command ("write no more than two words"), or one that opens with a preposition or
+//     conjunction ("Write NO MORE THAN TWO WORDS" / "from the passage for each answer.");
+//   - a line that completes an answer format the last instruction line began ("Choose" / "TWO letters, A-E.",
+//     "Chọn" / "Đúng, Sai hoặc Không có thông tin"); the heading itself begins none.
+//
+// A passage that opens in lower case after an unfinished instruction ("iPads and phones…") does not.
+func (e *exam) carriesOnHeading(text string) bool {
+	last := strings.TrimSpace(e.group.instruction[len(e.group.instruction)-1].text())
+	text = strings.TrimSpace(text)
+	if last == "" || text == "" || strings.ContainsRune(".?!", []rune(last)[len([]rune(last))-1]) {
+		return false
+	}
+	if startsLower(text) && (strings.HasSuffix(last, ",") || e.bareHeading() || imperative.MatchString(text) || continuesPhrase(text)) {
+		return true
+	}
+	return !e.bareHeading() && !answerFormat(last) && answerFormat(last+" "+text)
+}
+
+// bareHeading reports whether the open group is a range heading, or a run of them, with nothing under it yet.
 func (e *exam) bareHeading() bool {
 	g := e.group
-	return g != nil && g.heading && len(g.instruction) == 1 && len(g.questions) == 0 && len(g.stimulus) == 0
+	if g == nil || !g.heading || len(g.questions) > 0 || len(g.stimulus) > 0 {
+		return false
+	}
+	return !slices.ContainsFunc(g.instruction, func(s segment) bool {
+		_, _, ok := headingRange(strings.TrimSpace(s.text()))
+		return !ok
+	})
 }
 
 // takeBareHeading removes the open bare heading's group, and the inferred part it alone made, and returns the
@@ -511,7 +557,7 @@ func (e *exam) textLine(l *line) {
 	case e.extendsHeading(text):
 		e.group.instruction = append(e.group.instruction, whole)
 		e.group.source = append(e.group.source, whole.refs()...)
-	case isInstruction(text) && !e.continuesStimulus(text):
+	case isInstruction(text) && !e.continuesStimulus(text) && !e.headingPassage(text):
 		e.closeQuestion()
 		e.closeGroup()
 		e.ensureSection()
@@ -685,4 +731,15 @@ func (e *exam) rangeTitle(s *sectionBuilder) string {
 		return "Câu " + span
 	}
 	return span
+}
+
+// vietnameseLinks holds the Vietnamese prepositions and conjunctions a broken phrase carries on with ("… KHÔNG QUÁ
+// HAI TỪ" / "cho mỗi câu trả lời.").
+var vietnameseLinks = map[string]bool{"cho": true, "trong": true, "vào": true, "của": true, "với": true, "theo": true, "ở": true, "và": true, "hoặc": true}
+
+// continuesPhrase reports whether text opens with a preposition or a conjunction, so it carries on a phrase rather
+// than starting a sentence of its own.
+func continuesPhrase(text string) bool {
+	first, _, _ := strings.Cut(strings.ToLower(norm.NFC.String(text)), " ")
+	return functionWords[first] || vietnameseLinks[first]
 }

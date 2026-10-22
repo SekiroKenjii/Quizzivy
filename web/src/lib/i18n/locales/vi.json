@@ -3926,6 +3926,8 @@
     "wordLimit_other": "{{words}}/{{count}} từ",
     "wordLimitOver_one": "{{words}}/{{count}} từ · quá số từ",
     "wordLimitOver_other": "{{words}}/{{count}} từ · quá số từ",
+    "wordLimitHintOne": "Viết MỘT TỪ.",
+    "wordLimitHint": "Viết KHÔNG QUÁ {{words}} TỪ.",
     "yourEssay": "Bài luận của bạn",
     "essayPlaceholder": "Viết bài luận của bạn",
     "leave": "Thoát khỏi bài làm",
@@ -4038,6 +4040,14 @@
       "9": "chín",
       "10": "mười",
       "11": "mười một"
+    },
+    "matching": {
+      "done": "Đã nối {{k}}/{{n}}",
+      "options": "Các lựa chọn",
+      "usedBy": "được nối với",
+      "item": "{{key}} {{text}}",
+      "chipUsed": "{{key}}, đã nối với {{by}}",
+      "moved": "{{key}} đã chuyển từ {{from}}"
     },
     "viewSubmitted": "Xem bài đã nộp",
     "unknownType": "Câu {{n}} thuộc dạng câu hỏi mới mà trang này chưa hiển thị được. Hãy tải lại trang để làm câu này; các câu trả lời của bạn vẫn được giữ.",
