@@ -6,7 +6,7 @@ import {
 import type { AiFinding, AiVariantChange } from "@/features/ai/api";
 import type { GeneratedDraft } from "@/features/ai/kinds/generate";
 import { MAX_OPTIONS, type QuestionValues } from "./questionSchema";
-import { trueFalseOptions } from "./questionType";
+import { tfngOptions, trueFalseOptions, type TfngAnswer } from "./questionType";
 
 const GAP = /_{3,}/;
 
@@ -18,12 +18,18 @@ function isTrue(text: string | undefined): boolean {
   return text?.trim().toLowerCase() !== "false";
 }
 
+function tfngAnswer(text: string | undefined): TfngAnswer {
+  const key = text?.trim().toLowerCase();
+  if (key === "false") return "false";
+  return key === "not given" ? "not_given" : "true";
+}
+
 /**
  * draftQuestion turns a question the assistant drafted into the values a bank
  * write takes: a plain prompt, one point, the level it was written for, and
  * `tag` when it is not null. A choice question's options are ticked where the
- * key names them; a true/false question takes the two canonical options; a
- * blank's first `___` becomes its one gap, and a short answer's key its
+ * key names them; a true/false question takes the two canonical options, and
+ * a tfng question its three in their fixed order; a blank's first `___` becomes its one gap, and a short answer's key its
  * sample answer.
  */
 export function draftQuestion(
@@ -62,6 +68,8 @@ export function draftQuestion(
       };
     case "true_false":
       return { ...base, options: trueFalseOptions(isTrue(question.answerKey[0])) };
+    case "tfng":
+      return { ...base, options: tfngOptions(tfngAnswer(question.answerKey[0])) };
     case "fill_blank":
       return {
         ...base,
@@ -83,14 +91,15 @@ export function draftQuestion(
 /**
  * withFix applies a check's one-click fix to a question's values: an option's
  * new text (dropping rich content, which the text must match), an extra
- * accepted answer for a blank, or a new plain explanation. A fix that names
- * nothing the question holds, or is advice only, leaves the values as they
- * are.
+ * accepted answer for a blank, a new plain explanation, a tfng question's new
+ * key (the option it names becomes the one correct option) or a short
+ * answer's word limit. A fix that names nothing the question holds, or is
+ * advice only, leaves the values as they are.
  */
 export function withFix(values: QuestionValues, finding: AiFinding): QuestionValues {
   const { kind, payload } = finding.fix;
   if (payload === undefined) return values;
-  const { optionId, blankId, text } = payload;
+  const { optionId, blankId, maxWords, text } = payload;
   switch (kind) {
     case "option_text":
       return {
@@ -114,6 +123,23 @@ export function withFix(values: QuestionValues, finding: AiFinding): QuestionVal
       };
     case "explanation":
       return { ...values, explanation: text, explanationContent: null };
+    case "tfng_answer": {
+      const named = (id: string | null) => optionId !== undefined && id === optionId;
+      return values.type !== "tfng" ||
+        !values.options.some((option) => named(option.id))
+        ? values
+        : {
+            ...values,
+            options: values.options.map((option) => ({
+              ...option,
+              isCorrect: named(option.id),
+            })),
+          };
+    }
+    case "word_limit":
+      return values.type !== "short_answer" || maxWords === undefined
+        ? values
+        : { ...values, maxWords };
     case "none":
       return values;
   }
@@ -123,7 +149,9 @@ export function withFix(values: QuestionValues, finding: AiFinding): QuestionVal
  * fixFits reports whether a check's fix still names something the question
  * holds. A fix names an option or a blank by id, and the server gives a
  * question's options new ids each time it is saved, so a finding kept across
- * a save no longer fits; the explanation fix names nothing and always does.
+ * a save no longer fits; a new tfng key fits while the question is still a
+ * tfng holding that option, and a word limit while it is still a short
+ * answer; the explanation fix names nothing and always does.
  */
 export function fixFits(values: QuestionValues, finding: AiFinding): boolean {
   const { kind, payload } = finding.fix;
@@ -132,6 +160,14 @@ export function fixFits(values: QuestionValues, finding: AiFinding): boolean {
   switch (kind) {
     case "option_text":
       return optionId !== undefined && values.options.some((o) => o.id === optionId);
+    case "tfng_answer":
+      return (
+        values.type === "tfng" &&
+        optionId !== undefined &&
+        values.options.some((o) => o.id === optionId)
+      );
+    case "word_limit":
+      return values.type === "short_answer" && payload?.maxWords !== undefined;
     case "accepted_answer":
       return blankId !== undefined && values.blanks.some((b) => b.id === blankId);
     case "explanation":

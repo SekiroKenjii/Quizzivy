@@ -269,6 +269,9 @@
       "idle": "Compares the answer with the accepted answers. You decide the score.",
       "run": "Suggest a score",
       "running": "Reading the answer…",
+      "idleEssay": "Reads the essay and suggests a band. You decide the band.",
+      "idleRubric": "Reads the essay and suggests a band for each criterion. You decide the bands.",
+      "runningEssay": "Reading the essay…",
       "confidence": {
         "high": "High confidence",
         "medium": "Medium confidence",
@@ -278,6 +281,7 @@
       "comment": "Comment for the student:",
       "use": "Use score and comment",
       "filled": "Score and comment filled in. Check them, then Save & next.",
+      "filledBand": "Band and comment filled in. Check them, then Save & next.",
       "off": "AI suggestions are off in <settings>Settings › AI assistant</settings>."
     },
     "needsVersion": "Publish the test before making a variant.",

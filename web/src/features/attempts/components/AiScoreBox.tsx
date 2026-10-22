@@ -23,6 +23,7 @@ import {
 import { ApiError } from "@/lib/api/errors";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { notify } from "@/lib/toast";
+import { formatBand } from "@/lib/bands";
 import { useAuthStore } from "@/stores/auth";
 import { cn } from "@/lib/utils";
 
@@ -39,12 +40,19 @@ const CONFIDENCE: Readonly<Record<AiScoreSuggestion["confidence"], string>> = {
 
 const ACTION = "text-meta h-7.5 rounded-seg px-2.5 leading-normal font-medium";
 
+const TOP_BAND = 9;
+
+/** ScoreBoxFor is what the box suggests for: a short answer, or an essay with or without rubric criteria. */
+export type ScoreBoxFor = "short" | "essay" | "rubric";
+
 /**
  * AiScoreBox is the grading card's "Suggest a score" (V-07) for one short
- * answer, drawn only while the assistant is offered (`useAiAvailable`). With
+ * answer or essay, drawn only while the assistant is offered
+ * (`useAiAvailable`). For an essay it suggests a band out of 9, and with a
+ * rubric a band for each criterion, whose lines are the reasons (DG-202). With
  * the teacher's "Let AI read student answers" off it is one line that says so
  * and links to Settings › AI assistant. A suggestion saves nothing: "Use score
- * and comment" hands both to `onUse`, which fills the card's own fields and
+ * and comment" hands it to `onUse`, which fills the card's own fields and
  * reports whether it took them, and the teacher's Save & next writes the
  * grade.
  */
@@ -52,14 +60,16 @@ export function AiScoreBox({
   attemptId,
   questionId,
   max,
+  kind = "short",
   busy,
   onUse,
 }: Readonly<{
   attemptId: string;
   questionId: string;
   max: number;
+  kind?: ScoreBoxFor;
   busy: boolean;
-  onUse: (points: number, comment: string) => boolean;
+  onUse: (suggestion: AiScoreSuggestion) => boolean;
 }>) {
   const available = useAiAvailable();
   const reads = useAuthStore(
@@ -73,6 +83,7 @@ export function AiScoreBox({
       attemptId={attemptId}
       questionId={questionId}
       max={max}
+      kind={kind}
       busy={busy}
       onUse={onUse}
       onRefused={() => setRefused(true)}
@@ -101,10 +112,17 @@ function SuggestionsOff() {
   );
 }
 
+const IDLE_KEY = {
+  short: "ai.score.idle",
+  essay: "ai.score.idleEssay",
+  rubric: "ai.score.idleRubric",
+} as const;
+
 function ScoreSuggestion({
   attemptId,
   questionId,
   max,
+  kind,
   busy,
   onUse,
   onRefused,
@@ -112,8 +130,9 @@ function ScoreSuggestion({
   attemptId: string;
   questionId: string;
   max: number;
+  kind: ScoreBoxFor;
   busy: boolean;
-  onUse: (points: number, comment: string) => boolean;
+  onUse: (suggestion: AiScoreSuggestion) => boolean;
   onRefused: () => void;
 }>) {
   const { t } = useTranslation();
@@ -156,8 +175,10 @@ function ScoreSuggestion({
   }
 
   function use(suggestion: AiScoreSuggestion) {
-    if (onUse(suggestion.score, suggestion.comment))
-      notify.success(t("ai.score.filled"));
+    if (onUse(suggestion))
+      notify.success(
+        t(suggestion.band === undefined ? "ai.score.filled" : "ai.score.filledBand"),
+      );
   }
 
   const done = stage.name === "done" ? stage.suggestion : null;
@@ -174,7 +195,7 @@ function ScoreSuggestion({
         {stage.name === "idle" && (
           <>
             <p className="text-muted-fg text-meta min-w-0 flex-[1_1_220px] leading-normal [text-wrap:pretty]">
-              {t("ai.score.idle")}
+              {t(IDLE_KEY[kind])}
             </p>
             <Button
               type="button"
@@ -197,7 +218,7 @@ function ScoreSuggestion({
               aria-hidden="true"
               className="size-3.5 animate-spin motion-reduce:animate-none"
             />
-            {t("ai.score.running")}
+            {t(kind === "short" ? "ai.score.running" : "ai.score.runningEssay")}
           </p>
         )}
         {done && (
@@ -211,10 +232,14 @@ function ScoreSuggestion({
               {t(`ai.score.confidence.${done.confidence}`)}
             </span>
             <span className="text-lg leading-normal font-semibold whitespace-nowrap tabular-nums">
-              {figure.format(done.score)}
+              {done.band === undefined
+                ? figure.format(done.score)
+                : formatBand(done.band, locale)}
               <span className="text-muted-fg text-sm font-medium">
                 {" "}
-                {t("ai.score.outOf", { max: figure.format(max) })}
+                {t("ai.score.outOf", {
+                  max: figure.format(done.band === undefined ? max : TOP_BAND),
+                })}
               </span>
             </span>
           </p>

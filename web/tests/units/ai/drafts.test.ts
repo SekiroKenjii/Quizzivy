@@ -46,6 +46,13 @@ describe("a drafted question", () => {
       explanation: "",
     },
     {
+      type: "tfng",
+      prompt: "Most residents support new parks.",
+      options: ["True", "False", "Not given"],
+      answerKey: ["Not given"],
+      explanation: "",
+    },
+    {
       type: "fill_blank",
       prompt: "They are called ___.",
       answerKey: ["play streets", "play street"],
@@ -91,6 +98,32 @@ describe("a drafted question", () => {
     expect(values.options).toEqual([
       { id: null, text: "True", isCorrect: false },
       { id: null, text: "False", isCorrect: true },
+    ]);
+  });
+
+  it("writes a tfng question's three options in their fixed order with the key ticked", () => {
+    const ticked = (key: string) =>
+      draft({
+        type: "tfng",
+        prompt: "Parks are decoration.",
+        options: ["True", "False", "Not given"],
+        answerKey: [key],
+        explanation: "",
+      }).options;
+    expect(ticked("Not given")).toEqual([
+      { id: null, text: "True", isCorrect: false },
+      { id: null, text: "False", isCorrect: false },
+      { id: null, text: "Not given", isCorrect: true },
+    ]);
+    expect(ticked("False").map((option) => option.isCorrect)).toEqual([
+      false,
+      true,
+      false,
+    ]);
+    expect(ticked("True").map((option) => option.isCorrect)).toEqual([
+      true,
+      false,
+      false,
     ]);
   });
 
@@ -235,6 +268,88 @@ describe("a check's fix", () => {
         finding({ kind: "explanation", description: "E.", payload: { text: "x" } }),
       ),
     ).toBe(true);
+  });
+
+  const TRUE = "018f0000-0000-7000-8000-0000000000e1";
+  const FALSE = "018f0000-0000-7000-8000-0000000000e2";
+  const NOT_GIVEN = "018f0000-0000-7000-8000-0000000000e3";
+  const tfng: QuestionValues = {
+    ...values,
+    type: "tfng",
+    options: [
+      { id: TRUE, text: "True", isCorrect: false },
+      { id: FALSE, text: "False", isCorrect: true },
+      { id: NOT_GIVEN, text: "Not given", isCorrect: false },
+    ],
+  };
+  const short: QuestionValues = {
+    ...values,
+    type: "short_answer",
+    options: [],
+    sampleAnswer: "poor tools",
+  };
+  const notGiven = {
+    kind: "tfng_answer" as const,
+    description: "Change the answer to Not given.",
+    label: "Change to Not given",
+    payload: { optionId: NOT_GIVEN, text: "Not given" },
+  };
+  const wordLimit = {
+    kind: "word_limit" as const,
+    description: "Add a word limit.",
+    label: "Add word limit",
+    payload: { maxWords: 3, text: "Write NO MORE THAN THREE WORDS." },
+  };
+
+  it("changes a tfng key to the option it names, the only one ticked", () => {
+    const after = fixed(notGiven, tfng);
+    expect(after.options).toEqual([
+      { id: TRUE, text: "True", isCorrect: false },
+      { id: FALSE, text: "False", isCorrect: false },
+      { id: NOT_GIVEN, text: "Not given", isCorrect: true },
+    ]);
+    expect(questionSchema.safeParse(after).success).toBe(true);
+    expect(fixed(notGiven, values)).toBe(values);
+  });
+
+  it("gives a short answer the word limit it names", () => {
+    const after = fixed(wordLimit, short);
+    expect(after.maxWords).toBe(3);
+    expect(after.sampleAnswer).toBe("poor tools");
+    expect(questionSchema.safeParse(after).success).toBe(true);
+    expect(fixed(wordLimit, values)).toBe(values);
+  });
+
+  it("fits a new tfng key or a word limit only while the question can take it", () => {
+    const finding = (
+      fix: AiFinding["fix"],
+      type: QuestionValues["type"],
+    ): AiFinding => ({
+      severity: "likely_error",
+      questionId: "018f0000-0000-7000-8000-0000000000b1",
+      number: 1,
+      type,
+      title: "A statement.",
+      issue: "An issue.",
+      fix,
+    });
+    expect(fixFits(tfng, finding(notGiven, "tfng"))).toBe(true);
+    expect(
+      fixFits(
+        { ...tfng, options: tfng.options.map((o) => ({ ...o, id: null })) },
+        finding(notGiven, "tfng"),
+      ),
+    ).toBe(false);
+    expect(
+      fixFits(
+        { ...tfng, type: "true_false", options: tfng.options.slice(0, 2) },
+        finding(notGiven, "tfng"),
+      ),
+    ).toBe(false);
+    expect(fixFits(short, finding(wordLimit, "short_answer"))).toBe(true);
+    expect(
+      fixFits({ ...short, type: "essay" }, finding(wordLimit, "short_answer")),
+    ).toBe(false);
   });
 
   it("replaces the explanation with plain text, and leaves advice alone", () => {

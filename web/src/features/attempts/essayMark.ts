@@ -35,6 +35,23 @@ export function markOf(source: {
 }
 
 /**
+ * suggestedMark is the mark an AI suggestion lays on an essay: its band when
+ * the essay has no rubric, otherwise its band for each criterion. A suggestion
+ * that leaves a criterion out gives a mark that is not complete.
+ */
+export function suggestedMark(
+  rubric: readonly Criterion[],
+  suggestion: {
+    band?: number | undefined;
+    criteria?: readonly CriterionBand[] | undefined;
+  },
+): EssayMark {
+  return rubric.length === 0
+    ? markOf({ band: suggestion.band ?? null })
+    : markOf({ criteria: suggestion.criteria ?? [] });
+}
+
+/**
  * markBand is the band a mark gives: the band set directly when the essay has
  * no rubric, otherwise the criteria's derived band, which is null until every
  * criterion has one.
