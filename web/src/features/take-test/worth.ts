@@ -16,7 +16,7 @@ export function worth(question: StudentQuestion, t: TFunction): string {
   if (question.type === "fill_blank" && blanks > 0) {
     parts.push(t("takeTest.perBlank", { points: decimal(question.points / blanks) }));
   }
-  if (question.type === "short_answer") {
+  if (question.type === "short_answer" || question.type === "essay") {
     parts.push(t("takeTest.manualGrading"));
   }
   return parts.join(" · ");

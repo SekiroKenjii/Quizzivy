@@ -2,22 +2,39 @@ import { z } from "zod";
 import type { Answer } from "./api";
 
 const prefix = "quizzivy.answer-draft.";
+const answerSchema = z.discriminatedUnion("type", [
+  z.object({ type: z.literal("choice"), optionIds: z.array(z.string()) }),
+  z.object({ type: z.literal("true_false"), value: z.boolean() }),
+  z.object({ type: z.literal("text"), value: z.string() }),
+  z.object({
+    type: z.literal("fill_blank"),
+    values: z.record(z.string(), z.string()),
+  }),
+  z.object({
+    type: z.literal("matching"),
+    pairs: z.record(z.string(), z.string()),
+  }),
+]);
+
+/**
+ * The answers parse one entry at a time: an entry this build cannot read, a
+ * newer answer shape or a damaged value, is dropped and the rest of the
+ * draft is kept.
+ */
+const answersSchema = z.record(z.string(), z.unknown()).transform((entries) => {
+  const answers: Record<string, Answer> = {};
+  for (const [questionId, entry] of Object.entries(entries)) {
+    const parsed = answerSchema.safeParse(entry);
+    if (parsed.success) answers[questionId] = parsed.data;
+  }
+  return answers;
+});
+
 const schema = z.object({
   studentId: z.string(),
   sessionId: z.string(),
   deadlineAt: z.number(),
-  answers: z.record(
-    z.string(),
-    z.discriminatedUnion("type", [
-      z.object({ type: z.literal("choice"), optionIds: z.array(z.string()) }),
-      z.object({ type: z.literal("true_false"), value: z.boolean() }),
-      z.object({ type: z.literal("text"), value: z.string() }),
-      z.object({
-        type: z.literal("fill_blank"),
-        values: z.record(z.string(), z.string()),
-      }),
-    ]),
-  ),
+  answers: answersSchema,
 });
 
 /** readDraft returns only this student's unconfirmed answers before the attempt deadline. */

@@ -1,5 +1,5 @@
 import type { TFunction } from "i18next";
-import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
+import { tfngLabelKey, trueFalseLabelKey } from "@/components/shared/content/trueFalse";
 import { nfc } from "@/lib/nfc";
 import { answered } from "./answered";
 import { isPlainParagraph } from "./sentenceGap";
@@ -174,12 +174,14 @@ export function chosenWord(
 ): string | null {
   if (answer?.type !== "choice" || answer.optionIds.length === 0) return null;
   const chosen = new Set(answer.optionIds);
-  const words = (question.options ?? [])
-    .filter((option) => chosen.has(option.id))
-    .map((option) => {
-      const canonical = trueFalseLabelKey(question.type, option.text, option.content);
-      return canonical === null ? nfc(option.text) : t(canonical);
-    });
+  const words = (question.options ?? []).flatMap((option, index) => {
+    if (!chosen.has(option.id)) return [];
+    const canonical =
+      question.type === "tfng"
+        ? tfngLabelKey(index)
+        : trueFalseLabelKey(question.type, option.text, option.content);
+    return [canonical === null ? nfc(option.text) : t(canonical)];
+  });
   return words.length === 0 ? null : words.join(", ");
 }
 

@@ -5,8 +5,10 @@ import type { DotState } from "./components/Navigator";
  * Whether an answer says anything. S-06's dots and the review's counts both
  * read this, so "đã trả lời" means one thing everywhere.
  *
- * A fill_blank needs EVERY blank filled, because grading is per blank (O-17).
- * It takes the question because `values` carries only the blanks typed into.
+ * A fill_blank needs EVERY blank filled, because grading is per blank (O-17),
+ * and a matching every item paired. "Choose N" needs exactly N picks (T-R6.6),
+ * as the student card's count does on the server. It takes the question
+ * because `values` and `pairs` carry only what was typed or paired.
  */
 export function answered(
   question: StudentQuestion,
@@ -15,7 +17,9 @@ export function answered(
   if (answer === undefined) return false;
   switch (answer.type) {
     case "choice":
-      return answer.optionIds.length > 0;
+      return question.type === "multiple_choice" && question.selectCount != null
+        ? answer.optionIds.length === question.selectCount
+        : answer.optionIds.length > 0;
     case "true_false":
       return typeof answer.value === "boolean";
     case "fill_blank": {
@@ -42,18 +46,37 @@ export type Progress = "none" | "partly" | "full";
 /**
  * progress says how far an answer goes, for the navigator's squares. Full is
  * exactly `answered`. Partly is a fill-in with at least one blank typed and
- * not all of them; every other answer is full or none.
+ * not all of them, a matching with at least one item paired and not all of
+ * them, or a "Choose N" with some picks and not exactly N; every other answer
+ * is full or none.
  */
 export function progress(
   question: StudentQuestion,
   answer: Answer | undefined,
 ): Progress {
   if (answered(question, answer)) return "full";
-  if (answer?.type !== "fill_blank") return "none";
-  const typed = (question.blanks ?? []).some(
-    (blank) => (answer.values[blank.id] ?? "").trim() !== "",
-  );
-  return typed ? "partly" : "none";
+  switch (answer?.type) {
+    case "fill_blank":
+      return (question.blanks ?? []).some(
+        (blank) => (answer.values[blank.id] ?? "").trim() !== "",
+      )
+        ? "partly"
+        : "none";
+    case "matching":
+      return (question.matchItems ?? []).some(
+        (item) => answer.pairs[item.id] !== undefined,
+      )
+        ? "partly"
+        : "none";
+    case "choice":
+      return question.type === "multiple_choice" &&
+        question.selectCount != null &&
+        answer.optionIds.length > 0
+        ? "partly"
+        : "none";
+    default:
+      return "none";
+  }
 }
 
 /**

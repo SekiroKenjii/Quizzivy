@@ -22,3 +22,15 @@ export function trueFalseLabelKey(
   if (content != null && !isPlainOptionContent(content, text)) return null;
   return Object.hasOwn(CANONICAL, text) ? CANONICAL[text]! : null;
 }
+
+const TFNG = ["trueFalse.true", "trueFalse.false", "trueFalse.notGiven"] as const;
+
+/**
+ * tfngLabelKey is the translation key that names the option at `index` of a
+ * true / false / not given question. The three options keep their authored
+ * order and the server sets their texts, so the label follows the position,
+ * never the stored text; a position past the third has none.
+ */
+export function tfngLabelKey(index: number): (typeof TFNG)[number] | null {
+  return TFNG[index] ?? null;
+}

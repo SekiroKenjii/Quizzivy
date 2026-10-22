@@ -3890,6 +3890,12 @@
     "answerPlaceholder": "Nhập câu trả lời",
     "wordCount_one": "{{count}} từ",
     "wordCount_other": "{{count}} từ",
+    "wordLimit_one": "{{words}}/{{count}} từ",
+    "wordLimit_other": "{{words}}/{{count}} từ",
+    "wordLimitOver_one": "{{words}}/{{count}} từ · quá số từ",
+    "wordLimitOver_other": "{{words}}/{{count}} từ · quá số từ",
+    "yourEssay": "Bài luận của bạn",
+    "essayPlaceholder": "Viết bài luận của bạn",
     "leave": "Thoát khỏi bài làm",
     "leaveTitle": "Thoát khỏi bài làm?",
     "leaveBody": "Câu trả lời của bạn đã được lưu, nhưng đồng hồ vẫn chạy. Hãy quay lại trước khi hết giờ.",
@@ -3949,10 +3955,10 @@
     "submitDialog": {
       "titleUnanswered": "Nộp bài khi còn {{n}} câu chưa trả lời?",
       "titleAll": "Nộp bài?",
-      "bodyUnanswered_one": "Câu chưa trả lời sẽ không có điểm. Bạn vẫn còn {{count}} phút.",
-      "bodyUnanswered_other": "Câu chưa trả lời sẽ không có điểm. Bạn vẫn còn {{count}} phút.",
-      "bodySoon": "Câu chưa trả lời sẽ không có điểm. Bạn còn chưa đầy một phút.",
-      "bodyOver": "Câu chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
+      "bodyUnanswered_one": "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Bạn vẫn còn {{count}} phút.",
+      "bodyUnanswered_other": "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Bạn vẫn còn {{count}} phút.",
+      "bodySoon": "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Bạn còn chưa đầy một phút.",
+      "bodyOver": "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
       "bodyAll": "Sau khi nộp, bạn không thể sửa câu trả lời.",
       "answered": "Đã trả lời",
       "flagged": "Đánh dấu",
@@ -3988,6 +3994,19 @@
     "retrySave": "Thử lưu lại",
     "chooseMultiple": "Chọn các đáp án bạn cho là đúng. Bạn có thể chọn nhiều đáp án.",
     "chooseSingle": "Chọn một đáp án.",
+    "chooseCount": "Chọn {{words}} đáp án.",
+    "numberWord": {
+      "2": "hai",
+      "3": "ba",
+      "4": "bốn",
+      "5": "năm",
+      "6": "sáu",
+      "7": "bảy",
+      "8": "tám",
+      "9": "chín",
+      "10": "mười",
+      "11": "mười một"
+    },
     "viewSubmitted": "Xem bài đã nộp",
     "unknownType": "Câu {{n}} thuộc dạng câu hỏi mới mà trang này chưa hiển thị được. Hãy tải lại trang để làm câu này; các câu trả lời của bạn vẫn được giữ.",
     "reloadPage": "Tải lại trang",
@@ -5795,7 +5814,8 @@
   },
   "trueFalse": {
     "true": "Đúng",
-    "false": "Sai"
+    "false": "Sai",
+    "notGiven": "Không có thông tin"
   },
   "keyGlyph": {
     "command": "Command",

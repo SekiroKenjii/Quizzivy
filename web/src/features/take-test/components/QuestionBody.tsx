@@ -1,15 +1,20 @@
 import { RichBlankPrompt } from "@/components/shared/content/RichBlankPrompt";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { OptionText } from "@/components/shared/content/OptionText";
-import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
+import { tfngLabelKey, trueFalseLabelKey } from "@/components/shared/content/trueFalse";
 import { createContext, useContext, useId, useMemo, type ComponentProps } from "react";
 import type { ExtraProps } from "react-markdown";
+import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Markdown } from "@/components/shared/Markdown";
 import { nfc } from "@/lib/nfc";
 import { useLargerTestText } from "@/lib/testText";
 import { cn } from "@/lib/utils";
 import { blankInputs } from "./blankInputs";
+import { CAPTION, FIELD, PROMPT, textSizes, type BodyProps } from "./bodyParts";
+import { WordCount } from "./WordCount";
+import { EssayBody } from "./EssayBody";
+import { chooseOption } from "../choice";
 import { PaperSourceContext } from "../paper";
 import { questionKind } from "../questionType";
 import { sentenceGap, type SentenceGap } from "../sentenceGap";
@@ -17,7 +22,6 @@ import { useEngineWidthAtLeast } from "../width";
 import { worth } from "../worth";
 import type { Answer, StudentQuestion } from "../api";
 
-const PROMPT = "leading-[1.6]! font-medium text-pretty";
 const SENTENCE = "leading-[2.1]! font-medium text-pretty";
 const GAP_SENTENCE = "leading-[1.8] font-medium text-pretty";
 const GAP =
@@ -25,9 +29,6 @@ const GAP =
 const SHORT_OPTION = 16;
 const COLUMNS = ["grid-cols-1", "grid-cols-2", "grid-cols-3", "grid-cols-4"];
 const HINT = "text-muted-fg -mt-2 text-sm";
-const CAPTION = "text-muted-fg text-meta leading-normal";
-const FIELD =
-  "border-border bg-card text-fg placeholder:text-muted-fg border-[1.5px] outline-none focus:border-primary disabled:opacity-60";
 const BLANK =
   "bg-muted text-fg placeholder:text-muted-fg mx-1 inline-block h-11 max-w-full rounded-t-[6px] rounded-b-none border-0 border-b-2 px-2 text-left align-baseline font-medium disabled:opacity-60 engine-lg:h-9.5";
 
@@ -37,31 +38,15 @@ const PAPER_BLANKS = [
   "[&_.content-table-scroll_input:focus]:border-paper-fg",
 ].join(" ");
 
-function textSizes(larger: boolean) {
-  return larger
-    ? {
-        prompt: "text-[1.1875rem]",
-        sentence: "text-xl",
-        answer: "text-lg",
-        field: "text-lg",
-        blank: "text-[length:inherit]",
-      }
-    : {
-        prompt: "text-lg",
-        sentence: "text-[1.125rem]",
-        answer: "text-md",
-        field: "text-[length:var(--text-input)] engine-lg:text-md",
-        blank: "text-[length:var(--text-input)] engine-lg:text-[length:inherit]",
-      };
-}
-
 /**
  * QuestionBody is what a student answers, one question at a time: the prompt
  * at 17px, or a choice prompt's one gap as the deck's 18px sentence that
  * shows the chosen option, then the options as rows with letter markers, in
  * columns when they are all short and the question has no shared content;
  * the blanks as the deck's underlined fields inside an 18px sentence; or the
- * answer field with its word count. "Larger text in tests" raises the prompt
+ * answer field with its word count, against the word limit when there is one;
+ * or an essay's tall field. True / false / not given keeps its three options
+ * in order, named by position. "Larger text in tests" raises the prompt
  * to 19px, both sentences to 20px and the answers to 17px. A type this page has no renderer
  * for draws nothing here and never calls `onAnswer`: QuestionSheet puts
  * UnknownType in its place.
@@ -86,18 +71,14 @@ export function QuestionBody({
       return <FillBlank {...props} />;
     case "short_answer":
       return <ShortAnswer {...props} />;
+    case "essay":
+      return <EssayBody {...props} />;
     case "unknown":
       return null;
   }
 }
 
-type Props = {
-  question: StudentQuestion;
-  answer: Answer | undefined;
-  onAnswer: (answer: Answer) => void;
-  disabled: boolean;
-  larger: boolean;
-};
+type Props = BodyProps;
 
 function optionKey(index: number): string {
   return String.fromCharCode(65 + index);
@@ -129,6 +110,7 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
   const { t } = useTranslation();
   const options = question.options ?? [];
   const multiple = question.type === "multiple_choice";
+  const count = multiple ? question.selectCount : undefined;
   const instructionId = useId();
   const size = textSizes(larger);
   const wide = useEngineWidthAtLeast(768);
@@ -138,16 +120,8 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
   );
   const gap = sentenceGap(question);
 
-  const toggle = (optionId: string) => {
-    if (multiple) {
-      const next = new Set(chosen);
-      if (next.has(optionId)) next.delete(optionId);
-      else next.add(optionId);
-      onAnswer({ type: "choice", optionIds: [...next] });
-      return;
-    }
-    onAnswer({ type: "choice", optionIds: [optionId] });
-  };
+  const toggle = (optionId: string) =>
+    onAnswer(chooseOption(question, answer, optionId));
 
   return (
     <div className="flex flex-col gap-4.5">
@@ -166,7 +140,7 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
         />
       )}
       <p id={instructionId} className={multiple ? HINT : "sr-only"}>
-        {t(multiple ? "takeTest.chooseMultiple" : "takeTest.chooseSingle")}
+        {instructionOf(multiple, count, t)}
       </p>
       <div
         className={cn("grid gap-2", columns)}
@@ -176,6 +150,7 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
       >
         {options.map((option, index) => {
           const selected = chosen.has(option.id);
+          const label = question.type === "tfng" ? tfngLabelKey(index) : null;
           return (
             <label
               key={option.id}
@@ -209,11 +184,15 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
                 {optionKey(index)}
               </span>
               <span className="min-w-0 flex-1">
-                <OptionText
-                  text={option.text}
-                  content={option.content}
-                  type={question.type}
-                />
+                {label === null ? (
+                  <OptionText
+                    text={option.text}
+                    content={option.content}
+                    type={question.type}
+                  />
+                ) : (
+                  t(label)
+                )}
               </span>
             </label>
           );
@@ -401,7 +380,7 @@ function ShortAnswer({
 }: Readonly<Props>) {
   const { t } = useTranslation();
   const value = answer !== undefined && "value" in answer ? String(answer.value) : "";
-  const words = value.trim() === "" ? 0 : value.trim().split(/\s+/).length;
+  const countId = useId();
   const size = textSizes(larger);
 
   return (
@@ -425,17 +404,37 @@ function ShortAnswer({
           disabled={disabled}
           placeholder={t("takeTest.answerPlaceholder")}
           aria-label={t("takeTest.yourAnswer")}
+          aria-describedby={countId}
           autoComplete="off"
           spellCheck={false}
           onChange={(event) => onAnswer({ type: "text", value: event.target.value })}
         />
         <div className="flex items-baseline justify-between gap-3">
-          <p className={cn(CAPTION, "tabular-nums")}>
-            {t("takeTest.wordCount", { count: words })}
-          </p>
+          <WordCount id={countId} value={value} limit={question.maxWords} />
           <p className={CAPTION}>{worth(question, t)}</p>
         </div>
       </div>
     </div>
   );
+}
+
+function instructionOf(
+  multiple: boolean,
+  count: number | null | undefined,
+  t: TFunction,
+): string {
+  if (count != null) return t("takeTest.chooseCount", { words: numberWord(count, t) });
+  return t(multiple ? "takeTest.chooseMultiple" : "takeTest.chooseSingle");
+}
+
+const NUMBER_WORDS = 11;
+
+/**
+ * numberWord writes a "Choose N" count in words, "two" to "eleven", as the
+ * deck's hint does ("Choose two answers."); a larger count stays a numeral.
+ */
+function numberWord(count: number, t: TFunction): string {
+  return count >= 2 && count <= NUMBER_WORDS
+    ? t(`takeTest.numberWord.${count}` as "takeTest.numberWord.2")
+    : String(count);
 }
