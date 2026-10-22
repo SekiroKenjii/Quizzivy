@@ -11018,6 +11018,21 @@
               }
             ],
             "description": "The essays' points-weighted mean band, rounded to 0.5. Present only\nwhen every scored question on the paper is a graded essay, and on a\nstudent's payload only under `review.showScore`.\n"
+          },
+          "gradedBy": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false,
+            "description": "Who graded the paper, on the student's result only (D-072). Present\nonly under `review.showScore`, only when every hand-graded answer\nwas graded by the same account, and only while that account keeps\nits name (it has not been anonymised). Otherwise absent. Name only:\nno id, no avatar.\n",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            }
           }
         }
       },
