@@ -6,7 +6,8 @@ import type { DotState } from "./components/Navigator";
  * read this, so "đã trả lời" means one thing everywhere.
  *
  * A fill_blank needs EVERY blank filled, because grading is per blank (O-17),
- * a "choose N" exactly N picks, and a matching question every item paired.
+ * a "choose N" exactly N different picks (a repeat counts once, as scoring
+ * counts it), and a matching question every item paired.
  * It takes the question because the answer carries only what was typed or picked.
  */
 export function answered(
@@ -18,7 +19,7 @@ export function answered(
     case "choice":
       return question.selectCount == null
         ? answer.optionIds.length > 0
-        : answer.optionIds.length === question.selectCount;
+        : new Set(answer.optionIds).size === question.selectCount;
     case "true_false":
       return typeof answer.value === "boolean";
     case "fill_blank": {

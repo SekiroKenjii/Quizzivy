@@ -13,7 +13,8 @@ const ecmaScriptWhitespace = `E'\u0009\u000A\u000B\u000C\u000D\u0020\u00A0\u1680
 
 // SaysSomething is the rule as a boolean SQL expression over a row of
 // app.attempt_answers aliased alias: a choice with an option picked, exactly
-// selectCount of them on a "choose N", a true/false with a value, a text that
+// selectCount different ones on a "choose N" (a repeated pick counts once, as
+// scoring counts it), a true/false with a value, a text that
 // is not blank, a fill-in with every blank of the frozen question filled, and
 // a matching answer that pairs every item of the frozen question. Blank is
 // what JavaScript's trim() leaves empty; an answer of any other type says
@@ -24,9 +25,10 @@ func SaysSomething(alias string) string {
 	  WHEN 'choice' THEN
 	       CASE WHEN jsonb_typeof(%[1]s.payload->'optionIds') = 'array'
 	            THEN jsonb_array_length(%[1]s.payload->'optionIds') > 0
-	             AND jsonb_array_length(%[1]s.payload->'optionIds') = coalesce(
-	                   (SELECT q.select_count FROM app.test_version_questions q WHERE q.id = %[1]s.question_id),
-	                   jsonb_array_length(%[1]s.payload->'optionIds'))
+	             AND coalesce(
+	                   (SELECT q.select_count FROM app.test_version_questions q WHERE q.id = %[1]s.question_id)
+	                   = (SELECT count(DISTINCT picked) FROM jsonb_array_elements(%[1]s.payload->'optionIds') AS picked),
+	                   true)
 	            ELSE false END
 	  WHEN 'true_false' THEN coalesce(jsonb_typeof(%[1]s.payload->'value') = 'boolean', false)
 	  WHEN 'text' THEN btrim(coalesce(%[1]s.payload->>'value', ''), `+ecmaScriptWhitespace+`) <> ''

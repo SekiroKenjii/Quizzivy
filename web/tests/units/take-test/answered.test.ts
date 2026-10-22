@@ -179,6 +179,18 @@ describe("answered, for the R6 types", () => {
   it("needs exactly N picks on a choose N", () => {
     expect(answered(chooseTwo, { type: "choice", optionIds: ["o1"] })).toBe(false);
     expect(answered(chooseTwo, { type: "choice", optionIds: ["o1", "o2"] })).toBe(true);
+    expect(answered(chooseTwo, { type: "choice", optionIds: ["o1", "o2", "o3"] })).toBe(
+      false,
+    );
+  });
+
+  it("counts a repeated pick once on a choose N, as scoring does", () => {
+    expect(answered(chooseTwo, { type: "choice", optionIds: ["o1", "o1"] })).toBe(
+      false,
+    );
+    expect(answered(chooseTwo, { type: "choice", optionIds: ["o1", "o2", "o1"] })).toBe(
+      true,
+    );
   });
 
   it("needs a pick on a tfng", () => {
