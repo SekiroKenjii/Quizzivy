@@ -247,10 +247,20 @@ func (e *exam) rangeLine(l *line) bool {
 	if !ok {
 		return false
 	}
+	whole := segment{l, 0, len(l.text)}
+	if e.bareHeading() {
+		// Two headings with nothing between them ("Questions 1-13" / "Questions 1-4", or "1-2" / "3-4") share the
+		// instruction that follows: one group holds the questions either names, so neither heading is left over.
+		g := e.group
+		g.first, g.last = min(g.first, first), max(g.last, last)
+		g.instruction = append(g.instruction, whole)
+		g.source = append(g.source, whole.refs()...)
+		l.consumeAll()
+		return true
+	}
 	e.closeQuestion()
 	e.closeGroup()
 	e.ensureSection()
-	whole := segment{l, 0, len(l.text)}
 	e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, heading: true, first: first, last: last, accepting: true, source: whole.refs()}
 	e.section.items = append(e.section.items, item{group: e.group})
 	l.consumeAll()
@@ -265,13 +275,28 @@ func (e *exam) extendsHeading(text string) bool {
 	if g == nil || !g.heading || !g.accepting || len(g.questions) > 0 || len(g.stimulus) > 0 {
 		return false
 	}
-	return isInstruction(text) || headingLegend.MatchString(text)
+	return isInstruction(text) || headingLegend.MatchString(text) || e.carriesOnHeading(text)
 }
 
-// bareHeading reports whether the open group is a range heading with nothing under it yet.
+// carriesOnHeading reports whether a lower-case line carries on the heading's last instruction line, which has not
+// ended its sentence: "In boxes 1-4 on your answer sheet," / "write" / "TRUE if…", as text copied from a PDF breaks
+// it. A passage opens with a capital, so it never carries on.
+func (e *exam) carriesOnHeading(text string) bool {
+	last := strings.TrimSpace(e.group.instruction[len(e.group.instruction)-1].text())
+	text = strings.TrimSpace(text)
+	return last != "" && !strings.ContainsRune(".?!", []rune(last)[len([]rune(last))-1]) && text != "" && startsLower(text)
+}
+
+// bareHeading reports whether the open group is a range heading, or a run of them, with nothing under it yet.
 func (e *exam) bareHeading() bool {
 	g := e.group
-	return g != nil && g.heading && len(g.instruction) == 1 && len(g.questions) == 0 && len(g.stimulus) == 0
+	if g == nil || !g.heading || len(g.questions) > 0 || len(g.stimulus) > 0 {
+		return false
+	}
+	return !slices.ContainsFunc(g.instruction, func(s segment) bool {
+		_, _, ok := headingRange(strings.TrimSpace(s.text()))
+		return !ok
+	})
 }
 
 // takeBareHeading removes the open bare heading's group, and the inferred part it alone made, and returns the
