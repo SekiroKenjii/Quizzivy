@@ -604,6 +604,322 @@ DROP INDEX CONCURRENTLY IF EXISTS app.users_created_by_idx;            -- 00076
 DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ```
 
+## Rolling out v0.13.0 (R6)
+
+v0.13.0 adds the question types True / False / Not given, matching and the essay, "Choose N",
+the word limit, essay bands with rubric criteria, and images and audio inside a prompt or an
+explanation, with migrations `00145` to `00154` (`docs/plan/76-r6.md`, the release checklist).
+It needs no new environment variable and no new secret: `fly.toml`, `.env.example` and
+`server/internal/platform/config` are the same on `release/0.13.0` as on `main` (v0.12.2).
+
+**The order.** Merging `release/0.13.0` to `main` deploys the API first: Fly's
+`release_command` (`fly.toml`, `/app/migrate -dir /app/migrations up`) runs `00145` to
+`00154` before the new version takes traffic, and v0.12.2 keeps serving while they apply.
+The rolling strategy then replaces the `app` and `worker` machines, and Pages deploys second
+(the `web` job runs only once `api` has succeeded). Every change is additive: three enum
+values, nullable columns, widened CHECKs and new tables. v0.12.2's writes satisfy every new
+CHECK: QC ran v0.12's `questions`, `tests` and `imports` integration suites, the isolation suite
+and the `events` canary on the schema of `00145` to `00149` with no failure (#767), and `00150`
+to `00154` add tables and indexes v0.12.2 never names and two nullable columns it never sets
+(`match_allow_reuse` in `00152`, `attempt_answers.band` in `00153`), whose CHECKs hold while they
+are `NULL` (on a question that is not matching, for the first).
+
+Each file commits on its own. Every transactional file but `00145` sets
+`lock_timeout = '5s'`, so a file that cannot take its lock within five seconds fails at once
+rather than queue every writer behind it. When that happens the release command stops, the
+deploy is rolled back, the files before it stay applied (v0.12.2 runs on them, as above), and
+v0.12.2 keeps serving. Re-run it from Actions → **Deploy** → *Run workflow* (target `all`):
+goose starts at the first file not yet recorded. The release command as a whole is bounded by
+Fly's `release_command_timeout`, five minutes by default (`fly.toml` sets none): a file still
+running then is killed, which rolls back a transactional file and leaves `00151`'s index as
+"Interrupted index build in v0.13.0" below describes.
+
+What each file does, and what it locks:
+
+- `00145` adds `tfng`, `matching` and `essay` to `app.question_type`
+  (`ADD VALUE IF NOT EXISTS`). It changes the type only, touches no table, and names none of the
+  values, because a value added in a transaction cannot be used before it commits. Its Down
+  cannot drop them (below).
+- `00146` and `00147` add `select_count` and `max_words` (nullable `smallint`) to `questions`
+  and `test_version_questions`, each CHECK added `NOT VALID` and then validated. The file is one
+  transaction, so the `ACCESS EXCLUSIVE` lock of `ADD COLUMN` is held through each `VALIDATE`
+  scan: every read and write of the two tables waits for it, a student opening a paper
+  included.
+- `00148` swaps `questions_sample_answer_only_short_answer` for
+  `questions_sample_answer_only_written` (an essay may have a sample answer), and `00149` widens
+  `questions_context_option_order` to `tfng` and `matching`; both `NOT VALID`, then validated,
+  on `questions`. Adding a CHECK takes `ACCESS EXCLUSIVE` on `questions`, and each file holds it
+  through its `VALIDATE` scan, as `00146` and `00147` do: every read and write of the bank waits
+  for it. The table is a centre's bank, so the scan is short.
+- `00150` creates `question_rubric_criteria` and `test_version_rubric_criteria` (`UPDATE`
+  revoked on the frozen one). Its foreign keys lock `questions` and `test_version_questions`
+  against writes until the file commits.
+- `00151` is `-- +goose NO TRANSACTION`: it builds the unique indexes `(question_id, id)` on
+  `question_options` and `(test_version_question_id, id)` on `test_version_options`
+  `CONCURRENTLY`, each after a `DROP INDEX CONCURRENTLY IF EXISTS`. It blocks no writer, but it
+  waits for every transaction older than it, bounded only by the release command's timeout
+  (QC-R6B-5): a long transaction stalls the deploy, and past five minutes kills it. See "Interrupted index build in v0.13.0" below.
+- `00152` creates `question_match_items` and `test_version_match_items`, keyed onto `00151`'s
+  indexes, and adds `match_allow_reuse` to both question tables, backfilled with `false` on
+  matching rows (production has none) before its CHECK is validated. It holds `ACCESS EXCLUSIVE`
+  on `questions` and `test_version_questions` through the backfill and both `VALIDATE` scans.
+- `00153` adds `attempt_answers.band numeric(3,1)` with two CHECKs, `NOT VALID` and then
+  validated, and creates `attempt_answer_criteria`. **This is the file to watch:**
+  `attempt_answers` holds a row per answered question and every autosave writes it, and the file
+  holds `ACCESS EXCLUSIVE` on it through both `VALIDATE` scans, so autosaves and submits wait
+  for them (the engine keeps the answers in its local draft). Its time on the rehearsal is a
+  go/no-go: if it takes more than a few seconds, deploy outside teaching hours; if it comes near
+  the release command's five minutes, the deploy cannot run as it stands.
+- `00154` creates `question_media_references` and `test_version_question_media_references`
+  (`UPDATE` revoked on the frozen one, `media_asset_binding_guard` on both). Its foreign keys
+  lock `questions`, `test_version_questions` and `media_assets` against writes until it commits.
+
+The files that touch populated tables are `00146` to `00149`, `00152` and `00153` (a column or a
+validated CHECK), `00151` (an index built on `question_options` and `test_version_options`), and
+`00150`, `00152`, `00153` and `00154` through the foreign keys of their new tables. Nothing
+rewrites a table: every new column is nullable with no default.
+
+**Old tabs.** The API ships before Pages, so for a few minutes the v0.12.2 SPA talks to the
+v0.13.0 API. That is safe: the contract only grows, and no question of a new type exists until
+someone makes one through v0.13.0 (the editor, the Word import's True / False / Not given, or the
+AI assistant). After Pages, a tab still holding the v0.12.2 bundle that meets a new type draws
+the engine's unknown-type block (`UnknownType`, since R3) with "Tải lại trang" ("Reload the
+page"), which brings the renderer; answers already written are in the local draft and on
+the server. The release notes say so.
+
+**Grading after bands exist.** Once v0.13.0 has written a band, no binary older than T-R6.7 (band
+grading) may grade: v0.12.2's regrade (`attempts/repositories/review_grade.go`) overwrites `manual_score` and
+leaves `band` as it was, and no CHECK can catch the disagreement (`20-data-model.md` §59,
+QC-R6B-5). This is one more reason to roll forward rather than back.
+
+**Before the merge** (the owner):
+
+1. **Rehearse `00145` to `00154` on a Neon branch of production** (below) and put the timings
+   in the release PR: `00153` above all, then `00152`, the `VALIDATE`s of `00146` to `00149`,
+   and `00151`.
+2. **The exam-window and import check**, on production (read only) or a fresh branch of it,
+   for the planned window:
+
+   ```sql
+   -- published assignments open during the window: none, or pick another window
+   SELECT id, opens_at, closes_at FROM app.assignments
+    WHERE published_at IS NOT NULL AND closed_at IS NULL
+      AND opens_at < '<window end>' AND closes_at > '<window start>';
+   -- per-student extensions that reach into the window: none, or pick another window
+   SELECT o.assignment_id, o.student_id, o.closes_at
+     FROM app.assignment_student_overrides o
+     JOIN app.assignments a ON a.id = o.assignment_id
+    WHERE a.published_at IS NOT NULL AND a.closed_at IS NULL
+      AND o.closes_at > '<window start>' AND a.opens_at < '<window end>';
+   -- attempts still running now
+   SELECT count(*) FROM app.attempts WHERE status = 'in_progress' AND deadline_at > now();
+   -- Word imports and user imports in flight
+   SELECT status, count(*) FROM app.word_imports
+    WHERE status IN ('queued', 'processing', 'needs_review', 'committing') GROUP BY status;
+   SELECT status, count(*) FROM app.user_import_jobs WHERE status IN ('queued', 'running') GROUP BY status;
+   ```
+
+   The worker and the API run the same binary, so an import in review during the switch is read
+   by one version or the other, never both; an import read by v0.13.0 may hold a `tfng`
+   question or a "Choose N" or word-limit field, which only v0.13.0 can commit.
+3. **Just before the merge**, look for a long transaction, which would hold `00151` (and could
+   trip a `lock_timeout`), as a role that can read every session (the Neon project owner):
+
+   ```sql
+   SELECT pid, now() - xact_start AS open_for, state, left(query, 60)
+     FROM pg_stat_activity
+    WHERE xact_start < now() - interval '1 minute'
+    ORDER BY xact_start;
+   ```
+
+### Rehearsing v0.13.0 on a Neon branch
+
+The rules of `docs/setup/rehearsals/r4-neon-rehearsal.md` hold: a **branch** of production, never the
+production endpoint; `quizzivy_migrate` on the branch's **direct** host (no `-pooler`), port
+5432; the connection string in the shell's environment only; a checkout of `release/0.13.0`;
+the branch deleted at the end. If your shell sets `PGHOST` or `PGPORT` for local development,
+run `psql` and `goose` under `env -u PGPORT -u PGHOST`.
+
+```bash
+ls migrations/0014[5-9]*.sql migrations/0015[0-4]*.sql     # ten files
+neon branches create --project-id "$NEON_PROJECT" --name r6-rehearsal-$(date +%Y%m%d) --parent <production branch>
+export BRANCH_DSN='postgres://quizzivy_migrate:<password>@<the BRANCH direct host>:5432/quizzivy?sslmode=require'
+psql "$BRANCH_DSN" -Atc "SELECT max(version_id) FROM goose_db_version"     # 144
+mkdir -p rehearsal-r6
+
+# sizes before: what each VALIDATE and the CONCURRENTLY builds read
+psql "$BRANCH_DSN" -At > rehearsal-r6/before.txt <<'SQL'
+SELECT 'questions', count(*) FROM app.questions;
+SELECT 'test_version_questions', count(*) FROM app.test_version_questions;
+SELECT 'question_options', count(*) FROM app.question_options;
+SELECT 'test_version_options', count(*) FROM app.test_version_options;
+SELECT 'attempt_answers', count(*), pg_size_pretty(pg_total_relation_size('app.attempt_answers')) FROM app.attempt_answers;
+SQL
+
+# the ten files, timed: goose prints each file's time on its OK line
+/usr/bin/time -v goose -dir migrations postgres "$BRANCH_DSN" up 2>&1 | tee rehearsal-r6/goose-up.txt   # macOS: -l
+grep -E "OK |Elapsed" rehearsal-r6/goose-up.txt     # ten OK lines, 00145 … 00154
+
+psql "$BRANCH_DSN" -At > rehearsal-r6/after.txt <<'SQL'
+SELECT 'version', max(version_id) FROM goose_db_version;                                   -- 154
+SELECT 'enum', array_to_string(enum_range(NULL::app.question_type), ',');                  -- ends tfng,matching,essay
+SELECT 'index', indexrelid::regclass, indisvalid FROM pg_index
+ WHERE indexrelid::regclass::text IN ('app.question_options_question_id_id_key',
+                                      'app.test_version_options_question_id_id_key');     -- both t
+SELECT 'not_validated', count(*) FROM pg_constraint
+ WHERE connamespace = 'app'::regnamespace AND NOT convalidated;                            -- 0
+SELECT 'frozen_update', has_table_privilege('quizzivy_app', 'app.test_version_rubric_criteria', 'UPDATE'),
+       has_table_privilege('quizzivy_app', 'app.test_version_match_items', 'UPDATE'),
+       has_table_privilege('quizzivy_app', 'app.test_version_question_media_references', 'UPDATE');  -- f, f, f
+SQL
+
+# down to 144 and up again: production holds no R6 row, so every Down runs,
+# and the second up finds 00145's values present
+goose -dir migrations postgres "$BRANCH_DSN" down-to 144 2>&1 | tee rehearsal-r6/goose-down.txt
+goose -dir migrations postgres "$BRANCH_DSN" up 2>&1 | tee rehearsal-r6/goose-up-again.txt
+psql "$BRANCH_DSN" -Atc "SELECT max(version_id) FROM goose_db_version"     # 154
+
+neon branches delete --project-id "$NEON_PROJECT" r6-rehearsal-$(date +%Y%m%d)
+unset BRANCH_DSN
+```
+
+Put in the release PR the ten per-file times and the total, the counts of `before.txt`, the
+six lines of `after.txt` (the index check prints one per index), and whether the down and second up ran cleanly. A branch has no
+traffic, so its times are the scans alone; on production a file also waits for its locks.
+
+**Smoke** (`76-r6.md`, the release checklist), after Pages has deployed:
+
+- `/healthz` reports `database:ok`, `/livez` answers, and each role signs in (Admin, teacher,
+  student).
+- In the owner's test class, a teacher publishes a paper with one question of every type (single
+  choice, multiple choice with "Choose two", True / False, True / False / Not given, fill in the
+  blank, a short answer with a word limit, an essay with the "IELTS Writing" criteria, and
+  matching), a student takes it, and the teacher grades the essay; the result shows the band.
+- Then the back-merge to `develop` and the tag `v0.13.0`.
+
+### Rolling v0.13.0 back
+
+Rollback is roll forward (`docs/plan/70-redesign-overview.md` §8): prefer a hotfix and run no
+Down migration. None is needed for v0.12.2 to run, and every R6 Down refuses while a row needs
+what its Up added (QC-R6M-1, QC-R6B-1), so once teachers have used the new types most of them
+cannot run anyway:
+
+- `00145`'s refuses while a question or a frozen question has a new type, and otherwise leaves
+  the three enum values in place: PostgreSQL cannot drop an enum value, and an unused one is
+  harmless (D-62).
+- `00146` and `00147` refuse while a "Choose N" or a word limit exists, `00148` while an essay
+  has a sample answer, `00149` while a `tfng` or matching group member keeps a fixed order,
+  `00150` while any rubric criterion exists, `00152` while any matching question or item exists,
+  `00153` while any band or criterion grade exists, and `00154` while any media reference exists.
+- `00151`'s drops the two indexes; it runs only after `00152`'s, whose foreign keys use them.
+
+Because each Down refuses rather than drops, none of them loses data: a Down that runs finds
+nothing of its own to remove (the `NULL` columns, the empty tables). The data the Downs protect
+is what makes them refuse: a frozen answer key, a rubric, a band. Each Down sets `lock_timeout`
+too, except `00145`'s and `00151`'s.
+
+If the API must go back to v0.12.2, roll Pages back to its previous deployment **in the same
+hour**. While v0.12.2 runs on the v0.13.0 schema after questions of the new types exist (read
+from v0.12.2's code; only the schema half was tested, by QC):
+
+- **It cannot author or publish them.** Its `Input.Validate` refuses a `tfng`, `matching` or
+  `essay` question ("Loại câu hỏi không hợp lệ."), so editing one and publishing a test that
+  holds one are refused, and its `ParseQuestionPrompt` refuses a prompt with an image or audio
+  block. A "Choose N" multiple choice or a word-limited short answer passes its checks but
+  publishes without `select_count` or `max_words` (`publish_snapshot.go` freezes only the columns
+  it knows), so that version marks all or nothing and shows no limit.
+- **Students cannot answer them.** The v0.12.2 engine has no renderer for the three types and
+  draws the unknown-type block; reloading brings the same bundle, so the block stays until the
+  roll forward.
+- **It marks them wrong.** v0.12.2's `GradingManager.Grade` has no case for `tfng`, `matching`
+  or `essay`: at submit each scores 0 with `requires_manual` false, and a "Choose N" answer is
+  marked all or nothing. Its autosave also writes `requires_manual = (type = 'short_answer')` on
+  every answer it saves. Two cases follow for an essay:
+  - **Typed under v0.13.0, saved or submitted under v0.12.2.** The text is there, but the row
+    has lost its pending flag (`requires_manual` false, `auto_score` 0), so after the roll
+    forward it is not in the grading queue (`answered.AwaitsGrade`).
+  - **First met under v0.12.2.** The student saw the unknown-type block and could not answer.
+
+  After the roll forward, list the attempts submitted in the window with an answer of a new type:
+
+  ```sql
+  SELECT a.id AS attempt_id, a.assignment_id, a.student_id, a.status, q.id AS question_id, q.type,
+         aa.requires_manual, aa.auto_score, aa.manual_score
+    FROM app.attempt_answers aa
+    JOIN app.attempts a ON a.id = aa.attempt_id
+    JOIN app.test_version_questions q ON q.id = aa.question_id
+   WHERE a.submitted_at BETWEEN '<rollback start>' AND '<roll forward>'
+     AND (q.type::text IN ('tfng', 'matching', 'essay') OR q.select_count IS NOT NULL);
+  ```
+
+  Then repair, as `quizzivy_migrate`:
+  - **Essays with text and no grade:** put them back in the grading queue, then let the teachers
+    grade them as usual. This writes no audit row; record the run in the release PR.
+
+    ```sql
+    UPDATE app.attempt_answers aa
+       SET requires_manual = true, auto_score = NULL
+      FROM app.attempts a, app.test_version_questions q
+     WHERE a.id = aa.attempt_id AND q.id = aa.question_id
+       AND q.type::text = 'essay' AND aa.manual_score IS NULL AND NOT aa.requires_manual
+       AND a.status IN ('submitted', 'timed_out', 'graded')
+       AND a.submitted_at BETWEEN '<rollback start>' AND '<roll forward>';
+    ```
+
+    The queue lists only `submitted` and `timed_out` attempts: an attempt a teacher already
+    finished under v0.12.2 (`graded`) is opened from the list above and graded again, which a
+    graded attempt allows.
+  - **`tfng`, matching and "Choose N" answers** marked under v0.12.2: the teacher sets the points
+    by question (grading by question takes points on any type but an essay).
+  - **A student who could not answer** (an essay or another new type first met under v0.12.2):
+    give an extra attempt through the assignment's per-student override (`extra_attempts` in
+    `app.assignment_student_overrides`), or a later close date if the window has passed.
+
+- **It must not grade an essay that has a band** (above): its regrade leaves the band stale.
+- **Avoid deleting or replacing media until the roll forward, which must come within seven days
+  of any such delete.** v0.12.2's readers ("Used in", the delete refusal, `namedFile` in the
+  sweep) do not read `question_media_references`, so it treats an image or a recording that only
+  a prompt or an explanation names as unused. Its sweep (`media/repositories/retention.go`,
+  `Purge`) removes the object and then only marks the row `purged_at`; it never deletes the row,
+  so `RESTRICT` never fires. A file deleted from the library (`deleted_at`) under v0.12.2 loses
+  its object after `RetiredFileGrace`, seven days, while the paper still draws it. Its `Replace`
+  repoints a group's materials but not question prose, so replacing such a file retires the old
+  one the same way. v0.13.0's `namedFile` reads both new tables, so a roll forward within the
+  seven days cancels the wait.
+
+## Interrupted index build in v0.13.0 (R6)
+
+`00151` builds `question_options_question_id_id_key` on `app.question_options (question_id, id)`
+and `test_version_options_question_id_id_key` on
+`app.test_version_options (test_version_question_id, id)` `CONCURRENTLY`, so saving a question
+and publishing carry on while they build. An interrupted build leaves an INVALID index and goose
+has not recorded the file. Each build is preceded by a `DROP INDEX CONCURRENTLY IF EXISTS` of its
+name, so the fix needs nothing from you: redeploy, and the rerun removes the INVALID leftover and
+builds the index again (a rerun also drops and rebuilds the first index if only the second was
+interrupted). `00152`, whose foreign keys need both indexes, runs only once `00151` is recorded.
+Check afterwards, as `quizzivy_migrate`; the query returns no row when every index is valid:
+
+```sql
+SELECT indexrelid::regclass FROM pg_index WHERE NOT indisvalid;
+```
+
+If it names one of the two after `00151` is recorded (a build run by hand, say), repair it as
+`quizzivy_migrate` in a session that is not inside a transaction, one statement at a time, each
+with its own `psql -c` or pasted into an interactive `psql`, as "Interrupted index build in
+v0.12.0" does for `00133`:
+
+```sql
+DROP INDEX CONCURRENTLY IF EXISTS app.question_options_question_id_id_key;
+```
+
+```sql
+CREATE UNIQUE INDEX CONCURRENTLY question_options_question_id_id_key ON app.question_options (question_id, id);
+```
+
+(and the same for `app.test_version_options_question_id_id_key` on
+`app.test_version_options (test_version_question_id, id)`). Once `00152` has run, its foreign
+keys depend on the indexes and the drop is refused; in that case leave them for a hotfix.
+
 ## Rolling out v0.12.2 (hotfix)
 
 v0.12.2 makes Settings → Plan & usage the centre's usage limits (change request CR-002, D-060; spec 0.118,
