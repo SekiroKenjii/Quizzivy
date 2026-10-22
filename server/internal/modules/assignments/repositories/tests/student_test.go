@@ -1024,16 +1024,22 @@ func TestACompletedCardCarriesThePapersBandOnlyWhenTheScoreIsShown(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+	found := 0
 	for _, c := range sections.Completed {
 		switch c.ID {
 		case shown.ID:
+			found++
 			if c.Score == nil || c.Score.Band == nil || *c.Score.Band != 6.5 {
 				t.Errorf("shown card score %+v, want band 6.5", c.Score)
 			}
 		case quiet.ID:
+			found++
 			if c.Score != nil {
 				t.Errorf("score and band shown although review.showScore is off: %+v", *c.Score)
 			}
 		}
+	}
+	if found != 2 {
+		t.Errorf("%d of the two cards are among the completed ones", found)
 	}
 }
