@@ -4393,8 +4393,8 @@ export interface paths {
          *     ATTEMPT_CLOSED`, and a race between a manual tap and an auto-submit
          *     yields one submission.
          *
-         *     Objective types are graded immediately; `short_answer` is marked
-         *     `requiresManual`. Nothing is rejected based on audio play count (§11.4).
+         *     Objective types are graded immediately; `short_answer` and `essay` are
+         *     marked `requiresManual`. Nothing is rejected based on audio play count (§11.4).
          */
         post: operations["submitAttempt"];
         delete?: never;
@@ -13757,7 +13757,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description `GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade. */
+            /** @description `GRADING_INCOMPLETE` — a `short_answer` or `essay` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade. */
             409: {
                 headers: {
                     [name: string]: unknown;

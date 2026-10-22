@@ -35,7 +35,7 @@ func TestFinishingRecomputesTheScoreAndIsReEnterable(t *testing.T) {
 	store := repositories.NewReviews(db.NewContext(pool))
 	ctx := context.Background()
 
-	if _, err := store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 2.5}}); err != nil {
+	if _, err := store.Grade(ctx, everyone, p.attempt, domain.Request{ActorID: p.admin}, []domain.GradeItem{{QuestionID: p.essay, Points: pts(2.5)}}); err != nil {
 		t.Fatal(err)
 	}
 	graded, err := store.Finish(ctx, everyone, p.attempt)
@@ -54,7 +54,7 @@ func TestFinishingRecomputesTheScoreAndIsReEnterable(t *testing.T) {
 	}
 
 	// Second thoughts: the mark changes and so does the total.
-	if _, err := store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 5}}); err != nil {
+	if _, err := store.Grade(ctx, everyone, p.attempt, domain.Request{ActorID: p.admin}, []domain.GradeItem{{QuestionID: p.essay, Points: pts(5)}}); err != nil {
 		t.Fatalf("regrade after finish: %v", err)
 	}
 	if _, err := store.Finish(ctx, everyone, p.attempt); err != nil {

@@ -111,12 +111,21 @@ type ResultQuestion struct {
 	AudioPlaysUsed *int
 }
 
-// GradeItem is one manual mark: the question, the points, and a comment the
+// GradeItem is one manual mark: the question, its points or, for an essay,
+// its band or the band of each of its rubric criteria, and a comment the
 // student will read.
 type GradeItem struct {
-	QuestionID string
-	Points     float64
+	Points     *float64
+	Band       *float64
 	Comment    *string
+	QuestionID string
+	Criteria   []CriterionBand
+}
+
+// CriterionBand is the band one rubric criterion of an essay was given.
+type CriterionBand struct {
+	CriterionID string
+	Band        float64
 }
 
 // GradeItemError names an item that could not be marked and why -- `not_on_paper`,

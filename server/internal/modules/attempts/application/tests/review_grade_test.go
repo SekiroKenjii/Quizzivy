@@ -21,8 +21,8 @@ func TestTheScoreUsesTheManualMarkWherePresentAndTheAutoScoreOtherwise(t *testin
 	store := repositories.NewReviews(db.NewContext(pool))
 	ctx := context.Background()
 
-	score, err := store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{
-		{QuestionID: p.essay, Points: 4, Comment: comment("Ý tốt, câu thứ hai thiếu động từ chính.")},
+	score, err := store.Grade(ctx, everyone, p.attempt, domain.Request{ActorID: p.admin}, []domain.GradeItem{
+		{QuestionID: p.essay, Points: pts(4), Comment: comment("Ý tốt, câu thứ hai thiếu động từ chính.")},
 	})
 	if err != nil {
 		t.Fatalf("grade: %v", err)
@@ -31,7 +31,7 @@ func TestTheScoreUsesTheManualMarkWherePresentAndTheAutoScoreOtherwise(t *testin
 		t.Errorf("after the essay: %+v, want 9/10 with nothing pending", score)
 	}
 
-	score, err = store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.choice, Points: 3}})
+	score, err = store.Grade(ctx, everyone, p.attempt, domain.Request{ActorID: p.admin}, []domain.GradeItem{{QuestionID: p.choice, Points: pts(3)}})
 	if err != nil {
 		t.Fatalf("regrade the choice: %v", err)
 	}
@@ -67,7 +67,7 @@ func TestPointsAboveTheQuestionsCeilingAreRefused(t *testing.T) {
 	p := seedPaper(t, pool, "submitted")
 	store := repositories.NewReviews(db.NewContext(pool))
 
-	_, err := store.Grade(context.Background(), everyone, p.attempt, p.admin, []domain.GradeItem{{QuestionID: p.essay, Points: 5.5}})
+	_, err := store.Grade(context.Background(), everyone, p.attempt, domain.Request{ActorID: p.admin}, []domain.GradeItem{{QuestionID: p.essay, Points: pts(5.5)}})
 	var invalid *domain.GradeValidationError
 	if !errors.As(err, &invalid) || len(invalid.Items) != 1 || invalid.Items[0].Reason != "above_ceiling" {
 		t.Fatalf("got %v, want one above_ceiling item", err)
@@ -92,9 +92,9 @@ func TestAQuestionOffThePaperOrNeverAnsweredCannotBeMarked(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	_, err := store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{
-		{QuestionID: p.essay, Points: 1},
-		{QuestionID: "01935000-0000-7000-8000-00000000dead", Points: 1},
+	_, err := store.Grade(ctx, everyone, p.attempt, domain.Request{ActorID: p.admin}, []domain.GradeItem{
+		{QuestionID: p.essay, Points: pts(1)},
+		{QuestionID: "01935000-0000-7000-8000-00000000dead", Points: pts(1)},
 	})
 	var invalid *domain.GradeValidationError
 	if !errors.As(err, &invalid) || len(invalid.Items) != 2 {
@@ -115,11 +115,11 @@ func TestGradingWaitsForTheStudentAndSkipsAVoidedAttempt(t *testing.T) {
 	ctx := context.Background()
 
 	live := seedPaper(t, pool, "in_progress")
-	if _, err := store.Grade(ctx, everyone, live.attempt, live.admin, []domain.GradeItem{{QuestionID: live.essay, Points: 1}}); !errors.Is(err, domain.ErrPaperInProgress) {
+	if _, err := store.Grade(ctx, everyone, live.attempt, domain.Request{ActorID: live.admin}, []domain.GradeItem{{QuestionID: live.essay, Points: pts(1)}}); !errors.Is(err, domain.ErrPaperInProgress) {
 		t.Errorf("in progress: %v, want ErrPaperInProgress", err)
 	}
 	voided := seedPaper(t, pool, "voided")
-	if _, err := store.Grade(ctx, everyone, voided.attempt, voided.admin, []domain.GradeItem{{QuestionID: voided.essay, Points: 1}}); !errors.Is(err, domain.ErrPaperVoided) {
+	if _, err := store.Grade(ctx, everyone, voided.attempt, domain.Request{ActorID: voided.admin}, []domain.GradeItem{{QuestionID: voided.essay, Points: pts(1)}}); !errors.Is(err, domain.ErrPaperVoided) {
 		t.Errorf("voided: %v, want ErrPaperVoided", err)
 	}
 	if _, err := store.Get(ctx, everyone, "01935000-0000-7000-8000-00000000dead"); !errors.Is(err, domain.ErrPaperNotFound) {
@@ -168,9 +168,9 @@ func TestAnAnswerRemovedUnderTheRetentionPolicyCannotBeMarkedAndWaitsForNoMark(t
 		t.Fatal(err)
 	}
 
-	_, err := store.Grade(ctx, everyone, p.attempt, p.admin, []domain.GradeItem{
-		{QuestionID: p.choice, Points: 2},
-		{QuestionID: p.essay, Points: 4},
+	_, err := store.Grade(ctx, everyone, p.attempt, domain.Request{ActorID: p.admin}, []domain.GradeItem{
+		{QuestionID: p.choice, Points: pts(2)},
+		{QuestionID: p.essay, Points: pts(4)},
 	})
 	var removed *domain.AnswerRemovedError
 	if !errors.As(err, &removed) || len(removed.QuestionIDs) != 2 {
