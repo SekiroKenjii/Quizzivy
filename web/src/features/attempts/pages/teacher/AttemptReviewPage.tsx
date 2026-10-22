@@ -60,7 +60,10 @@ type Tab = "paper" | "integrity";
  * AttemptReviewPage is one student's paper in the teacher shell: the answers
  * with a rail of questions and the grading card, Finish grading, the flag, and
  * an Integrity tab with the full timeline and the private note. Marks given
- * here or in G-04 and not saved yet ask before a navigation leaves the paper.
+ * here or in G-04 and not saved yet ask before a navigation leaves the paper,
+ * and before the rail, Skip, the tabs, a group's links or Grade by question
+ * drop them. The paper is read again when the window regains focus, since
+ * another tab or teacher may grade it meanwhile.
  */
 export default function AttemptReviewPage() {
   const { t } = useTranslation();
@@ -85,7 +88,6 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const locale = useLocale();
-  // The rail, Skip and Grade by question drop unsaved marks, so they ask first.
   const confirmMove = useConfirmMove();
   const [tab, setTab] = useState<Tab>("paper");
   const [byQuestion, setByQuestion] = useState(false);
@@ -100,7 +102,6 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
   const review = useQuery({
     queryKey: reviewKey(id),
     queryFn: ({ signal }) => getAttemptForReview(id, signal),
-    // Another tab or teacher may grade this paper meanwhile.
     refetchOnWindowFocus: "always",
   });
 
@@ -398,7 +399,6 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
                     <AnswerReview
                       question={question}
                       answer={answer}
-                      // The grading card below shows these marks while they can change.
                       marks={!cardShown(question, answer, gradable)}
                     />
                     {handMarked(question.type) && question.sampleAnswer != null && (
@@ -585,7 +585,11 @@ function RailStats({ data }: Readonly<{ data: AttemptReview }>) {
   );
 }
 
-/** cardShown says the paper shows a grading card for this answer: hand-marked, gradable and still held. */
+/**
+ * cardShown says the paper shows a grading card for this answer: hand-marked,
+ * gradable and still held. The answer above it then leaves out the marks the
+ * card shows while they can change.
+ */
 function cardShown(
   question: AdminQuestion,
   answer: ReviewAnswer | undefined,
@@ -693,13 +697,13 @@ function isPending(answer: ReviewAnswer | undefined): boolean {
   );
 }
 
+/** verdictOf is an answer's mark on the rail; an essay marked on a band is `banded`, neither right nor wrong. */
 function verdictOf(question: AdminQuestion, answer: ReviewAnswer | undefined): Verdict {
   if (answer === undefined) return "unanswered";
   if (answer.answerRemoved === true) {
     if (answer.manualScore == null && answer.autoScore == null) return "removed";
   } else if (answer.answer === null) return "unanswered";
   if (isPending(answer)) return "pending";
-  // An essay marked on a band is neither right nor wrong.
   if (answer.band != null) return "banded";
   const earned = answer.manualScore ?? answer.autoScore ?? 0;
   if (earned >= question.points) return "correct";
