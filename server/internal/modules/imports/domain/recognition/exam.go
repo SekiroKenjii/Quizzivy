@@ -6,6 +6,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
@@ -275,16 +277,35 @@ func (e *exam) extendsHeading(text string) bool {
 	if g == nil || !g.heading || !g.accepting || len(g.questions) > 0 || len(g.stimulus) > 0 {
 		return false
 	}
-	return isInstruction(text) || headingLegend.MatchString(text) || e.carriesOnHeading(text)
+	return (isInstruction(text) && !e.headingPassage(text)) || headingLegend.MatchString(text) || e.carriesOnHeading(text)
 }
 
-// carriesOnHeading reports whether a lower-case line carries on the heading's last instruction line, which has not
-// ended its sentence: "In boxes 1-4 on your answer sheet," / "write" / "TRUE if…", as text copied from a PDF breaks
-// it. A passage opens with a capital, so it never carries on.
+// headingPassage reports whether text, an imperative-led line under a heading that already has its instruction,
+// reads as a statement (readsAsStatement): it opens the passage, not a second instruction line.
+func (e *exam) headingPassage(text string) bool {
+	g := e.group
+	return g != nil && g.heading && g.accepting && len(g.questions) == 0 && len(g.stimulus) == 0 && !e.bareHeading() && readsAsStatement(text)
+}
+
+// carriesOnHeading reports whether text carries on the heading's last instruction line, which has not ended its
+// sentence, as text copied from a PDF breaks it over hard lines:
+//   - a lower-case line after a comma or straight after the heading ("In boxes 1-4 on your answer sheet," / "write"),
+//     one that is itself a command ("write no more than two words"), or one that opens with a preposition or
+//     conjunction ("Write NO MORE THAN TWO WORDS" / "from the passage for each answer.");
+//   - a line that completes an answer format the last instruction line began ("Choose" / "TWO letters, A-E.",
+//     "Chọn" / "Đúng, Sai hoặc Không có thông tin"); the heading itself begins none.
+//
+// A passage that opens in lower case after an unfinished instruction ("iPads and phones…") does not.
 func (e *exam) carriesOnHeading(text string) bool {
 	last := strings.TrimSpace(e.group.instruction[len(e.group.instruction)-1].text())
 	text = strings.TrimSpace(text)
-	return last != "" && !strings.ContainsRune(".?!", []rune(last)[len([]rune(last))-1]) && text != "" && startsLower(text)
+	if last == "" || text == "" || strings.ContainsRune(".?!", []rune(last)[len([]rune(last))-1]) {
+		return false
+	}
+	if startsLower(text) && (strings.HasSuffix(last, ",") || e.bareHeading() || imperative.MatchString(text) || continuesPhrase(text)) {
+		return true
+	}
+	return !e.bareHeading() && !answerFormat(last) && answerFormat(last+" "+text)
 }
 
 // bareHeading reports whether the open group is a range heading, or a run of them, with nothing under it yet.
@@ -536,7 +557,7 @@ func (e *exam) textLine(l *line) {
 	case e.extendsHeading(text):
 		e.group.instruction = append(e.group.instruction, whole)
 		e.group.source = append(e.group.source, whole.refs()...)
-	case isInstruction(text) && !e.continuesStimulus(text):
+	case isInstruction(text) && !e.continuesStimulus(text) && !e.headingPassage(text):
 		e.closeQuestion()
 		e.closeGroup()
 		e.ensureSection()
@@ -710,4 +731,15 @@ func (e *exam) rangeTitle(s *sectionBuilder) string {
 		return "Câu " + span
 	}
 	return span
+}
+
+// vietnameseLinks holds the Vietnamese prepositions and conjunctions a broken phrase carries on with ("… KHÔNG QUÁ
+// HAI TỪ" / "cho mỗi câu trả lời.").
+var vietnameseLinks = map[string]bool{"cho": true, "trong": true, "vào": true, "của": true, "với": true, "theo": true, "ở": true, "và": true, "hoặc": true}
+
+// continuesPhrase reports whether text opens with a preposition or a conjunction, so it carries on a phrase rather
+// than starting a sentence of its own.
+func continuesPhrase(text string) bool {
+	first, _, _ := strings.Cut(strings.ToLower(norm.NFC.String(text)), " ")
+	return functionWords[first] || vietnameseLinks[first]
 }
