@@ -153,7 +153,7 @@ func closingStatus(reason domain.Reason) domain.Status {
 
 func gradingKey(ctx context.Context, tx pgx.Tx, versionID string) ([]domain.GradableQuestion, error) {
 	rows, err := tx.Query(ctx, `
-		SELECT q.id, q.type, q.points
+		SELECT q.id, q.type, q.points, q.select_count
 		  FROM app.test_version_questions q
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		 WHERE s.test_version_id = $1::uuid`, versionID)
@@ -166,7 +166,7 @@ func gradingKey(ctx context.Context, tx pgx.Tx, versionID string) ([]domain.Grad
 	at := map[string]int{}
 	for rows.Next() {
 		var q domain.GradableQuestion
-		if err := rows.Scan(&q.ID, &q.Type, &q.Points); err != nil {
+		if err := rows.Scan(&q.ID, &q.Type, &q.Points, &q.SelectCount); err != nil {
 			return nil, fmt.Errorf("attempts: scan grading key: %w", err)
 		}
 		at[q.ID] = len(questions)
@@ -179,7 +179,35 @@ func gradingKey(ctx context.Context, tx pgx.Tx, versionID string) ([]domain.Grad
 	if err := attachKeyOptions(ctx, tx, versionID, questions, at); err != nil {
 		return nil, err
 	}
+	if err := attachKeyItems(ctx, tx, versionID, questions, at); err != nil {
+		return nil, err
+	}
 	return questions, attachKeyBlanks(ctx, tx, versionID, questions, at)
+}
+
+func attachKeyItems(ctx context.Context, tx pgx.Tx, versionID string, qs []domain.GradableQuestion, at map[string]int) error {
+	byQuestion, err := db.GroupBy(ctx, tx, `
+		SELECT i.test_version_question_id, i.id, i.correct_option_id
+		  FROM app.test_version_match_items i
+		  JOIN app.test_version_questions q ON q.id = i.test_version_question_id
+		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+		 WHERE s.test_version_id = $1::uuid
+		 ORDER BY i.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, domain.GradableMatchItem, error) {
+			var questionID string
+			var item domain.GradableMatchItem
+			err := rows.Scan(&questionID, &item.ID, &item.OptionID)
+			return questionID, item, err
+		})
+	if err != nil {
+		return fmt.Errorf("attempts: read key items: %w", err)
+	}
+	for questionID, items := range byQuestion {
+		if i, ok := at[questionID]; ok {
+			qs[i].MatchItems = items
+		}
+	}
+	return nil
 }
 
 func attachKeyOptions(ctx context.Context, tx pgx.Tx, versionID string, qs []domain.GradableQuestion, at map[string]int) error {

@@ -97,7 +97,7 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in domain.SaveInput, versionI
 		  JOIN app.test_version_questions q ON q.id = submitted.question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		 WHERE s.test_version_id = $4::uuid
-		   AND (submitted.payload::jsonb->>'type' IS DISTINCT FROM 'matching' OR q.type = 'matching')
+		   AND (coalesce(submitted.payload::jsonb->>'type', '') = 'matching') = (q.type = 'matching')
 		   AND NOT EXISTS (
 		         SELECT 1
 		           FROM jsonb_each_text(
