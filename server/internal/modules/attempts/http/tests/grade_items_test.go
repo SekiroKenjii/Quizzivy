@@ -46,7 +46,7 @@ func TestEveryGradeShapeRefusalAnswers422WithItsCodeInTheCallersLanguage(t *test
 	}{
 		{domain.NeedsPoints, openapi.GRADENEEDSPOINTS, "Câu này cần được chấm bằng điểm số.", "This question needs a score in points."},
 		{domain.BandNotAllowed, openapi.GRADEBANDNOTALLOWED, "Chỉ bài luận mới được chấm theo band.", "Only an essay is graded on a band."},
-		{domain.NeedsBand, openapi.GRADENEEDSBAND, "Bài luận này được chấm bằng một band, không phải điểm số.", "This essay is graded on a band, not in points."},
+		{domain.NeedsBand, openapi.GRADENEEDSBAND, "Hãy chấm bài luận này bằng một band, không kèm điểm số hay tiêu chí.", "Give this essay one band, with no points or criteria."},
 		{domain.CriteriaIncomplete, openapi.GRADECRITERIAINCOMPLETE, "Hãy chấm band cho từng tiêu chí của bài luận này, mỗi tiêu chí một lần.", "Give a band for each of this essay's criteria, once each."},
 	} {
 		refused := uuid.NewString()

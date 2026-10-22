@@ -151,6 +151,9 @@ func TestPublishingFreezesEveryNewFieldAndLaterEditsDoNotReachTheVersion(t *test
 	if err != nil {
 		t.Fatalf("publish: %v", err)
 	}
+	if version.ManualCount != 2 {
+		t.Errorf("the version counts %d answers marked by hand, want the short answer and the essay", version.ManualCount)
+	}
 	frozen := frozenTypeDigest(t, f.conn, version.ID)
 	if frozen != before {
 		t.Fatalf("the version froze\n%s\nwant the bank's\n%s", frozen, before)

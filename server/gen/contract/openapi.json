@@ -20789,7 +20789,7 @@
           "teacher-attempts"
         ],
         "summary": "Save manual grades",
-        "description": "Saved per call rather than as one giant submit, so a half-graded attempt\nsurvives a refresh. `points` is rejected above the question's ceiling.\n\nAn item for an `essay` takes a `band` when the question has no rubric\ncriteria, or `criteria` naming every one of them, and no `points`: the\nserver derives `manual_score = round(band × points ÷ 9, 2)`, with the\nband of a rubric the mean of its criteria rounded half up to 0.5. An\nitem for any other type takes `points` and neither of the others. The\nschema cannot express that rule, so the handler applies it and answers\n422 (see below). G-04's by-question grading writes through this\noperation too.\n",
+        "description": "Saved per call rather than as one giant submit, so a half-graded attempt\nsurvives a refresh. `points` is rejected above the question's ceiling,\nand a question named by more than one item is rejected: both are 400\n`VALIDATION_FAILED` with `details` keyed by the question's id. The\nrefusals are answered in this order: 409, then 422, then 400.\n\nAn item for an `essay` takes a `band` when the question has no rubric\ncriteria, or `criteria` naming every one of them, and no `points`: the\nserver derives `manual_score = round(band × points ÷ 9, 2)`, with the\nband of a rubric the mean of its criteria rounded half up to 0.5. An\nitem for any other type takes `points` and neither of the others. The\nschema cannot express that rule, so the handler applies it and answers\n422 (see below). G-04's by-question grading writes through this\noperation too.\n",
         "requestBody": {
           "required": true,
           "content": {

@@ -75,6 +75,7 @@ func (h Attempts) toAPIQueueItem(ctx context.Context, item domain.GradingQueueIt
 		Type: question.Type, Prompt: question.Prompt, PromptContent: question.PromptContent, Answer: answer, Points: question.Points,
 		Score: item.Answer.ManualScore, Comment: item.Answer.GraderComment, Media: question.Media, Audio: question.Audio,
 		Transcript: question.Transcript, Options: question.Options, Blanks: question.Blanks,
+		MaxWords: question.MaxWords, Rubric: question.Rubric,
 		Explanation: question.Explanation, ExplanationContent: question.ExplanationContent, SampleAnswer: question.SampleAnswer, SharedContext: shared,
 	}, nil
 }
