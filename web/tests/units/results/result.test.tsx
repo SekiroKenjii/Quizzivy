@@ -2123,12 +2123,12 @@ describe("a matching answer (T-R6.12)", () => {
     const card = (await screen.findByText("Nối 1")).closest("article")!;
     const [mine, key] = card.querySelectorAll<HTMLElement>("[data-slot=pairs]");
     expect(mine).toHaveTextContent(
-      "1. Paragraph oneA a bridge2. Paragraph twoC a market3. Paragraph threeNo answer",
+      "1. Paragraph oneA · a bridge2. Paragraph twoC · a market3. Paragraph threeNo answer",
     );
-    expect(within(mine!).getByText("C a market")).toHaveClass("line-through");
-    expect(within(mine!).getByText("A a bridge")).not.toHaveClass("line-through");
+    expect(within(mine!).getByText("C · a market")).toHaveClass("line-through");
+    expect(within(mine!).getByText("A · a bridge")).not.toHaveClass("line-through");
     expect(key).toHaveTextContent(
-      "2. Paragraph twoB a tower3. Paragraph threeC a market",
+      "2. Paragraph twoB · a tower3. Paragraph threeC · a market",
     );
     expect(within(card).getByText("1 / 3")).toBeVisible();
   });

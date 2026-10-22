@@ -1,6 +1,6 @@
 import { ReviewGroup } from "@/features/media";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Eye, Minus, Plus } from "lucide-react";
@@ -31,7 +31,7 @@ import {
   markSignature,
   type EssayMark,
 } from "../essayMark";
-import { useUnsavedSection } from "@/features/settings/unsavedSection";
+import { useConfirmMove, useUnsavedSection } from "@/features/settings/unsavedSection";
 import { pointsSignature, useFocusWithin, useSavedSync } from "../savedSync";
 import { EssayBands, GradedElsewhere } from "./BandScale";
 import type { GradeMarks } from "./GradingCard";
@@ -63,6 +63,8 @@ export function GradeByQuestion({
     message: string;
   } | null>(null);
   const inputs = useRef(new Map<string, HTMLElement>());
+  // Next question and Grade per paper drop unsaved marks, so they ask first.
+  const confirmMove = useConfirmMove();
 
   const answers = useQuery({
     queryKey: answersKey(assignmentId, questionId),
@@ -160,12 +162,12 @@ export function GradeByQuestion({
               variant="outline"
               size="sm"
               disabled={nextId === undefined}
-              onClick={goNext}
+              onClick={() => confirmMove(goNext)}
             >
               {t("byQuestion.next")}
               <ArrowRight aria-hidden="true" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={onExit}>
+            <Button variant="ghost" size="sm" onClick={() => confirmMove(onExit)}>
               {t("byQuestion.exit")}
             </Button>
           </>
@@ -192,7 +194,7 @@ export function GradeByQuestion({
             <EmptyState
               action={
                 nextId === undefined ? undefined : (
-                  <Button size="sm" onClick={goNext}>
+                  <Button size="sm" onClick={() => confirmMove(goNext)}>
                     {t("byQuestion.next")}
                   </Button>
                 )
@@ -369,6 +371,13 @@ function AnswerRow({
     holding,
   );
   useUnsavedSection(`g04:${row.attemptId}`, sync.dirty);
+  const box = useRef<HTMLInputElement | null>(null);
+  useEffect(() => {
+    if (error === null || rubric !== null) return;
+    const lost =
+      document.activeElement === null || document.activeElement === document.body;
+    if (lost) box.current?.focus();
+  }, [error, rubric]);
   const value = Number(points);
   const valid =
     points.trim() !== "" && Number.isFinite(value) && value >= 0 && value <= max;
@@ -449,7 +458,10 @@ function AnswerRow({
               <Minus aria-hidden="true" />
             </Button>
             <Input
-              ref={inputRef}
+              ref={(el) => {
+                box.current = el;
+                inputRef(el);
+              }}
               type="number"
               inputMode="decimal"
               min={0}
@@ -457,6 +469,7 @@ function AnswerRow({
               step={0.5}
               className="w-20 text-center tabular-nums"
               aria-label={t("byQuestion.pointsFor", { who: label })}
+              aria-invalid={error !== null || undefined}
               value={points}
               onChange={(event) => setPoints(event.target.value)}
               onKeyDown={(event) => {
@@ -488,6 +501,11 @@ function AnswerRow({
               {t("byQuestion.save")}
             </Button>
           </div>
+        )}
+        {!blank && rubric === null && error !== null && (
+          <p role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
         )}
       </CardContent>
     </Card>

@@ -60,8 +60,8 @@ const FIRST_FIELD =
 /**
  * FormDialog edits typed values while open and unlocked, revealing visible
  * errors once a submission has been tried, valid or not, so that a rule the
- * caller finds only while handling a submit shows on its field. It opens with focus on its first field, or where
- * the dialog frame puts it when the form has none (F-50). While `pending` the control a submit starts from
+ * caller finds only while handling a submit shows on its field. It opens with focus on its first field, or, when the form has none, on
+ * Cancel, the safe answer, or on the submit of a notice without Cancel (F-50). While `pending` the control a submit starts from
  * keeps focus (T-35): the submit answers `aria-disabled` and ignores a press,
  * text fields turn read-only, a select answers `aria-disabled` and keeps
  * focus, and the other controls, which cannot start a submit, are disabled. A submit that starts while focus sits on such a
@@ -102,6 +102,7 @@ export function FormDialog<V extends FormValues>({
   const id = useId();
   const form = useRef<HTMLFormElement>(null);
   const submitButton = useRef<HTMLButtonElement>(null);
+  const cancelButton = useRef<HTMLButtonElement>(null);
   const [state, setState] = useState({
     open,
     values: initial,
@@ -163,7 +164,10 @@ export function FormDialog<V extends FormValues>({
       className={className}
       returnFocus={returnFocus}
       onOpenAutoFocus={(event) => {
-        const first = form.current?.querySelector<HTMLElement>(FIRST_FIELD);
+        const first =
+          form.current?.querySelector<HTMLElement>(FIRST_FIELD) ??
+          cancelButton.current ??
+          submitButton.current;
         if (!first) return;
         event.preventDefault();
         first.focus();
@@ -260,6 +264,7 @@ export function FormDialog<V extends FormValues>({
       <DialogShellFooter>
         {!hideCancel && (
           <Button
+            ref={cancelButton}
             type="button"
             variant="outline"
             className="bg-card text-ui h-9 px-3.5 leading-normal shadow-none"

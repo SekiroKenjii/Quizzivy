@@ -21,3 +21,16 @@ export function useUnsavedSection(section: string, unsaved: boolean) {
     return () => report(section, false);
   }, [report, section, unsaved]);
 }
+
+/**
+ * ConfirmMove runs an in-page move, such as a switch of view or question,
+ * that unmounts sections without leaving the address: while a section under
+ * the guard is unsaved it asks first, as a navigation would. Outside a guard
+ * it moves at once.
+ */
+export const ConfirmMove = createContext<(move: () => void) => void>((move) => move());
+
+/** useConfirmMove returns the enclosing guard's ConfirmMove. */
+export function useConfirmMove() {
+  return useContext(ConfirmMove);
+}

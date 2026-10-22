@@ -50,6 +50,7 @@ import { handMarked } from "../../essayMark";
 import { paperScoreText } from "../../paperScore";
 import { DOT, type Verdict } from "../../components/answerStyles";
 import { UnsavedChangesGuard } from "@/features/settings/UnsavedChangesGuard";
+import { useConfirmMove } from "@/features/settings/unsavedSection";
 import "../../gradingMessages";
 
 type Tab = "paper" | "integrity";
@@ -83,6 +84,8 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
   const { t } = useTranslation();
   const queryClient = useQueryClient();
   const locale = useLocale();
+  // The rail, Skip and Grade by question drop unsaved marks, so they ask first.
+  const confirmMove = useConfirmMove();
   const [tab, setTab] = useState<Tab>("paper");
   const [byQuestion, setByQuestion] = useState(false);
   const [picked, setCurrent] = useState<number | null>(null);
@@ -305,7 +308,7 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
                     type="button"
                     aria-current={i === current ? "true" : undefined}
                     aria-label={dotLabel(i, verdicts[i] ?? "unanswered", t)}
-                    onClick={() => pick(i)}
+                    onClick={() => confirmMove(() => pick(i))}
                     className={cn(
                       DOT.base,
                       "h-9",
@@ -328,7 +331,7 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
                   variant="outline"
                   size="sm"
                   className="mt-3 w-full"
-                  onClick={() => setByQuestion(true)}
+                  onClick={() => confirmMove(() => setByQuestion(true))}
                 >
                   <Rows3 aria-hidden="true" />
                   {t("byQuestion.title")}
@@ -359,6 +362,7 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
                         defaultValue: question.type,
                       }),
                       count: question.points,
+                      points: trim(question.points, locale),
                     })}
                   </span>
                   <VerdictBadge verdict={verdicts[current ?? 0] ?? "unanswered"} />
@@ -436,7 +440,7 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
                         { onSuccess: next },
                       )
                     }
-                    onSkip={next}
+                    onSkip={() => confirmMove(next)}
                   />
                 )}
                 {handMarked(question.type) && !gradable && (

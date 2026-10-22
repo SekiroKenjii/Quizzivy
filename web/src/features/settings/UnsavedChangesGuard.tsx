@@ -2,7 +2,11 @@ import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useBlocker } from "react-router";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { ReportUnsaved, type UnsavedReport } from "@/features/settings/unsavedSection";
+import {
+  ConfirmMove,
+  ReportUnsaved,
+  type UnsavedReport,
+} from "@/features/settings/unsavedSection";
 
 function within(base: string, pathname: string) {
   return pathname === base || pathname.startsWith(`${base}/`);
@@ -29,6 +33,7 @@ function marked(
  * reload or a closed tab gets the browser's own prompt meanwhile. A
  * navigation judged after the URL has already left `base` is let through, so
  * a Back pressed while the departing page is still mounted is not reverted.
+ * An in-page move made through ConfirmMove asks the same question.
  * `copy` replaces the Settings wording for a guard elsewhere.
  */
 export function UnsavedChangesGuard({
@@ -50,6 +55,11 @@ export function UnsavedChangesGuard({
     [],
   );
   const unsaved = unsavedSections.size > 0;
+  const [move, setMove] = useState<(() => void) | null>(null);
+  const confirmMove = useCallback(
+    (next: () => void) => (unsaved ? setMove(() => next) : next()),
+    [unsaved],
+  );
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -68,11 +78,13 @@ export function UnsavedChangesGuard({
 
   return (
     <ReportUnsaved.Provider value={report}>
-      {children}
+      <ConfirmMove.Provider value={confirmMove}>{children}</ConfirmMove.Provider>
       <ConfirmDialog
-        open={blocker.state === "blocked"}
+        open={blocker.state === "blocked" || move !== null}
         onOpenChange={(open) => {
-          if (!open && blocker.state === "blocked") blocker.reset();
+          if (open) return;
+          setMove(null);
+          if (blocker.state === "blocked") blocker.reset();
         }}
         title={copy?.title ?? t("settings.leave.title")}
         description={copy?.description ?? t("controls.unsaved")}
@@ -81,6 +93,8 @@ export function UnsavedChangesGuard({
         destructive
         onConfirm={() => {
           if (blocker.state === "blocked") blocker.proceed();
+          move?.();
+          setMove(null);
         }}
       />
     </ReportUnsaved.Provider>
