@@ -621,7 +621,7 @@ function SelectCountField({
 /**
  * useCountReset returns the "Choose N" count that removing an option has just
  * reset, so the field can say why it now reads "Any number", or null once the
- * teacher picks a count again.
+ * teacher picks a count again or adds an option back.
  */
 function useCountReset(question: ImportDraftQuestion): number | null {
   const [seen, setSeen] = useState({
@@ -637,7 +637,11 @@ function useCountReset(question: ImportDraftQuestion): number | null {
       question.options.length < seen.options
     )
       setResetFrom(seen.count);
-    else if (question.selectCount !== undefined) setResetFrom(null);
+    else if (
+      question.selectCount !== undefined ||
+      question.options.length > seen.options
+    )
+      setResetFrom(null);
   }
   return resetFrom;
 }

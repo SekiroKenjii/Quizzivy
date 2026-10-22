@@ -152,6 +152,8 @@ describe("a Choose N count the options cannot hold", () => {
     );
     await settle();
     await waitFor(() => expect(saved()).not.toHaveProperty("selectCount"));
+    await user.click(screen.getByRole("button", { name: "Thêm lựa chọn" }));
+    await waitFor(() => expect(screen.queryByText(/^Đã đặt lại Chọn 3/)).toBeNull());
   });
 
   it("explains an imported count that is too large instead of asking to mark every option", async () => {

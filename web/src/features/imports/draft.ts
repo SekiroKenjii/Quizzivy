@@ -644,12 +644,22 @@ function isFixedType(type: QuestionType): boolean {
   return type === "true_false" || type === "tfng";
 }
 
-/** dropsAnswerData reports whether moving from one version of a question to the next discards options, key data, a "Choose N" count or a word limit. Between true/false and tfng the options are the fixed ones on both sides, so only a key or a conflict that does not carry is lost. */
+/** hasStandardOptions reports whether every option reads as True, False or Not given, so rebuilding them loses no text the teacher wrote. */
+function hasStandardOptions(question: ImportDraftQuestion): boolean {
+  return question.options.every((option) => TFNG[optionText(option)] !== undefined);
+}
+
+/** dropsAnswerData reports whether moving from one version of a question to the next discards options, key data, a "Choose N" count or a word limit. Between true/false and tfng with standard option texts, only a key or a conflict that does not carry is lost. */
 export function dropsAnswerData(
   before: ImportDraftQuestion,
   after: ImportDraftQuestion,
 ): boolean {
-  if (isFixedType(before.type) && isFixedType(after.type) && before.type !== after.type)
+  if (
+    isFixedType(before.type) &&
+    isFixedType(after.type) &&
+    before.type !== after.type &&
+    hasStandardOptions(before)
+  )
     return before.answer.state !== "unknown" && after.answer.state !== "known";
   const kept = new Set(after.options.map((option) => option.id));
   if (before.options.some((option) => !kept.has(option.id))) return true;

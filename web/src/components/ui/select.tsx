@@ -52,6 +52,12 @@ function SelectTrigger({
   );
 }
 
+/**
+ * SelectContent is the open list. The item has already taken the Enter that
+ * picks it, so the list cancels the key's default: otherwise the browser also
+ * activates whatever the pick moved focus to, such as a confirm dialog's first
+ * button.
+ */
 function SelectContent({
   className,
   children,
@@ -76,9 +82,6 @@ function SelectContent({
         {...props}
         onKeyDown={(event) => {
           onKeyDown?.(event);
-          // The item has already taken the Enter that picks it. Cancelling the
-          // key's default stops the browser from also activating whatever the
-          // pick moved focus to, such as a confirm dialog's first button.
           if (event.key === "Enter") event.preventDefault();
         }}
       >
