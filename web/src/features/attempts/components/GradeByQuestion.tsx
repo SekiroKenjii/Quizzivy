@@ -1,7 +1,7 @@
 import { ReviewGroup } from "@/features/media";
 import { PromptMedia } from "@/features/take-test/components/PromptMedia";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Eye, Minus, Plus } from "lucide-react";
@@ -32,7 +32,8 @@ import {
   markSignature,
   type EssayMark,
 } from "../essayMark";
-import { useUnsavedSection } from "@/features/settings/unsavedSection";
+import { useConfirmMove, useUnsavedSection } from "@/features/settings/unsavedSection";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { pointsSignature, useFocusWithin, useSavedSync } from "../savedSync";
 import { EssayBands, GradedElsewhere } from "./BandScale";
 import type { GradeMarks } from "./GradingCard";
@@ -42,6 +43,10 @@ import type { GradeMarks } from "./GradingCard";
  * hidden until the question is graded. Same grading write as G-03, one paper
  * per call; what changes is the order the teacher walks in. An answer the
  * retention policy removed shows the notice that says so and no points box.
+ * The answers are read again when the window regains focus, since another
+ * tab or teacher may grade these papers meanwhile. Next question, Grade per
+ * paper, and a save and next that would leave another row's unsaved marks
+ * ask before they drop them.
  */
 export function GradeByQuestion({
   assignmentId,
@@ -55,6 +60,7 @@ export function GradeByQuestion({
   onExit: () => void;
 }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const [questionId, setQuestionId] = useState(initialQuestionId);
   const [showNames, setShowNames] = useState(false);
@@ -64,11 +70,11 @@ export function GradeByQuestion({
     message: string;
   } | null>(null);
   const inputs = useRef(new Map<string, HTMLElement>());
+  const confirmMove = useConfirmMove();
 
   const answers = useQuery({
     queryKey: answersKey(assignmentId, questionId),
     queryFn: ({ signal }) => listAnswersForQuestion(assignmentId, questionId, signal),
-    // Another tab or teacher may grade these papers meanwhile.
     refetchOnWindowFocus: "always",
   });
 
@@ -116,11 +122,13 @@ export function GradeByQuestion({
     const row = items[index];
     if (row) inputs.current.get(row.attemptId)?.focus();
   };
+  const nextAfterSave = (row: QuestionAnswerRow) =>
+    confirmMove(goNext, (section) => section.startsWith(`g04:${row.attemptId}`));
   const saveRow =
     (row: QuestionAnswerRow, index: number) => (marks: GradeMarks, andNext: boolean) =>
       grade.mutate(
         { row, marks },
-        { onSuccess: () => (andNext ? goNext() : focusRow(index + 1)) },
+        { onSuccess: () => (andNext ? nextAfterSave(row) : focusRow(index + 1)) },
       );
   const goNext = () => {
     if (nextId === undefined) return;
@@ -160,13 +168,15 @@ export function GradeByQuestion({
             <Button
               variant="outline"
               size="sm"
-              disabled={nextId === undefined}
-              onClick={goNext}
+              aria-disabled={nextId === undefined || undefined}
+              onClick={() => {
+                if (nextId !== undefined) confirmMove(goNext);
+              }}
             >
               {t("byQuestion.next")}
               <ArrowRight aria-hidden="true" />
             </Button>
-            <Button variant="ghost" size="sm" onClick={onExit}>
+            <Button variant="ghost" size="sm" onClick={() => confirmMove(onExit)}>
               {t("byQuestion.exit")}
             </Button>
           </>
@@ -193,7 +203,7 @@ export function GradeByQuestion({
             <EmptyState
               action={
                 nextId === undefined ? undefined : (
-                  <Button size="sm" onClick={goNext}>
+                  <Button size="sm" onClick={() => confirmMove(goNext)}>
                     {t("byQuestion.next")}
                   </Button>
                 )
@@ -210,7 +220,10 @@ export function GradeByQuestion({
                     type: t(`questionEditor.type.${data.question.type}`, {
                       defaultValue: data.question.type,
                     }),
-                    points: data.question.points,
+                    count: data.question.points,
+                    points: new Intl.NumberFormat(locale, {
+                      maximumFractionDigits: 2,
+                    }).format(data.question.points),
                   })}
                 </p>
                 {data.sharedContext?.groups.map((group) => (
@@ -376,6 +389,14 @@ function AnswerRow({
     holding,
   );
   useUnsavedSection(`g04:${row.attemptId}`, sync.dirty);
+  const box = useRef<HTMLInputElement | null>(null);
+  const errorId = useId();
+  useEffect(() => {
+    if (error === null || rubric !== null) return;
+    const lost =
+      document.activeElement === null || document.activeElement === document.body;
+    if (lost) box.current?.focus();
+  }, [error, rubric]);
   const value = Number(points);
   const valid =
     points.trim() !== "" && Number.isFinite(value) && value >= 0 && value <= max;
@@ -456,7 +477,10 @@ function AnswerRow({
               <Minus aria-hidden="true" />
             </Button>
             <Input
-              ref={inputRef}
+              ref={(el) => {
+                box.current = el;
+                inputRef(el);
+              }}
               type="number"
               inputMode="decimal"
               min={0}
@@ -464,6 +488,8 @@ function AnswerRow({
               step={0.5}
               className="w-20 text-center tabular-nums"
               aria-label={t("byQuestion.pointsFor", { who: label })}
+              aria-invalid={error !== null || undefined}
+              aria-describedby={error === null ? undefined : errorId}
               value={points}
               onChange={(event) => setPoints(event.target.value)}
               onKeyDown={(event) => {
@@ -495,6 +521,11 @@ function AnswerRow({
               {t("byQuestion.save")}
             </Button>
           </div>
+        )}
+        {!blank && rubric === null && error !== null && (
+          <p id={errorId} role="alert" className="text-destructive text-sm">
+            {error}
+          </p>
         )}
       </CardContent>
     </Card>

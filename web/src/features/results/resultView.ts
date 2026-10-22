@@ -344,8 +344,9 @@ function lock(review: Review): Lock {
  * the paper's band when the server sends one (every essay banded, D-071), and
  * the tiles follow `tilesOf`. The comment on the paper's only hand-graded
  * answer moves up to the callout.
- * The filter offers Wrong only when scores are shown and Waiting only when
- * something waits.
+ * The filter offers Wrong only when scores are shown and some answer is not
+ * graded on a band, and Waiting only when something waits. "You answered n
+ * of m correctly" counts no banded essay in m, since a band is neither.
  */
 export function resultView(data: AttemptResult): ResultView {
   const { attempt, review, questions, sections } = data;
@@ -353,7 +354,9 @@ export function resultView(data: AttemptResult): ResultView {
   const waiting = questions.filter((question) => question.pendingManual === true);
   const filters: Filter[] = [
     "all",
-    ...(review.showScore ? (["wrong"] as const) : []),
+    ...(review.showScore && questions.some((question) => question.band == null)
+      ? (["wrong"] as const)
+      : []),
     ...(waiting.length > 0 ? (["waiting"] as const) : []),
   ];
   const releasesAt = data.releasesAt ?? null;
@@ -410,7 +413,7 @@ export function resultView(data: AttemptResult): ResultView {
         kind: "graded",
         correct: questions.filter((question) => verdict(question, review) === "correct")
           .length,
-        total: questions.length,
+        total: questions.filter((question) => question.band == null).length,
         key: questions.some((question) => correctKey(question, review) !== null),
       },
       tiles: tilesOf(sections, questions),

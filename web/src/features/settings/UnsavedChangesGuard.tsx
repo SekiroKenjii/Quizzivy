@@ -1,11 +1,23 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useBlocker } from "react-router";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { ReportUnsaved, type UnsavedReport } from "@/features/settings/unsavedSection";
+import {
+  ConfirmMove,
+  ReportUnsaved,
+  type ConfirmMoveFn,
+  type UnsavedReport,
+} from "@/features/settings/unsavedSection";
 
 function within(base: string, pathname: string) {
   return pathname === base || pathname.startsWith(`${base}/`);
+}
+
+type HeldMove = { run: () => void; spare: (section: string) => boolean };
+
+/** holds says some section that `spare` does not accept is unsaved. */
+function holds(sections: ReadonlySet<string>, spare: (section: string) => boolean) {
+  return [...sections].some((section) => !spare(section));
 }
 
 function marked(
@@ -29,6 +41,9 @@ function marked(
  * reload or a closed tab gets the browser's own prompt meanwhile. A
  * navigation judged after the URL has already left `base` is let through, so
  * a Back pressed while the departing page is still mounted is not reverted.
+ * An in-page move made through ConfirmMove asks the same question. A
+ * question asked while a save was in flight goes away once the save lands:
+ * the move or navigation goes on, since nothing is left to lose.
  * `copy` replaces the Settings wording for a guard elsewhere.
  */
 export function UnsavedChangesGuard({
@@ -44,12 +59,35 @@ export function UnsavedChangesGuard({
   const [unsavedSections, setUnsavedSections] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const current = useRef<ReadonlySet<string>>(unsavedSections);
+  const [pending, setPending] = useState<HeldMove | null>(null);
+  const held = useRef<HeldMove | null>(null);
+  const hold = useCallback((next: HeldMove | null) => {
+    held.current = next;
+    setPending(next);
+  }, []);
   const report = useCallback<UnsavedReport>(
-    (section, unsaved) =>
-      setUnsavedSections((sections) => marked(sections, section, unsaved)),
-    [],
+    (section, unsaved) => {
+      current.current = marked(current.current, section, unsaved);
+      setUnsavedSections(current.current);
+      if (unsaved) return;
+      const waiting = held.current;
+      if (waiting !== null && !holds(current.current, waiting.spare)) {
+        hold(null);
+        waiting.run();
+      }
+    },
+    [hold],
   );
   const unsaved = unsavedSections.size > 0;
+  const move = pending?.run ?? null;
+  const confirmMove = useCallback<ConfirmMoveFn>(
+    (next, spare = () => false) => {
+      if (holds(current.current, spare)) hold({ run: next, spare });
+      else next();
+    },
+    [hold],
+  );
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -58,6 +96,9 @@ export function UnsavedChangesGuard({
       !within(base, nextLocation.pathname) &&
       nextLocation.pathname !== "/login",
   );
+  useEffect(() => {
+    if (blocker.state === "blocked" && !unsaved) blocker.proceed();
+  }, [blocker, unsaved]);
 
   useEffect(() => {
     if (!unsaved) return;
@@ -68,11 +109,13 @@ export function UnsavedChangesGuard({
 
   return (
     <ReportUnsaved.Provider value={report}>
-      {children}
+      <ConfirmMove.Provider value={confirmMove}>{children}</ConfirmMove.Provider>
       <ConfirmDialog
-        open={blocker.state === "blocked"}
+        open={blocker.state === "blocked" || move !== null}
         onOpenChange={(open) => {
-          if (!open && blocker.state === "blocked") blocker.reset();
+          if (open) return;
+          hold(null);
+          if (blocker.state === "blocked") blocker.reset();
         }}
         title={copy?.title ?? t("settings.leave.title")}
         description={copy?.description ?? t("controls.unsaved")}
@@ -81,6 +124,8 @@ export function UnsavedChangesGuard({
         destructive
         onConfirm={() => {
           if (blocker.state === "blocked") blocker.proceed();
+          move?.();
+          hold(null);
         }}
       />
     </ReportUnsaved.Provider>
