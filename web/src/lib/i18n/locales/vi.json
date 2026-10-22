@@ -2986,7 +2986,8 @@
       "usedIn_one": "dùng trong {{count}} đề",
       "usedIn_other": "dùng trong {{count}} đề",
       "inTest": "Đã có trong đề"
-    }
+    },
+    "noCorrectAnswer": "Chưa có đáp án đúng"
   },
   "bank": {
     "filters": "Bộ lọc",
