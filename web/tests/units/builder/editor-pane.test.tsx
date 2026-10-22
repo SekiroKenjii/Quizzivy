@@ -125,7 +125,9 @@ describe("the builder's editor pane", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Câu 1" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Loại câu hỏi: Trả lời ngắn" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Loại câu hỏi: Trả lời ngắn" }),
+    ).toBeVisible();
     expect(screen.getByLabelText("Điểm")).toHaveValue(5);
     expect(screen.queryByRole("button", { name: "Cài đặt câu hỏi" })).toBeNull();
     expect(screen.queryByRole("complementary")).toBeNull();
@@ -215,6 +217,8 @@ describe("the builder's editor pane", () => {
       "Đúng/Sai",
       "Điền từ",
       "Trả lời ngắnĐang dùng",
+      "Bài luận",
+      "Nối",
     ]);
     await user.click(within(menu).getByRole("menuitem", { name: /Một đáp án/ }));
 

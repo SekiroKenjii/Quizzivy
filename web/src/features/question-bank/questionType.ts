@@ -5,13 +5,19 @@ import type { QuestionType, QuestionValues } from "./questionSchema";
 
 type Option = QuestionValues["options"][number];
 
-/** QUESTION_TYPES lists §7's five types in the order the editor offers them. */
+/**
+ * QUESTION_TYPES lists the types the editor offers, in its order (T-R6.9a).
+ * True / False / Not given is not an entry: it is True / False with "Include
+ * “Not given”" on (DG-113), so a `tfng` question shows as True / False.
+ */
 export const QUESTION_TYPES: readonly QuestionType[] = [
   "single_choice",
   "multiple_choice",
   "true_false",
   "fill_blank",
   "short_answer",
+  "essay",
+  "matching",
 ];
 
 /** editorType is the entry of QUESTION_TYPES a question of `type` shows as. */

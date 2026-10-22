@@ -1,7 +1,9 @@
 import { BlanksEditor } from "./BlanksEditor";
 import { GapAnswers } from "./GapAnswers";
 import { GradingNote } from "./GradingNote";
+import { MatchingEditor } from "./MatchingEditor";
 import { OptionsEditor } from "./OptionsEditor";
+import { RubricEditor } from "./RubricEditor";
 import { SampleAnswerField } from "./SampleAnswerField";
 import { TrueFalseField } from "./TrueFalseField";
 import { WordLimitField } from "./WordLimitField";
@@ -74,6 +76,21 @@ function AnswerBlock({
     case "true_false":
     case "tfng":
       return <TrueFalseField value={value} onChange={onChange} />;
+    case "matching":
+      return <MatchingEditor value={value} onChange={onChange} />;
+    case "essay":
+      return (
+        <div className="flex flex-col gap-4">
+          <SampleAnswerField
+            value={value.sampleAnswer}
+            onChange={(sampleAnswer) => onChange({ ...value, sampleAnswer })}
+          />
+          <RubricEditor
+            rubric={value.rubric ?? []}
+            onChange={(rubric) => onChange({ ...value, rubric })}
+          />
+        </div>
+      );
     case "fill_blank":
       return value.promptContent != null || onInsertGap ? (
         <GapAnswers
