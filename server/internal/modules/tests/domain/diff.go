@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	questionsdomain "quizzivy/internal/modules/questions/domain"
+	"quizzivy/internal/shared/matchkey"
 	"strings"
 	"unicode/utf8"
 )
@@ -162,32 +163,43 @@ func answerChange(from, to paperQuestion) Change {
 		change.AnswerFrom = matchLabels(from.parts.keys)
 		change.AnswerTo = matchLabels(to.parts.keys)
 	case keyedByOption(fromKind) && keyedByOption(toKind):
-		change.AnswerFrom = optionLabels(from.parts.correct)
-		change.AnswerTo = optionLabels(to.parts.correct)
+		change.AnswerFrom = optionLabels(fromKind, from.parts.correct)
+		change.AnswerTo = optionLabels(toKind, to.parts.correct)
 	}
 	return change
 }
+
+// tfngValues name a tfng question's options, in their fixed order, in a
+// diff: the reader shows each value in its own language, not a letter.
+var tfngValues = [3]string{"true", "false", "not_given"}
 
 func keyedByOption(t questionsdomain.Type) bool {
 	return t.IsChoice() || t == questionsdomain.TFNG
 }
 
+// matchLabels names each item by its key and the key of the choice it is
+// matched to, as the editor draws them (D-063): "A → iii", or "A → –" when
+// the item is keyed to none.
 func matchLabels(keys []int) []string {
 	labels := make([]string, len(keys))
 	for i, key := range keys {
 		option := "–"
 		if key >= 0 {
-			option = optionLabel(key)
+			option = matchkey.Option(key)
 		}
-		labels[i] = fmt.Sprintf("%d→%s", i+1, option)
+		labels[i] = matchkey.Item(i) + " → " + option
 	}
 	return labels
 }
 
-func optionLabels(positions []int) []string {
+func optionLabels(kind questionsdomain.Type, positions []int) []string {
 	labels := make([]string, len(positions))
 	for i, position := range positions {
-		labels[i] = optionLabel(position)
+		if kind == questionsdomain.TFNG && position < len(tfngValues) {
+			labels[i] = tfngValues[position]
+		} else {
+			labels[i] = optionLabel(position)
+		}
 	}
 	return labels
 }
