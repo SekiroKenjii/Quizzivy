@@ -195,3 +195,19 @@ func TestComposedLeavesAnInvalidDocumentToValidation(t *testing.T) {
 		t.Fatal("the invalid document was accepted")
 	}
 }
+
+func TestComposedDropsAnEmptySampleAnswerOnlyWhereTheTypeHasNone(t *testing.T) {
+	for _, tc := range []struct {
+		typ  domain.Type
+		kept bool
+	}{{domain.MultipleChoice, false}, {domain.TFNG, false}, {domain.Matching, false}, {domain.ShortAnswer, true}, {domain.Essay, true}} {
+		empty := ""
+		got, err := domain.Input{Type: tc.typ, Prompt: "p", SampleAnswer: &empty}.Composed()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if (got.SampleAnswer != nil) != tc.kept {
+			t.Errorf("%s: sample answer kept = %v, want %v", tc.typ, got.SampleAnswer != nil, tc.kept)
+		}
+	}
+}

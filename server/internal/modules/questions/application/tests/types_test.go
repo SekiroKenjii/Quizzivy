@@ -233,3 +233,28 @@ func TestFacetsCountTheNewTypes(t *testing.T) {
 		t.Errorf("facets = all %d %v, want tfng 1, matching 2, essay 1 of 4", facets.All, facets.ByType)
 	}
 }
+
+// QC-R6Q-1: an empty sample answer on a type that has none used to reach the
+// store's check and answer 500. It is now dropped before the write.
+func TestAnEmptySampleAnswerOnATypeWithoutOneIsDropped(t *testing.T) {
+	pool := newPool(t)
+	author := makeAuthor(t, pool)
+	svc := newService(t, pool)
+
+	tfng := domain.Input{Tags: []string{}, Type: domain.TFNG, Prompt: "The port is busy.", Points: "1",
+		Options: []domain.OptionInput{{Text: "True", IsCorrect: true}, {Text: "False"}, {Text: "Not given"}}}
+	choice := domain.Input{Tags: []string{}, Type: domain.MultipleChoice, Prompt: "Pick one.", Points: "1",
+		Options: []domain.OptionInput{{Text: "A", IsCorrect: true}, {Text: "B"}}}
+	for _, in := range []domain.Input{tfng, choice, matchingInput()} {
+		in.SampleAnswer = ptr("")
+		created := createQuestion(t, svc, author, in)
+		if created.SampleAnswer != nil {
+			t.Errorf("%s: sample answer = %q, want none", in.Type, *created.SampleAnswer)
+		}
+		in.Options = optionInputs(created)
+		updated := updateQuestion(t, svc, author, created.ID, in)
+		if updated.SampleAnswer != nil {
+			t.Errorf("%s: sample answer after an update = %q, want none", in.Type, *updated.SampleAnswer)
+		}
+	}
+}
