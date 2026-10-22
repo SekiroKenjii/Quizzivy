@@ -4008,6 +4008,13 @@
       "10": "ten",
       "11": "eleven"
     },
+    "matching": {
+      "done": "{{k}} of {{n}} matched",
+      "options": "Options",
+      "usedBy": "matched to",
+      "item": "{{key}} {{text}}",
+      "chipUsed": "{{key}}, matched to {{by}}"
+    },
     "viewSubmitted": "View submitted paper",
     "unknownType": "Question {{n}} is a new kind of question that this page cannot show yet. Reload the page to answer it; your answers are kept.",
     "reloadPage": "Reload the page",

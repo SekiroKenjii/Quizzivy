@@ -962,7 +962,7 @@ describe("an unknown question type", () => {
   const fabricated = (paper: AttemptSession): AttemptSession => ({
     ...paper,
     questions: [
-      { ...paper.questions[0]!, type: "matching" as StudentQuestion["type"] },
+      { ...paper.questions[0]!, type: "diagram" as StudentQuestion["type"] },
       ...paper.questions.slice(1),
     ],
     answers: {},

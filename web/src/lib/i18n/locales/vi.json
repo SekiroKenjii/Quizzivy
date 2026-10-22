@@ -4008,6 +4008,13 @@
       "10": "mười",
       "11": "mười một"
     },
+    "matching": {
+      "done": "Đã nối {{k}}/{{n}}",
+      "options": "Các lựa chọn",
+      "usedBy": "được nối với",
+      "item": "{{key}} {{text}}",
+      "chipUsed": "{{key}}, đã nối với {{by}}"
+    },
     "viewSubmitted": "Xem bài đã nộp",
     "unknownType": "Câu {{n}} thuộc dạng câu hỏi mới mà trang này chưa hiển thị được. Hãy tải lại trang để làm câu này; các câu trả lời của bạn vẫn được giữ.",
     "reloadPage": "Tải lại trang",

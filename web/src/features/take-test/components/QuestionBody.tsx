@@ -14,6 +14,7 @@ import { blankInputs } from "./blankInputs";
 import { CAPTION, FIELD, PROMPT, textSizes, type BodyProps } from "./bodyParts";
 import { WordCount } from "./WordCount";
 import { EssayBody } from "./EssayBody";
+import { MatchingBody } from "./MatchingBody";
 import { chooseOption } from "../choice";
 import { PaperSourceContext } from "../paper";
 import { questionKind } from "../questionType";
@@ -45,7 +46,7 @@ const PAPER_BLANKS = [
  * columns when they are all short and the question has no shared content;
  * the blanks as the deck's underlined fields inside an 18px sentence; or the
  * answer field with its word count, against the word limit when there is one;
- * or an essay's tall field. True / false / not given keeps its three options
+ * or an essay's tall field; or a matching's cards of chips. True / false / not given keeps its three options
  * in order, named by position. "Larger text in tests" raises the prompt
  * to 19px, both sentences to 20px and the answers to 17px. A type this page has no renderer
  * for draws nothing here and never calls `onAnswer`: QuestionSheet puts
@@ -73,6 +74,8 @@ export function QuestionBody({
       return <ShortAnswer {...props} />;
     case "essay":
       return <EssayBody {...props} />;
+    case "matching":
+      return <MatchingBody {...props} />;
     case "unknown":
       return null;
   }

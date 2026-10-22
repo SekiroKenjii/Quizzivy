@@ -1275,7 +1275,7 @@ describe("a type this page has no renderer for", () => {
       "short_answer",
       "essay",
     ]);
-    expect(questionKind({ type: "matching" })).toBe("unknown");
+    expect(questionKind({ type: "matching" })).toBe("matching");
     expect(questionKind({ type: "toString" as StudentQuestion["type"] })).toBe(
       "unknown",
     );
