@@ -311,6 +311,13 @@ func (e *exam) lastInstruction() (string, bool) {
 	return "", false
 }
 
+// openInstruction reports whether the open group holds an instruction and nothing under it yet: no questions and no
+// passage.
+func (e *exam) openInstruction() bool {
+	g := e.group
+	return g != nil && g.accepting && len(g.instruction) > 0 && len(g.questions) == 0 && len(g.stimulus) == 0
+}
+
 // passageAfterInstruction reports whether text, an imperative-led line straight after an instruction, reads as a
 // statement (readsAsStatement): it opens the passage, not a second instruction line. The first line of a structure
 // is never asked, so a real instruction is never lost to the grammar (QC-R6GRM-1, QC-R6GRM-5).
@@ -705,6 +712,12 @@ func (e *exam) textLine(l *line) {
 		e.group.source = append(e.group.source, whole.refs()...)
 	case e.completesInstruction(text):
 		e.extendInstruction(whole)
+	case vietnameseJoined(text) && e.openInstruction():
+		// A line the grammar cannot read either way, after an instruction with nothing under it yet, joins that
+		// instruction rather than leaving it unassigned, and is pointed at (D-075, D-076).
+		e.group.instruction = append(e.group.instruction, whole)
+		e.group.joined = append(e.group.joined, whole)
+		e.group.source = append(e.group.source, whole.refs()...)
 	case isInstruction(text) && !e.continuesStimulus(text) && !e.passageAfterInstruction(text):
 		pointed := e.sectionProse(text)
 		e.closeQuestion()
