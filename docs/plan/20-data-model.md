@@ -4290,3 +4290,5 @@ media while sitting the paper, and an explanation's only through the gated resul
 names it. A prompt's audio marker names no asset (it places the question's own `media_asset_id`), so it has no row. The
 readers ("Used in", the delete refusal, the question count, the unreferenced sweep, staff readability and student reach)
 treat a row exactly as they treat the question's attached media. The Down refuses while either table holds a row.
+Both tables carry `00113`'s `media_asset_binding_guard`, so no row can name a file the sweep removed, and the guard's
+coverage test now finds every `app` table with a `media_asset_id` column rather than a fixed list (QC-R6D-1).

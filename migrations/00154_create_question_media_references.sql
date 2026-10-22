@@ -39,6 +39,16 @@ CREATE INDEX tvq_media_references_media_idx ON app.test_version_question_media_r
 
 REVOKE UPDATE ON app.test_version_question_media_references FROM quizzivy_app;
 
+-- No row may name a file the sweep removed, and a row naming a file the sweep
+-- waits on stops the wait (00113, QC-R6D-1): the same guard as every other
+-- table that names a file.
+CREATE TRIGGER question_media_references_media_binding_guard
+  BEFORE INSERT OR UPDATE OF media_asset_id ON app.question_media_references
+  FOR EACH ROW EXECUTE FUNCTION app.media_asset_binding_guard();
+CREATE TRIGGER test_version_question_media_references_media_binding_guard
+  BEFORE INSERT OR UPDATE OF media_asset_id ON app.test_version_question_media_references
+  FOR EACH ROW EXECUTE FUNCTION app.media_asset_binding_guard();
+
 -- +goose Down
 
 SET LOCAL lock_timeout = '5s';
