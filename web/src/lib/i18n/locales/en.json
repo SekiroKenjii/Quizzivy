@@ -1703,7 +1703,8 @@
       "score": "{{earned}} / {{total}}",
       "beingGraded": "Being graded",
       "submitted": "Submitted",
-      "justNow": "Just now"
+      "justNow": "Just now",
+      "band": "Band {{band}}"
     },
     "classes": {
       "subtitle": "Your teachers and what's next in each class.",
@@ -4426,7 +4427,8 @@
       "of": "of {{total}}",
       "soFar": "of {{total}} so far",
       "grading": "grading",
-      "withheld": "Score not released"
+      "withheld": "Score not released",
+      "band": "band"
     },
     "summary": {
       "graded": "You answered {{correct}} of {{total}} correctly.",
@@ -4438,7 +4440,9 @@
       "pending": "Your teacher is grading your written answers. Your score appears here when grading is finished.",
       "pendingNotify": "Your teacher is grading your written answers. You will get a notification when your score is ready.",
       "withheld": "You answered {{answered}} of {{total}} questions. Your teacher has not released the score.",
-      "withheldUntil": "You answered {{answered}} of {{total}} questions. Your score is released when the test closes."
+      "withheldUntil": "You answered {{answered}} of {{total}} questions. Your score is released when the test closes.",
+      "band": "Graded by your teacher.",
+      "strongest": "{{criterion}} was your strongest area."
     },
     "tiles": {
       "auto": "Marked automatically",
@@ -4493,7 +4497,8 @@
     "cloze": {
       "questions": "Questions {{from}}–{{to}}",
       "chip": "Question {{n}}, {{word}}"
-    }
+    },
+    "band": "Band {{band}}"
   },
   "queue": {
     "summary": {

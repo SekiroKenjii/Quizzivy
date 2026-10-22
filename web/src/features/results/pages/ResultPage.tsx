@@ -58,6 +58,13 @@ function sentence(summary: Summary, t: TFunction): string {
         correct: summary.correct,
         total: summary.total,
       });
+    case "band":
+      return [
+        t("result.summary.band"),
+        ...(summary.strongest === null
+          ? []
+          : [t("result.summary.strongest", { criterion: summary.strongest })]),
+      ].join(" ");
     case "partly":
       return [
         t("result.summary.auto", { count: summary.marked }),
@@ -176,7 +183,8 @@ function RunLine({
 /**
  * ResultPage is the student's result for one attempt, as the design deck
  * draws it: the summary card with the score ring, the paper's class and
- * title and one sentence about where grading stands; the tiles; then every
+ * title and one sentence about where grading stands; the teacher's comment
+ * when the paper has one hand-graded answer; the tiles; then every
  * answer under a filter, with a line naming what the review policy hides.
  * The class comes from the assignment lists the shell already holds, which
  * the page reads again only when nothing holds them. Shared
@@ -309,6 +317,17 @@ function Loaded({
         </div>
       </section>
 
+      {view.callout !== null && (
+        <aside
+          data-slot="comment-callout"
+          aria-label={t("result.teacherComment")}
+          className="bg-brand-soft flex flex-col gap-0.5 rounded-xl px-4 py-3.5 text-sm leading-[1.55]"
+        >
+          <span className="font-semibold">{t("result.teacherComment")}</span>
+          <span className="whitespace-pre-wrap">{view.callout.comment}</span>
+        </aside>
+      )}
+
       <ResultTiles tiles={view.tiles} wide={wide} />
 
       <section
@@ -388,6 +407,8 @@ function Loaded({
                   number={numbers.get(question.id) ?? 0}
                   review={review}
                   compact={prompt !== null}
+                  comment={view.callout?.questionId !== question.id}
+                  criteria={!view.tiles.some((tile) => tile.kind === "criterion")}
                   onRetry={onRetry}
                 />
               </div>
