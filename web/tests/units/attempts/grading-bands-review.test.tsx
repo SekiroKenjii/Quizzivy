@@ -827,3 +827,41 @@ function servePointsRowsShell() {
     </QueryClientProvider>,
   );
 }
+
+it("lets a move asked during a save go on once the save lands", async () => {
+  let answer!: () => void;
+  hold = new Promise((resolve) => (answer = resolve));
+  const paper = essayPaper(false);
+  serve(paper);
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Give band 6.0" }));
+  await user.click(screen.getByRole("button", { name: "Save & next" }));
+  await waitFor(() => expect(graded).toHaveLength(1));
+  await user.click(screen.getByRole("button", { name: /^Question 1,/ }));
+  expect(await screen.findByRole("dialog")).toHaveTextContent(
+    "Leave with unsaved marks?",
+  );
+  paper.answers[ESSAY_ID] = { ...paper.answers[ESSAY_ID]!, manualScore: 6, band: 6 };
+  answer();
+  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  expect(screen.getByRole("button", { name: /^Question 1,/ })).toHaveAttribute(
+    "aria-current",
+    "true",
+  );
+});
+
+it("lets a navigation asked during a save go on once the save lands", async () => {
+  let answer!: () => void;
+  hold = new Promise((resolve) => (answer = resolve));
+  const paper = essayPaper(false);
+  serve(paper);
+  const { user, router } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Give band 6.0" }));
+  await user.click(screen.getByRole("button", { name: "Save & next" }));
+  await waitFor(() => expect(graded).toHaveLength(1));
+  await act(async () => void router.navigate("/teacher"));
+  expect(await screen.findByRole("dialog")).toBeVisible();
+  paper.answers[ESSAY_ID] = { ...paper.answers[ESSAY_ID]!, manualScore: 6, band: 6 };
+  answer();
+  expect(await screen.findByText("Overview")).toBeVisible();
+});
