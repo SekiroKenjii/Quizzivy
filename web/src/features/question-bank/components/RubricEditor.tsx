@@ -39,7 +39,9 @@ export function RubricEditor({
 
   function add() {
     if (rubric.length >= MAX_RUBRIC_CRITERIA) {
-      toast.error(t("questionEditor.rubric.maxToast", { count: MAX_RUBRIC_CRITERIA }));
+      toast.error(t("questionEditor.rubric.maxToast", { count: MAX_RUBRIC_CRITERIA }), {
+        id: "rubric-bound",
+      });
       return;
     }
     onChange([...rubric, { id: null, label: "" }]);

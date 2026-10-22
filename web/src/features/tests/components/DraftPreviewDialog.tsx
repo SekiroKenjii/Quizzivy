@@ -15,12 +15,11 @@ import {
 import type { AdminQuestion } from "@/features/question-bank/api";
 import type { components } from "@/lib/api/schema";
 import type { StoredGroup } from "@/features/question-groups/api";
-import { groupPreview, studentAudioPolicy } from "@/features/question-groups/preview";
+import { asStudent, groupPreview } from "@/features/question-groups/preview";
 import { preventLocalEscapeDismissal } from "@/lib/localEscape";
 import type { OutlineSection } from "../outline";
 import { unitsOf } from "../outlineUnits";
 
-type StudentQuestion = components["schemas"]["StudentQuestion"];
 type StudentSection = components["schemas"]["StudentSection"];
 
 /**
@@ -197,30 +196,4 @@ function DraftPaper({
       groups={shared}
     />
   );
-}
-
-/** §13.5's boundary, applied client-side: nothing that grades survives the mapping. */
-function asStudent(sectionId: string, q: AdminQuestion): StudentQuestion {
-  return {
-    id: q.id,
-    sectionId,
-    type: q.type,
-    prompt: q.prompt,
-    promptContent: q.promptContent ?? null,
-    points: q.points,
-    media: q.media ?? null,
-    promptAssets: q.contentAssets ?? [],
-    audio: q.audio ? studentAudioPolicy(q.audio) : null,
-    options: (q.options ?? []).map((o) => ({
-      id: o.id,
-      text: o.text,
-      content: o.content ?? null,
-    })),
-    blanks: (q.blanks ?? []).map((b) => ({
-      id: b.id,
-      ordinal: b.ordinal,
-      gapId: b.gapId ?? null,
-      caseSensitive: b.caseSensitive ?? false,
-    })),
-  };
 }

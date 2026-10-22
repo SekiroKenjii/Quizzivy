@@ -28,9 +28,40 @@ export function groupRoom(group: GroupBundle["group"]): number {
   return Math.max(MAX_GROUP_MEMBERS - group.members.length, 0);
 }
 
+type OptionOrder = GroupBundle["group"]["members"][number]["optionOrder"];
+
+const CHOICE_TYPES: ReadonlySet<string> = new Set([
+  "single_choice",
+  "multiple_choice",
+  "true_false",
+]);
+
+/**
+ * memberOptionOrder is how a member that was `from` and is now `type` orders
+ * its options: a choice type keeps `current`, the teacher's choice, while it
+ * stays a choice type, and starts from "shuffle" when it comes from a type
+ * with no choice (QC-R6B-4); tfng and matching are always "fixed", because
+ * the engine never shuffles them (00149); a type with no options is
+ * "shuffle", the column's default.
+ */
+export function memberOptionOrder(
+  type: string,
+  current: OptionOrder,
+  from: string = type,
+): OptionOrder {
+  if (CHOICE_TYPES.has(type)) return CHOICE_TYPES.has(from) ? current : "shuffle";
+  return type === "tfng" || type === "matching" ? "fixed" : "shuffle";
+}
+
+/** hasOptionOrderChoice says whether a member of `type` offers "Keep the options in order". */
+export function hasOptionOrderChoice(type: string): boolean {
+  return CHOICE_TYPES.has(type);
+}
+
 /**
  * withMembers appends `questions` to the bundle as new members after its
- * existing ones, each with shuffled options, as "Add question" does.
+ * existing ones, each ordering its options as its type allows (memberOptionOrder),
+ * as "Add question" does.
  */
 export function withMembers(
   bundle: GroupBundle,
@@ -45,7 +76,7 @@ export function withMembers(
         ...bundle.group.members,
         ...questions.map((question) => ({
           questionId: question.id,
-          optionOrder: "shuffle" as const,
+          optionOrder: memberOptionOrder(question.input.type, "shuffle"),
         })),
       ],
     },
@@ -181,9 +212,7 @@ function bindingIssue(
       ? null
       : "groups.unboundGaps";
   }
-  return ["single_choice", "multiple_choice", "true_false"].includes(question.type)
-    ? null
-    : "groups.choiceTargetRequired";
+  return CHOICE_TYPES.has(question.type) ? null : "groups.choiceTargetRequired";
 }
 
 function materialBindingsIssue(
