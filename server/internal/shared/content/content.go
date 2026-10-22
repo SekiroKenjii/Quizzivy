@@ -20,6 +20,9 @@ const (
 	MaxColumns = 12
 )
 
+// MaxMediaBlocks bounds the images and audio blocks of one question prompt or explanation together (D-064).
+const MaxMediaBlocks = 8
+
 const semanticFormat = "semantic_v1"
 
 // ErrInvalidDocument rejects invalid or over-budget content without exposing its text.
@@ -33,27 +36,36 @@ type AssetReference struct {
 
 // Document is validated content with immutable JSON, search text and ordered references; its zero value is invalid.
 type Document struct {
-	data      []byte
-	format    string
-	plainText string
-	gaps      []string
-	assets    []AssetReference
+	data        []byte
+	format      string
+	plainText   string
+	gaps        []string
+	assets      []AssetReference
+	profile     profile
+	placesAudio bool
 }
 
 // Parse validates untrusted JSON, including duplicate keys and Unicode, without fetching links or assets.
 func Parse(raw []byte) (Document, error) {
+	return parse(raw, materialProfile)
+}
+
+func parse(raw []byte, p profile) (Document, error) {
 	value, ok := decode(raw)
 	if !ok {
 		return Document{}, ErrInvalidDocument
 	}
-	v := validator{gaps: make(map[string]bool), assets: make(map[string]string)}
+	v := validator{profile: p, gaps: make(map[string]bool), assets: make(map[string]string)}
 	text, ok := v.document(value)
 	if !ok || v.nodes > MaxNodes || v.characters > MaxText {
 		return Document{}, ErrInvalidDocument
 	}
 
-	return Document{data: bytes.Clone(raw), format: kind(value, "format"), plainText: text, gaps: v.gapIDs, assets: v.assetRefs}, nil
+	return Document{data: bytes.Clone(raw), format: kind(value, "format"), plainText: text, gaps: v.gapIDs, assets: v.assetRefs, profile: p, placesAudio: v.audioMarker}, nil
 }
+
+// reparse validates a rewritten encoding under the rules d was parsed with.
+func (d Document) reparse(raw []byte) (Document, error) { return parse(raw, d.profile) }
 
 // MarshalJSON returns an independent JSON encoding; the zero value cannot be serialized as valid content.
 func (d Document) MarshalJSON() ([]byte, error) {
@@ -74,3 +86,9 @@ func (d Document) GapIDs() []string { return slices.Clone(d.gaps) }
 
 // Assets returns deduplicated asset references in first-use order for the enclosing write's authorization and locks.
 func (d Document) Assets() []AssetReference { return slices.Clone(d.assets) }
+
+// PlacesQuestionAudio reports whether a prompt holds the audio marker, which places the question's own audio and names no asset.
+func (d Document) PlacesQuestionAudio() bool { return d.placesAudio }
+
+// HasMedia reports whether the document holds an image or audio block of any kind.
+func (d Document) HasMedia() bool { return len(d.assets) != 0 || d.placesAudio }

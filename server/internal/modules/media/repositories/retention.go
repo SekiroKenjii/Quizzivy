@@ -22,7 +22,10 @@ const namedFile = `(EXISTS (SELECT 1 FROM app.questions r WHERE r.media_asset_id
 	OR EXISTS (SELECT 1 FROM app.group_stimulus_assets r WHERE r.media_asset_id = a.id)
 	OR EXISTS (SELECT 1 FROM app.test_version_questions r WHERE r.media_asset_id = a.id)
 	OR EXISTS (SELECT 1 FROM app.test_version_group_recordings r WHERE r.media_asset_id = a.id)
-	OR EXISTS (SELECT 1 FROM app.test_version_group_assets r WHERE r.media_asset_id = a.id))`
+	OR EXISTS (SELECT 1 FROM app.test_version_group_assets r WHERE r.media_asset_id = a.id)
+	OR EXISTS (SELECT 1 FROM app.question_media_references r JOIN app.questions q ON q.id = r.question_id
+	            WHERE r.media_asset_id = a.id AND q.deleted_at IS NULL)
+	OR EXISTS (SELECT 1 FROM app.test_version_question_media_references r WHERE r.media_asset_id = a.id))`
 
 func isNamed(ctx context.Context, q db.Querier, id string) (bool, error) {
 	var named bool

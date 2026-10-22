@@ -36,6 +36,9 @@ func ReferencesFor(ctx context.Context, q db.Querier, assetIDs []string) (map[st
 		 UNION
 		 SELECT r.media_asset_id,g.test_version_section_id FROM app.test_version_group_recordings r
 		 JOIN app.test_version_groups g ON g.id=r.group_id WHERE r.media_asset_id=ANY($1::uuid[])
+		 UNION
+		 SELECT r.media_asset_id,q.test_version_section_id FROM app.test_version_question_media_references r
+		 JOIN app.test_version_questions q ON q.id=r.test_version_question_id WHERE r.media_asset_id=ANY($1::uuid[])
 		)
 		SELECT DISTINCT a.media_asset_id::text,t.id::text,t.title,tv.version
 		FROM version_assets a
@@ -63,6 +66,9 @@ const questionsUsing = `(
 		SELECT q.id FROM app.questions q
 		 WHERE q.media_asset_id = a.id AND q.deleted_at IS NULL
 		UNION
+		SELECT q.id FROM app.question_media_references r JOIN app.questions q ON q.id = r.question_id
+		 WHERE r.media_asset_id = a.id AND q.deleted_at IS NULL
+		UNION
 		SELECT q.id FROM app.questions q
 		 WHERE q.deleted_at IS NULL
 		   AND q.context_group_id IN (SELECT r.group_id FROM app.group_recordings r WHERE r.media_asset_id = a.id
@@ -73,7 +79,9 @@ const questionsUsing = `(
 // asset's canonical text: a question that attaches it, and every member of a
 // group whose recordings or stimulus assets name it, each question once and
 // whoever owns it. A deleted question, a published version and a group
-// without members add nothing. An id that names no asset is left out.
+// without members add nothing. A question whose prompt or explanation shows
+// it counts as one that attaches it (DG-109). An id that names no asset is
+// left out.
 func QuestionCounts(ctx context.Context, q db.Querier, assetIDs []string) (map[string]int, error) {
 	rows, err := q.Query(ctx, `
 		SELECT a.id::text, (SELECT count(*) FROM `+questionsUsing+` used)
@@ -121,7 +129,9 @@ func LockForVersionUse(ctx context.Context, q db.Querier, assetID string) error 
 
 // ReachableByStudent reports whether a student may mint a signed URL for an
 // asset, true only when it is bound to a question or group in a version they have an
-// attempt on.
+// attempt on, or shown in the prompt of a question there. An explanation's media
+// is never reachable here: the result projection signs it, behind the gate that
+// shows explanations (D-064 ruling 6), because it can show a worked answer.
 func ReachableByStudent(ctx context.Context, q db.Querier, studentID, assetID string) (bool, error) {
 	var reachable bool
 	err := q.QueryRow(ctx, `
@@ -138,7 +148,14 @@ func ReachableByStudent(ctx context.Context, q db.Querier, studentID, assetID st
 		    JOIN app.test_version_sections s ON s.test_version_id = a.test_version_id
 		    JOIN app.test_version_groups g ON g.test_version_section_id = s.id
 		    JOIN app.test_version_group_assets ga ON ga.group_id = g.id
-		   WHERE a.student_id = $1 AND ga.media_asset_id = $2)`, studentID, assetID).Scan(&reachable)
+		   WHERE a.student_id = $1 AND ga.media_asset_id = $2
+		  UNION ALL
+		  SELECT 1
+		    FROM app.attempts a
+		    JOIN app.test_version_sections s ON s.test_version_id = a.test_version_id
+		    JOIN app.test_version_questions q ON q.test_version_section_id = s.id
+		    JOIN app.test_version_question_media_references r ON r.test_version_question_id = q.id
+		   WHERE a.student_id = $1 AND r.field = 'prompt' AND r.media_asset_id = $2)`, studentID, assetID).Scan(&reachable)
 	if err != nil {
 		return false, fmt.Errorf("media: student reachability: %w", err)
 	}
@@ -154,7 +171,10 @@ const readableAssets = `
 	   AND ($2::boolean
 	    OR a.owner_id = $3::uuid
 	    OR EXISTS (SELECT 1 FROM app.questions q
-	                WHERE q.media_asset_id = a.id AND q.context_group_id IS NULL
+	                WHERE q.id IN (SELECT id FROM app.questions WHERE media_asset_id = a.id
+	                               UNION ALL
+	                               SELECT question_id FROM app.question_media_references WHERE media_asset_id = a.id)
+	                  AND q.context_group_id IS NULL
 	                  AND q.deleted_at IS NULL AND q.owner_id = $3::uuid)
 	    OR EXISTS (SELECT 1
 	                 FROM app.question_groups g
@@ -165,7 +185,11 @@ const readableAssets = `
 	                               SELECT group_id FROM app.group_recordings WHERE media_asset_id = a.id
 	                               UNION ALL
 	                               SELECT context_group_id FROM app.questions
-	                                WHERE media_asset_id = a.id AND context_group_id IS NOT NULL)
+	                                WHERE media_asset_id = a.id AND context_group_id IS NOT NULL
+	                               UNION ALL
+	                               SELECT q.context_group_id FROM app.question_media_references r
+	                                 JOIN app.questions q ON q.id = r.question_id
+	                                WHERE r.media_asset_id = a.id AND q.context_group_id IS NOT NULL)
 	                  AND CASE WHEN g.owner_section_id IS NULL THEN g.owner_id ELSE t.owner_id END = $3::uuid)
 	    OR EXISTS (SELECT 1
 	                 FROM app.test_version_sections vs
@@ -179,13 +203,18 @@ const readableAssets = `
 	                                UNION ALL
 	                                SELECT vg.test_version_section_id FROM app.test_version_group_recordings vr
 	                                  JOIN app.test_version_groups vg ON vg.id = vr.group_id
-	                                 WHERE vr.media_asset_id = a.id)
+	                                 WHERE vr.media_asset_id = a.id
+	                                UNION ALL
+	                                SELECT vq.test_version_section_id FROM app.test_version_question_media_references vm
+	                                  JOIN app.test_version_questions vq ON vq.id = vm.test_version_question_id
+	                                 WHERE vm.media_asset_id = a.id)
 	                  AND t.deleted_at IS NULL AND t.owner_id = $3::uuid))`
 
 // Readable is the one definition of which assets a staff scope may read, and
 // so bind or sign: its own, every asset under scope.all, and any asset already
 // used by one of its live bank questions, by a group it owns (a section group
 // through its live test), or by a published version of one of its live tests.
+// A question uses an asset it attaches or shows in its prose (DG-109).
 // It returns the kind of each readable id, keyed by the id's canonical text; an
 // id it leaves out is missing, deleted or unreadable, and callers must answer
 // the three alike. A zero scope reads nothing. It takes no lock.

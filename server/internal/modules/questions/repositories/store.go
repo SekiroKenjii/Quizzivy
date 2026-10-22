@@ -268,6 +268,9 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 	if err := replaceBlanks(ctx, tx, id, in.Input); err != nil {
 		return domain.Question{}, err
 	}
+	if err := WriteMediaReferences(ctx, tx, id, in.Input.PromptContent, in.Input.ExplanationContent); err != nil {
+		return domain.Question{}, err
+	}
 
 	action := "question.created"
 	if update {
