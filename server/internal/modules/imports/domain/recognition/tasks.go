@@ -197,10 +197,11 @@ func declarative(rest string) bool {
 
 var (
 	promise = regexp.MustCompile(`(?i)\band\s+you(?:'ll|\s+(?:will|would|can|could|may|might)\b)`)
-	// vietnameseClause ends a Vietnamese first clause at a comma or a semicolon: a predicate in a later clause ("Điền
-	// vào chỗ trống, mỗi chỗ trống là một từ") belongs to the instruction (QC-R6GRM-6). A "và" does not end it, since
-	// it often joins a compound subject ("Viết nhật ký và đọc sách là…", QC-R6GRM-10).
-	vietnameseClause = regexp.MustCompile(`[,;]`)
+	// vietnameseClause ends a Vietnamese first clause at a comma, a semicolon or a joining "và"/"rồi": a predicate in a
+	// later clause ("Điền vào chỗ trống, mỗi chỗ trống là một từ", "Đọc đoạn văn và chọn những câu là ý chính") belongs
+	// to the instruction (QC-R6GRM-6, QC-R6GRM-13). A compound subject ("Viết nhật ký và đọc sách là…") reads the same,
+	// so it is kept as the instruction and pointed at (LONG_INSTRUCTION) rather than moved silently (QC-R6GRM-10, D-0xx).
+	vietnameseClause = regexp.MustCompile(`[,;]|\s(?:và|rồi)\s`)
 	taskPromise      = regexp.MustCompile(`(?i)\b(?:answers?|questions?)\b`)
 	vietnameseMarks  = [][]string{{"là"}, {"giúp"}, {"khiến"}, {"ngày", "càng"}}
 	// vietnameseAsks holds the question words that make a sentence the task's question ("… là từ nào"), and the word

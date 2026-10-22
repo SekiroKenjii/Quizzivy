@@ -1,6 +1,7 @@
 package recognition_test
 
 import (
+	"encoding/json"
 	"quizzivy/internal/modules/imports/domain"
 	"slices"
 	"strings"
@@ -600,21 +601,37 @@ func instructionsOf(d domain.Draft) string {
 	return strings.Join(text, " ")
 }
 
-// QC-R6GRM-10: a "và" joining a compound subject does not end the first clause, so a Vietnamese passage that opens
-// "Viết nhật ký và đọc sách là…" stays the stimulus in every layout.
-func TestAVietnameseCompoundSubjectStaysThePassage(t *testing.T) {
-	passage := "Viết nhật ký và đọc sách là hai thói quen tốt của học sinh."
+// QC-R6GRM-10, QC-R6GRM-13: after an instruction, a Vietnamese line with "là"/"giúp"/"khiến" after a joining
+// "và"/"rồi" reads two ways: a second command ("Đọc đoạn văn và chọn những câu là ý chính") or a passage with a compound
+// subject ("Viết nhật ký và đọc sách là…"). It stays the instruction, so no instruction text moves silently into the
+// passage, and the draft points at it when it may be the passage.
+func TestAVietnameseLineJoinedByVaStaysTheInstruction(t *testing.T) {
+	passage := "Bảo tàng mở cửa năm 1990 sau nhiều năm vận động của người dân."
+	for _, line := range []string{
+		"Đọc đoạn văn và chọn những câu là ý chính của bài.",
+		"Đọc bài đọc và tìm các từ giúp nối các câu.",
+		"Đọc đoạn văn rồi cho biết điều khiến nhân vật thay đổi.",
+	} {
+		for name, head := range map[string][]string{"heading": {"Câu 1-2", "Đọc đoạn văn sau."}, "roman": {"I. Đọc đoạn văn sau."}} {
+			d := recognize(t, exam(lines(append(head, line, passage, "1. Bảo tàng mở cửa năm nào?", "A. 1980\tB. 1990", "2. Ai góp tiền?", "A. thành phố\tB. người dân")...)), key(lines("1. B\t2. B")))
+			g := d.Sections[0].Items[0].Group
+			if g == nil || !strings.Contains(d.Sections[0].Title+" "+g.Instructions, line) || !strings.HasPrefix(stimulusText(g), "Bảo tàng") {
+				t.Fatalf("%s: the line stays the instruction: %q %+v", name, d.Sections[0].Title, g)
+			}
+		}
+	}
 	for name, head := range map[string][]string{
 		"heading": {"Câu 1-2", "Chọn Đúng, Sai hoặc Không có thông tin."},
 		"roman":   {"I. Chọn Đúng, Sai hoặc Không có thông tin."},
-		"plain":   {"Chọn Đúng, Sai hoặc Không có thông tin."},
 	} {
-		d := recognize(t, exam(lines(append(head, passage, "1. Học sinh nên viết nhật ký.", "2. Đọc sách tốn thời gian.")...)), key(lines("1. Đúng\t2. Không có thông tin")))
-		if g := d.Sections[0].Items[0].Group; g == nil || g.Stimulus == nil || strings.Contains(d.Sections[0].Title+g.Instructions, "nhật ký") {
-			t.Fatalf("%s: the passage is the stimulus: %+v", name, d.Sections)
-		}
-		if q := question(t, d, "1"); q.Type != "tfng" {
-			t.Fatalf("%s: %+v", name, q)
+		for _, line := range []string{"Viết nhật ký và đọc sách là hai thói quen tốt của học sinh.", "Viết thư rồi gửi bưu điện từng là cách liên lạc phổ biến."} {
+			d := recognize(t, exam(lines(append(head, line, "1. Học sinh nên viết nhật ký.", "2. Đọc sách tốn thời gian.")...)), key(lines("1. Đúng\t2. Không có thông tin")))
+			if got := notices(d, domain.CodeLongInstruction); len(got) != 1 || got[0].Severity != domain.Informational {
+				t.Fatalf("%s: %s is pointed at: %+v", name, line, got)
+			}
+			if q := question(t, d, "1"); q.Type != "tfng" {
+				t.Fatalf("%s: %+v", name, q)
+			}
 		}
 	}
 }
@@ -652,4 +669,23 @@ func TestALongLineUnderARomanInstructionPointsAtAPossiblePassage(t *testing.T) {
 			}
 		})
 	}
+}
+
+// stimulusText returns the plain text of a group's stimulus.
+func stimulusText(g *domain.DraftGroup) string {
+	var doc struct {
+		Blocks []struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"blocks"`
+	}
+	_ = json.Unmarshal(g.Stimulus, &doc)
+	var b strings.Builder
+	for _, block := range doc.Blocks {
+		for _, c := range block.Content {
+			b.WriteString(c.Text)
+		}
+	}
+	return b.String()
 }
