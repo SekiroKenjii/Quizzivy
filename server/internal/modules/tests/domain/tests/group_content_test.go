@@ -49,6 +49,27 @@ func shortAnswer() domain.GroupQuestion {
 	}}
 }
 
+func matching() domain.GroupQuestion {
+	return domain.GroupQuestion{ID: groupID(60), Input: questions.Input{
+		Type: questions.Matching, Prompt: "Nối", Points: "4", MatchAllowReuse: groupPointer(false),
+		Options: []questions.OptionInput{
+			{ID: groupPointer(groupID(61)), Text: "Đoạn một"},
+			{ID: groupPointer(groupID(62)), Text: "Đoạn hai"},
+		},
+		MatchItems: []questions.MatchItemInput{
+			{ID: groupPointer(groupID(63)), Text: "Tiêu đề A", CorrectOption: 0},
+			{ID: groupPointer(groupID(64)), Text: "Tiêu đề B", CorrectOption: 1},
+		},
+	}}
+}
+
+func essay() domain.GroupQuestion {
+	return domain.GroupQuestion{ID: groupID(70), Input: questions.Input{
+		Type: questions.Essay, Prompt: "Viết một bài", Points: "9", SampleAnswer: groupPointer("Bài mẫu"),
+		Rubric: []questions.RubricCriterionInput{{ID: groupPointer(groupID(71)), Label: "Nội dung"}, {ID: groupPointer(groupID(72)), Label: "Ngữ pháp"}},
+	}}
+}
+
 func sources() map[string]domain.GroupQuestion {
 	fixture := groupFixture()
 	return map[string]domain.GroupQuestion{
@@ -57,6 +78,8 @@ func sources() map[string]domain.GroupQuestion {
 		"two blanks with a rich prompt":           richBlanks(),
 		"every field of a multiple choice":        richChoice(),
 		"a short answer with a sample and a note": shortAnswer(),
+		"a matching question":                     matching(),
+		"an essay with a rubric":                  essay(),
 	}
 }
 
@@ -156,6 +179,14 @@ func TestAnyEditToTheContentIsADifferentContent(t *testing.T) {
 			q.Input.Blanks[0].GapID, q.Input.Blanks[1].GapID = second, first
 		}},
 		{"a blank removed", richBlanks, func(q *domain.GroupQuestion) { q.Input.Blanks = q.Input.Blanks[:1] }},
+		{"the number to choose", richChoice, func(q *domain.GroupQuestion) { q.Input.SelectCount = groupPointer(2) }},
+		{"the word limit", shortAnswer, func(q *domain.GroupQuestion) { q.Input.MaxWords = groupPointer(3) }},
+		{"reuse of a choice", matching, func(q *domain.GroupQuestion) { q.Input.MatchAllowReuse = groupPointer(true) }},
+		{"an item's text", matching, func(q *domain.GroupQuestion) { q.Input.MatchItems[0].Text = "Khác" }},
+		{"an item's choice", matching, func(q *domain.GroupQuestion) { q.Input.MatchItems[0].CorrectOption = 1 }},
+		{"an item removed", matching, func(q *domain.GroupQuestion) { q.Input.MatchItems = q.Input.MatchItems[:1] }},
+		{"a criterion's label", essay, func(q *domain.GroupQuestion) { q.Input.Rubric[0].Label = "Khác" }},
+		{"a criterion removed", essay, func(q *domain.GroupQuestion) { q.Input.Rubric = nil }},
 	}
 	for _, edit := range edits {
 		t.Run(edit.name, func(t *testing.T) {
@@ -174,12 +205,15 @@ func TestEveryFieldOfAQuestionIsEitherComparedOrAnIdentity(t *testing.T) {
 		reflect.TypeFor[questions.Input](): {
 			"PromptContent": true, "ExplanationContent": true, "Type": true, "Level": true, "Skill": true, "Prompt": true, "MediaAssetID": true,
 			"MediaAlt": true, "Audio": true, "Transcript": true, "Options": true, "Blanks": true, "Points": true, "Explanation": true,
-			"SampleAnswer": true, "Tags": true,
+			"SampleAnswer": true, "Tags": true, "SelectCount": true, "MaxWords": true, "MatchAllowReuse": true,
+			"MatchItems": true, "Rubric": true,
 		},
-		reflect.TypeFor[questions.OptionInput](): {"Content": true, "ID": false, "Text": true, "IsCorrect": true},
-		reflect.TypeFor[questions.BlankInput]():  {"GapID": false, "ID": false, "Ordinal": true, "AcceptedAnswers": true, "CaseSensitive": true},
-		reflect.TypeFor[questions.AudioPolicy](): {"MaxPlays": true, "AllowSeek": true, "ShowTranscriptAfterSubmit": true, "AllowPause": true},
-		reflect.TypeFor[domain.GroupQuestion]():  {"ID": false, "Input": true, "MediaAssetKind": true},
+		reflect.TypeFor[questions.MatchItemInput]():       {"ID": false, "Text": true, "CorrectOption": true},
+		reflect.TypeFor[questions.RubricCriterionInput](): {"ID": false, "Label": true},
+		reflect.TypeFor[questions.OptionInput]():          {"Content": true, "ID": false, "Text": true, "IsCorrect": true},
+		reflect.TypeFor[questions.BlankInput]():           {"GapID": false, "ID": false, "Ordinal": true, "AcceptedAnswers": true, "CaseSensitive": true},
+		reflect.TypeFor[questions.AudioPolicy]():          {"MaxPlays": true, "AllowSeek": true, "ShowTranscriptAfterSubmit": true, "AllowPause": true},
+		reflect.TypeFor[domain.GroupQuestion]():           {"ID": false, "Input": true, "MediaAssetKind": true},
 	}
 	for kind, fields := range known {
 		for i := range kind.NumField() {

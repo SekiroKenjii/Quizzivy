@@ -32,7 +32,7 @@ const questionColumns = `
 	          JOIN app.test_sections s ON s.id = sq.test_section_id
 	          JOIN app.tests t ON t.id = s.test_id AND t.deleted_at IS NULL
 	         WHERE sq.question_id = q.id),
-	       q.created_at, q.updated_at`
+	       q.created_at, q.updated_at, q.select_count, q.max_words, q.match_allow_reuse`
 
 func scanQuestion(row pgx.Row, extra ...any) (domain.Question, error) {
 	var q domain.Question
@@ -43,7 +43,8 @@ func scanQuestion(row pgx.Row, extra ...any) (domain.Question, error) {
 
 	fields := []any{&q.ID, &typ, &q.Prompt, &q.PromptContent, &q.ExplanationContent, &q.MediaAssetID, &q.MediaAssetKind, &q.MediaAlt,
 		&maxPlays, &allowSeek, &showTranscript, &allowPause, &q.Transcript, &q.Points,
-		&q.Explanation, &q.SampleAnswer, &q.Tags, &q.Level, &q.Skill, &q.UsedInTests, &q.CreatedAt, &q.UpdatedAt}
+		&q.Explanation, &q.SampleAnswer, &q.Tags, &q.Level, &q.Skill, &q.UsedInTests, &q.CreatedAt, &q.UpdatedAt,
+		&q.SelectCount, &q.MaxWords, &q.MatchAllowReuse}
 	err := row.Scan(append(fields, extra...)...)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Question{}, domain.ErrNotFound
@@ -93,21 +94,11 @@ func (s *Postgres) get(ctx context.Context, q db.Querier, scope access.Scope, id
 	if err != nil {
 		return domain.Question{}, err
 	}
-	if question.Options, err = s.loadOptions(ctx, q, id); err != nil {
+	questions := []domain.Question{question}
+	if err := s.loadChildren(ctx, q, questions); err != nil {
 		return domain.Question{}, err
 	}
-	if question.Blanks, err = s.loadBlanks(ctx, q, id); err != nil {
-		return domain.Question{}, err
-	}
-	return question, nil
-}
-
-func (s *Postgres) loadOptions(ctx context.Context, q db.Querier, questionID string) ([]domain.Option, error) {
-	byQuestion, err := s.loadOptionsFor(ctx, q, []string{questionID})
-	if err != nil {
-		return nil, err
-	}
-	return byQuestion[questionID], nil
+	return questions[0], nil
 }
 
 func (s *Postgres) loadOptionsFor(ctx context.Context, q db.Querier, questionIDs []string) (map[string][]domain.Option, error) {
@@ -129,14 +120,6 @@ func (s *Postgres) loadOptionsFor(ctx context.Context, q db.Querier, questionIDs
 		return nil, fmt.Errorf("questions: load options: %w", err)
 	}
 	return byQuestion, nil
-}
-
-func (s *Postgres) loadBlanks(ctx context.Context, q db.Querier, questionID string) ([]domain.Blank, error) {
-	byQuestion, err := s.loadBlanksFor(ctx, q, []string{questionID})
-	if err != nil {
-		return nil, err
-	}
-	return byQuestion[questionID], nil
 }
 
 func (s *Postgres) loadBlanksFor(ctx context.Context, q db.Querier, questionIDs []string) (map[string][]domain.Blank, error) {
@@ -226,13 +209,15 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			       context_option_order = coalesce($17, context_option_order),
 			       level = $18, skill = $19, media_alt = $20,
 			       audio_allow_pause = CASE WHEN $7::boolean IS NULL THEN NULL
-			                                ELSE coalesce($21::boolean, audio_allow_pause, true) END
+			                                ELSE coalesce($21::boolean, audio_allow_pause, true) END,
+			       select_count = $22, max_words = $23, match_allow_reuse = $24
 			 WHERE id = $1 AND deleted_at IS NULL
 			 RETURNING id::text`,
 			id, string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
-			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent), ordinal, optionOrder, in.Input.Level, in.Input.Skill, mediaAlt, allowPause).Scan(&id)
+			in.Input.Tags, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent), ordinal, optionOrder, in.Input.Level, in.Input.Skill, mediaAlt, allowPause,
+			in.Input.SelectCount, in.Input.MaxWords, in.Input.MatchAllowReuse).Scan(&id)
 	} else {
 		var createID *string
 		if ownership != nil {
@@ -244,19 +229,19 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 			        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
 			        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content,
 			        id, context_group_id, context_ordinal, context_option_order, owner_id, level, skill, media_alt,
-			        audio_allow_pause, copied_from_id)
+			        audio_allow_pause, copied_from_id, select_count, max_words, match_allow_reuse)
 			VALUES ($1::app.question_type, $2, $3, $4::app.media_kind, $5, $6, $7,
 			        $8, $9::numeric, $10, $11, $12, $13, $14, $15,
 			        coalesce($16::uuid, uuidv7()), $17, $18, $19,
 			        coalesce((SELECT g.owner_id FROM app.question_groups g WHERE g.id = $17), $20::uuid, $13), $21, $22, $23,
-			        CASE WHEN $6::boolean IS NULL THEN NULL ELSE coalesce($24::boolean, true) END, $25::uuid)
+			        CASE WHEN $6::boolean IS NULL THEN NULL ELSE coalesce($24::boolean, true) END, $25::uuid, $26, $27, $28)
 			RETURNING id::text`,
 			string(in.Input.Type), in.Input.Prompt, in.Input.MediaAssetID, kind,
 			maxPlays, allowSeek, showTranscript, in.Input.Transcript,
 			in.Input.Points, in.Input.Explanation, in.Input.SampleAnswer,
 			in.Input.Tags, in.ActorID, nullableContent(in.Input.PromptContent), nullableContent(in.Input.ExplanationContent),
 			createID, groupID, ordinal, optionOrder, opt.String(in.OwnerID), in.Input.Level, in.Input.Skill, mediaAlt, allowPause,
-			copiedFromID).Scan(&id)
+			copiedFromID, in.Input.SelectCount, in.Input.MaxWords, in.Input.MatchAllowReuse).Scan(&id)
 	}
 	if err != nil {
 		return domain.Question{}, writeFailure(err)
@@ -266,6 +251,9 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 		return domain.Question{}, err
 	}
 	if err := replaceBlanks(ctx, tx, id, in.Input); err != nil {
+		return domain.Question{}, err
+	}
+	if err := replaceRubric(ctx, tx, id, in.Input); err != nil {
 		return domain.Question{}, err
 	}
 	if err := WriteMediaReferences(ctx, tx, id, in.Input.PromptContent, in.Input.ExplanationContent); err != nil {

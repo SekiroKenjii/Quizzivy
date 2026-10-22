@@ -130,7 +130,7 @@ at the end says how much is covered and what the next round is.
 | ID | Requirement | Source | Status | Evidence / gap |
 |---|---|---|---|---|
 | NFR-I01 | Vietnamese first: every string through `t()`, both locales, no key missing on either side, no empty string | §14 DoD, §18 | ✅ | `tests/units/i18n/parity.test.ts`, `no-hardcoded-strings.test.ts` |
-| NFR-I02 | Server error messages are localised by `Accept-Language`, `vi` default | overview §7 | 🟡 | Every `message`: `httpx/language.go` (`Text`, `TextFor`), held for every transport by `server/internal/core/tests/messages_test.go`. The per-field sentences in `details` that the rules word, and the publish violations they word, are Vietnamese only (#284) |
+| NFR-I02 | Server error messages are localised by `Accept-Language`, `vi` default | overview §7 | 🟡 | Every `message`: `httpx/language.go` (`Text`, `TextFor`), held for every transport by `server/internal/core/tests/messages_test.go`. The per-field sentences in `details` are a vi/en pair (`validation.Field.English`, D-009) in the question bank, held by `TestNoDomainMessageIsVietnameseOnly` for every module on its list; the other modules' field sentences and the publish violations are Vietnamese only until they join it (#284) |
 | NFR-I03 | Store UTC, render `Asia/Ho_Chi_Minh` everywhere, through one module | #68 | ✅ | `lib/i18n/datetime.ts`, `datetime.test.ts` |
 | NFR-I04 | Search is accent-insensitive on both sides (`pg_trgm`, client `fold`) | §13.8, D-11 | ✅ | Trigram index; `lib/fold.ts` |
 | NFR-I05 | A native review of every `vi` string, prioritising join, integrity and intro copy; layouts hold with the longest strings | T-5.8 | ⬜ | Not done |

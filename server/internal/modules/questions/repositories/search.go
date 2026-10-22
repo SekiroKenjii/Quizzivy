@@ -121,36 +121,7 @@ func (s *Postgres) List(ctx context.Context, in domain.ListInput) ([]domain.Ques
 }
 
 func (s *Postgres) attachChildren(ctx context.Context, questions []domain.Question) error {
-	if len(questions) == 0 {
-		return nil
-	}
-
-	ids := make([]string, len(questions))
-	for i, q := range questions {
-		ids[i] = q.ID
-	}
-
-	options, err := s.loadOptionsFor(ctx, s.Conn(), ids)
-	if err != nil {
-		return err
-	}
-	blanks, err := s.loadBlanksFor(ctx, s.Conn(), ids)
-	if err != nil {
-		return err
-	}
-
-	for i := range questions {
-
-		questions[i].Options = []domain.Option{}
-		questions[i].Blanks = []domain.Blank{}
-		if got, ok := options[questions[i].ID]; ok {
-			questions[i].Options = got
-		}
-		if got, ok := blanks[questions[i].ID]; ok {
-			questions[i].Blanks = got
-		}
-	}
-	return nil
+	return s.loadChildren(ctx, s.Conn(), questions)
 }
 
 func appendMetadataFilters(in domain.ListInput, opts filterOpts, args []any, where []string) ([]any, []string) {

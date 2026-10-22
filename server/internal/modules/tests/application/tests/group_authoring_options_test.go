@@ -25,8 +25,9 @@ func TestSubmittedGroupCommandsRefuseOversizedMemberBeforePersistence(t *testing
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			var invalid *questions.ValidationError
-			if err := run(); !errors.As(err, &invalid) || invalid.Fields[0].Field != "options" {
+			// An invalid member, as the transport answers any other (QC-R6L-1).
+			var invalid *domain.GroupError
+			if err := run(); !errors.As(err, &invalid) || invalid.Rule != "group_question" || invalid.QuestionID != "second" {
 				t.Fatalf("expected member cap: %v", err)
 			}
 		})

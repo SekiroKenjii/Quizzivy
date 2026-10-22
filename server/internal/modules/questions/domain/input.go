@@ -33,7 +33,25 @@ type Input struct {
 	Points             string
 	Explanation        *string
 	SampleAnswer       *string
+	SelectCount        *int
+	MaxWords           *int
+	MatchAllowReuse    *bool
+	MatchItems         []MatchItemInput
+	Rubric             []RubricCriterionInput
 	Tags               []string
+}
+
+// MatchItemInput is one matching item. CorrectOption names its choice by index
+// in the same input's Options, because a choice this write creates has no id.
+type MatchItemInput struct {
+	ID            *string
+	Text          string
+	CorrectOption int
+}
+
+type RubricCriterionInput struct {
+	ID    *string
+	Label string
 }
 
 // WriteRequest is a write to the bank by ActorID. It reaches only ActorID's own
@@ -105,106 +123,112 @@ type ListInput struct {
 
 // Validate enforces question invariants for HTTP, internal writes and publication.
 func (in Input) Validate(assetKind *string) error {
-	var errs []FieldError
-	add := func(field, msg string) { errs = append(errs, FieldError{Field: field, Message: msg}) }
+	errs := &ValidationError{}
 
 	if !in.Type.valid() {
-		add("type", "Loại câu hỏi không hợp lệ.")
-		return &ValidationError{Fields: errs}
+		errs.AddIn("type", "Loại câu hỏi không hợp lệ.", "The question type is not valid.")
+		return errs
 	}
 	if in.Level != nil && !validLevel(*in.Level) {
-		add("level", "Trình độ không hợp lệ.")
+		errs.AddIn("level", "Trình độ không hợp lệ.", "The level is not valid.")
 	}
 	if in.Skill != nil && !validSkill(*in.Skill) {
-		add("skill", "Kỹ năng không hợp lệ.")
+		errs.AddIn("skill", "Kỹ năng không hợp lệ.", "The skill is not valid.")
 	}
 	if strings.TrimSpace(in.Prompt) == "" {
-		add("prompt", "Nội dung câu hỏi không được để trống.")
+		errs.AddIn("prompt", "Nội dung câu hỏi không được để trống.", "The question text cannot be empty.")
 	}
 	if _, valid := PointUnits(in.Points); !valid {
-		add("points", "Điểm phải lớn hơn 0, không quá 999999,99 và có tối đa hai chữ số thập phân.")
+		errs.AddIn("points", "Điểm phải lớn hơn 0, không quá 999999,99 và có tối đa hai chữ số thập phân.", "Points must be more than 0, at most 999999.99, with at most two decimal places.")
 	}
 
 	if err := in.ValidateContent(); err != nil {
-		errs = append(errs, err.(*ValidationError).Fields...)
+		errs.Fields = append(errs.Fields, err.(*ValidationError).Fields...)
 	}
-	validateOptions(in, add)
-	validateBlanks(in, add)
-	validateMedia(in, assetKind, add)
-	validateMediaAlt(in, assetKind, add)
+	validateOptions(in, errs)
+	validateBlanks(in, errs)
+	validateMedia(in, assetKind, errs)
+	validateMediaAlt(in, assetKind, errs)
 
-	if in.SampleAnswer != nil && *in.SampleAnswer != "" && in.Type != ShortAnswer {
-		add("sampleAnswer", "Đáp án mẫu chỉ dùng cho câu trả lời ngắn.")
+	validateTypeFields(in, errs)
+
+	if in.SampleAnswer != nil && *in.SampleAnswer != "" && in.Type != ShortAnswer && in.Type != Essay {
+		errs.AddIn("sampleAnswer", "Đáp án mẫu chỉ dùng cho câu trả lời ngắn và bài luận.", "Only a short answer or an essay has a sample answer.")
 	}
 	for i, tag := range in.Tags {
 		if strings.TrimSpace(tag) == "" {
-			add(fmt.Sprintf("tags[%d]", i), "Thẻ không được để trống.")
+			errs.AddIn(fmt.Sprintf("tags[%d]", i), "Thẻ không được để trống.", "A tag cannot be empty.")
 		}
 	}
 
-	if len(errs) > 0 {
-		return &ValidationError{Fields: errs}
+	if invalid := errs.OrNil(); invalid != nil {
+		return invalid
 	}
 	return nil
 }
 
-func validateOptions(in Input, add func(string, string)) {
-	if !in.Type.IsChoice() {
+func validateOptions(in Input, errs *ValidationError) {
+	if !in.Type.HasOptions() {
 		if len(in.Options) > 0 {
-			add("options", "Loại câu hỏi này không có phương án chọn.")
+			errs.AddIn("options", "Loại câu hỏi này không có phương án chọn.", "This question type has no options.")
 		}
+		return
+	}
+	switch in.Type {
+	case TFNG:
+		validateTFNGOptions(in, errs)
+		return
+	case Matching:
+		validateMatchChoices(in, errs)
 		return
 	}
 
 	if len(in.Options) < 2 {
-		add("options", "Cần ít nhất hai phương án.")
+		errs.AddIn("options", "Cần ít nhất hai phương án.", "Add at least two options.")
 	}
-	correct := 0
 	for i, o := range in.Options {
-		validateOptionText(i, o, add)
-		if o.IsCorrect {
-			correct++
-		}
+		validateOptionText(i, o, errs)
 	}
+	correct := correctOptions(in)
 	if correct == 0 {
-		add("options", "Cần ít nhất một phương án đúng.")
+		errs.AddIn("options", "Cần ít nhất một phương án đúng.", "Mark at least one option correct.")
 	}
 	if (in.Type == SingleChoice || in.Type == TrueFalse) && correct > 1 {
-		add("options", "Câu hỏi một đáp án hoặc đúng/sai chỉ được có một phương án đúng.")
+		errs.AddIn("options", "Câu hỏi một đáp án hoặc đúng/sai chỉ được có một phương án đúng.", "A single choice or true/false question has exactly one correct option.")
 	}
 	if in.Type == TrueFalse && len(in.Options) != 2 {
-		add("options", "Câu đúng/sai phải có đúng hai phương án.")
+		errs.AddIn("options", "Câu đúng/sai phải có đúng hai phương án.", "A true/false question has exactly two options.")
 	}
 }
 
-func validateBlanks(in Input, add func(string, string)) {
+func validateBlanks(in Input, errs *ValidationError) {
 	if in.Type != FillBlank {
 		if len(in.Blanks) > 0 {
-			add("blanks", "Loại câu hỏi này không có chỗ trống.")
+			errs.AddIn("blanks", "Loại câu hỏi này không có chỗ trống.", "This question type has no blanks.")
 		}
 		return
 	}
 	if len(in.Blanks) == 0 {
-		add("blanks", "Cần ít nhất một chỗ trống.")
+		errs.AddIn("blanks", "Cần ít nhất một chỗ trống.", "Add at least one blank.")
 	}
-	ordinals := validateEachBlank(in, add)
+	ordinals := validateEachBlank(in, errs)
 	if !hasProse(in.PromptContent) {
-		validateBlankOrdinalsMatchPrompt(in, ordinals, add)
+		validateBlankOrdinalsMatchPrompt(in, ordinals, errs)
 		for _, blank := range in.Blanks {
 			if blank.GapID != nil {
-				add("blanks", "Liên kết chỗ trống chỉ dùng với nội dung có định dạng.")
+				errs.AddIn("blanks", "Liên kết chỗ trống chỉ dùng với nội dung có định dạng.", "Only formatted text links a blank to a gap.")
 			}
 		}
 	}
 }
 
-func validateGapBindings(in Input, add func(string, string)) {
+func validateGapBindings(in Input, errs *ValidationError) {
 	document, err := content.ParseQuestionPrompt(in.PromptContent)
 	if err != nil {
 		return
 	}
 	if len(document.GapIDs()) == 0 || len(in.Blanks) == 0 {
-		add("blanks", "Cần ít nhất một chỗ trống với đáp án tương ứng.")
+		errs.AddIn("blanks", "Cần ít nhất một chỗ trống với đáp án tương ứng.", "Add at least one blank with its answers.")
 		return
 	}
 	expected := make(map[string]bool)
@@ -213,43 +237,43 @@ func validateGapBindings(in Input, add func(string, string)) {
 	}
 	for _, blank := range in.Blanks {
 		if blank.GapID == nil || !expected[*blank.GapID] {
-			add("blanks", "Mỗi chỗ trống phải liên kết đúng một vị trí trong nội dung.")
+			errs.AddIn("blanks", "Mỗi chỗ trống phải liên kết đúng một vị trí trong nội dung.", "Each blank must link to exactly one gap in the text.")
 			continue
 		}
 		delete(expected, *blank.GapID)
 	}
 	if len(expected) != 0 {
-		add("blanks", "Có chỗ trống trong nội dung chưa có đáp án tương ứng.")
+		errs.AddIn("blanks", "Có chỗ trống trong nội dung chưa có đáp án tương ứng.", "A gap in the text has no answers yet.")
 	}
 }
 
-func validateEachBlank(in Input, add func(string, string)) map[int]bool {
+func validateEachBlank(in Input, errs *ValidationError) map[int]bool {
 	seen := map[int]bool{}
 	for i, b := range in.Blanks {
 		if b.Ordinal < 1 || b.Ordinal > 32767 {
-			add(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống phải từ 1 đến 32767.")
+			errs.AddIn(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống phải từ 1 đến 32767.", "A blank's number must be from 1 to 32767.")
 		}
 		if seen[b.Ordinal] {
-			add(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống bị trùng.")
+			errs.AddIn(fmt.Sprintf("blanks[%d].ordinal", i), "Số thứ tự chỗ trống bị trùng.", "Two blanks have the same number.")
 		}
 		seen[b.Ordinal] = true
-		validateBlankAnswers(i, b, add)
+		validateBlankAnswers(i, b, errs)
 	}
 	return seen
 }
 
-func validateBlankAnswers(i int, b BlankInput, add func(string, string)) {
+func validateBlankAnswers(i int, b BlankInput, errs *ValidationError) {
 	if len(b.AcceptedAnswers) == 0 {
-		add(fmt.Sprintf("blanks[%d].acceptedAnswers", i), "Cần ít nhất một đáp án được chấp nhận.")
+		errs.AddIn(fmt.Sprintf("blanks[%d].acceptedAnswers", i), "Cần ít nhất một đáp án được chấp nhận.", "Add at least one accepted answer.")
 	}
 	for j, a := range b.AcceptedAnswers {
 		if strings.TrimSpace(a) == "" {
-			add(fmt.Sprintf("blanks[%d].acceptedAnswers[%d]", i, j), "Đáp án không được để trống.")
+			errs.AddIn(fmt.Sprintf("blanks[%d].acceptedAnswers[%d]", i, j), "Đáp án không được để trống.", "An answer cannot be empty.")
 		}
 	}
 }
 
-func validateBlankOrdinalsMatchPrompt(in Input, seen map[int]bool, add func(string, string)) {
+func validateBlankOrdinalsMatchPrompt(in Input, seen map[int]bool, errs *ValidationError) {
 	inPrompt := Questions.PromptPlaceholders(in.Prompt)
 	promptSet := make(map[int]bool, len(inPrompt))
 	for _, n := range inPrompt {
@@ -257,49 +281,51 @@ func validateBlankOrdinalsMatchPrompt(in Input, seen map[int]bool, add func(stri
 	}
 	for n := range seen {
 		if !promptSet[n] {
-			add("blanks", fmt.Sprintf("Chỗ trống %d không có {{%d}} tương ứng trong đề bài.", n, n))
+			errs.AddIn("blanks", fmt.Sprintf("Chỗ trống %d không có {{%d}} tương ứng trong đề bài.", n, n),
+				fmt.Sprintf("Blank %d has no {{%d}} in the question text.", n, n))
 		}
 	}
 	for _, n := range inPrompt {
 		if !seen[n] {
-			add("prompt", fmt.Sprintf("Đề bài có {{%d}} nhưng thiếu chỗ trống %d.", n, n))
+			errs.AddIn("prompt", fmt.Sprintf("Đề bài có {{%d}} nhưng thiếu chỗ trống %d.", n, n),
+				fmt.Sprintf("The question text has {{%d}} but no blank %d.", n, n))
 		}
 	}
 }
 
-func validateMedia(in Input, assetKind *string, add func(string, string)) {
+func validateMedia(in Input, assetKind *string, errs *ValidationError) {
 	hasAudio := assetKind != nil && *assetKind == "audio"
 
 	switch {
 	case hasAudio && in.Audio == nil:
-		add("audio", "Câu hỏi có tệp âm thanh cần thiết lập nghe.")
+		errs.AddIn("audio", "Câu hỏi có tệp âm thanh cần thiết lập nghe.", "A question with audio needs its listening settings.")
 	case !hasAudio && in.Audio != nil:
-		add("audio", "Chỉ câu hỏi có tệp âm thanh mới có thiết lập nghe.")
+		errs.AddIn("audio", "Chỉ câu hỏi có tệp âm thanh mới có thiết lập nghe.", "Only a question with audio has listening settings.")
 	}
 	if in.Audio != nil && in.Audio.MaxPlays != nil && *in.Audio.MaxPlays < 1 {
-		add("audio.maxPlays", "Số lần nghe phải lớn hơn 0.")
+		errs.AddIn("audio.maxPlays", "Số lần nghe phải lớn hơn 0.", "The number of plays must be more than 0.")
 	}
 	if in.Transcript != nil && *in.Transcript != "" && !hasAudio {
-		add("transcript", "Chỉ câu hỏi có tệp âm thanh mới có lời thoại.")
+		errs.AddIn("transcript", "Chỉ câu hỏi có tệp âm thanh mới có lời thoại.", "Only a question with audio has a transcript.")
 	}
 	if in.MediaAssetID == nil && in.Audio != nil {
-		add("audio", "Chưa chọn tệp âm thanh.")
+		errs.AddIn("audio", "Chưa chọn tệp âm thanh.", "No audio file is chosen.")
 	}
 }
 
-func validateMediaAlt(in Input, assetKind *string, add func(string, string)) {
+func validateMediaAlt(in Input, assetKind *string, errs *ValidationError) {
 	if in.MediaAlt == nil {
 		return
 	}
 	switch {
 	case assetKind == nil || *assetKind != "image":
-		add("mediaAlt", "Chỉ câu hỏi có hình ảnh mới có văn bản thay thế.")
+		errs.AddIn("mediaAlt", "Chỉ câu hỏi có hình ảnh mới có văn bản thay thế.", "Only a question with an image has alt text.")
 	case strings.TrimSpace(*in.MediaAlt) == "":
-		add("mediaAlt", "Văn bản thay thế không được để trống.")
+		errs.AddIn("mediaAlt", "Văn bản thay thế không được để trống.", "The alt text cannot be empty.")
 	case utf8.RuneCountInString(*in.MediaAlt) > MaxMediaAltLength:
-		add("mediaAlt", "Văn bản thay thế không được dài quá 1000 ký tự.")
+		errs.AddIn("mediaAlt", "Văn bản thay thế không được dài quá 1000 ký tự.", "The alt text cannot be longer than 1000 characters.")
 	case !utf8.ValidString(*in.MediaAlt) || strings.ContainsRune(*in.MediaAlt, 0):
-		add("mediaAlt", "Văn bản thay thế chứa ký tự không hợp lệ.")
+		errs.AddIn("mediaAlt", "Văn bản thay thế chứa ký tự không hợp lệ.", "The alt text holds a character that is not allowed.")
 	}
 }
 
@@ -320,11 +346,11 @@ func (o OptionInput) ValidateContent() error {
 	return nil
 }
 
-func validateOptionText(index int, option OptionInput, add func(string, string)) {
+func validateOptionText(index int, option OptionInput, errs *ValidationError) {
 	if err := option.ValidateContent(); err != nil {
-		add(fmt.Sprintf("options[%d].content", index), "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản.")
+		errs.AddIn(fmt.Sprintf("options[%d].content", index), "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản.", "The option's formatting is not valid or does not match its text.")
 	}
 	if strings.TrimSpace(option.Text) == "" {
-		add(fmt.Sprintf("options[%d].text", index), "Nội dung phương án không được để trống.")
+		errs.AddIn(fmt.Sprintf("options[%d].text", index), "Nội dung phương án không được để trống.", "An option's text cannot be empty.")
 	}
 }
