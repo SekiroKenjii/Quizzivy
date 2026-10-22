@@ -200,6 +200,12 @@ describe("an essay", () => {
     await user.click(up);
     expect(last().rubric![0]!.label).toBe("Hoàn thành yêu cầu đề bài");
 
+    expect(
+      screen.getByRole("button", { name: "Đưa tiêu chí 4 xuống" }),
+    ).toHaveAttribute("aria-disabled", "true");
+    expect(
+      screen.getByRole("button", { name: "Đưa tiêu chí 1 xuống" }),
+    ).not.toHaveAttribute("aria-disabled");
     await user.click(screen.getByRole("button", { name: "Đưa tiêu chí 1 xuống" }));
     expect(last().rubric![0]!.label).toBe("Mạch lạc và liên kết");
     await user.click(screen.getByRole("button", { name: "Xoá tiêu chí 4" }));
@@ -301,8 +307,13 @@ describe("matching", () => {
     const removeItem = screen.getByRole("button", { name: "Xoá mục A" });
     expect(removeItem).toHaveAttribute("aria-disabled", "true");
     await user.click(removeItem);
-    expect(await screen.findByText("Câu nối cần ít nhất 2 mục")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "Xoá lựa chọn i" }));
+    await user.click(removeItem);
+    // QC-R6AC-11: a second press replaces the toast rather than stacking one.
+    expect(await screen.findAllByText("Câu nối cần ít nhất 2 mục")).toHaveLength(1);
+    expect(screen.getAllByRole("textbox", { name: /^Mục / })).toHaveLength(2);
+    const removeOption = screen.getByRole("button", { name: "Xoá lựa chọn i" });
+    expect(removeOption).toHaveAttribute("aria-disabled", "true");
+    await user.click(removeOption);
     expect(
       await screen.findByText("Câu nối cần ít nhất 2 lựa chọn"),
     ).toBeInTheDocument();
@@ -313,6 +324,31 @@ describe("matching", () => {
       within(await screen.findByRole("listbox")).getByRole("option", { name: "Chọn…" }),
     );
     expect(last().matchItems![0]!.correctOption).toBe(-1);
+  });
+
+  it("removes an item above two, moving focus to Add item, and names each option apart", async () => {
+    const { user, last } = renderArea(
+      matching({
+        matchItems: [
+          { id: null, text: "meow", correctOption: 0 },
+          { id: null, text: "woof", correctOption: 1 },
+          { id: null, text: "tweet", correctOption: 2 },
+        ],
+      }),
+    );
+    const removeC = screen.getByRole("button", { name: "Xoá mục C" });
+    expect(removeC).not.toHaveAttribute("aria-disabled");
+    await user.click(removeC);
+    expect(last().matchItems!.map((item) => item.text)).toEqual(["meow", "woof"]);
+    expect(screen.getByRole("button", { name: "Thêm mục" })).toHaveFocus();
+
+    await user.click(screen.getByRole("combobox", { name: "Lựa chọn đúng cho mục A" }));
+    // QC-R6AC-10: the numeral and the text are read as two words.
+    expect(
+      within(await screen.findByRole("listbox")).getByRole("option", {
+        name: "iii bird",
+      }),
+    ).toBeInTheDocument();
   });
 
   it("picks an item's option from the select and flags one option on two items unless reuse is on", async () => {
