@@ -1439,6 +1439,8 @@ listed here matches the spec.
 | D-65 | Add `question_rubric_criteria` and its frozen copy `test_version_rubric_criteria` (up to six labels per question, 1 to 80 characters), the copy with `UPDATE` revoked from the app role | An essay's band is the mean of its criteria's bands when it has criteria (DG-61, interim): criteria are per question, not a centre-wide model, until the design team draws one. The copy carries `UNIQUE (test_version_question_id, id)`, so a grade's composite FK can name only a criterion of the question it grades (§59) |
 | D-66 | Matching reuses `question_options` as its choice list, none marked correct, and adds `question_match_items` and `test_version_match_items`, each item keyed to one option by a composite FK `(question_id, correct_option_id)` onto a plain unique index `(question_id, id)` built `CONCURRENTLY` (`00151`); both question tables gain `match_allow_reuse`, present exactly on a matching question | The choices are already options in every path (authoring, duplicate, publish, the student projection), and the composite key keeps an item from pointing into another question. The FK is `NO ACTION`, checked at the end of the statement, so a purge that cascades to options and items together passes whatever order the cascade takes. The index is not attached as a constraint, so dropping a constraint can never take it (§59) |
 | D-67 | `attempt_answers` gains `band numeric(3,1)` (3 to 9 in half steps, only beside a `manual_score`), and `attempt_answer_criteria` holds a band per rubric criterion | An essay is graded on a band and the band is converted to points, `manual_score = round(band × points ÷ 9, 2)`, so `final_score` and every total stay points; the band is stored beside them because the result and the grading screen show it and the points cannot give it back. Criteria rows are replaced on a regrade, as `manual_score` is (§59) |
+| D-68 | `attempt_answer_criteria`'s criterion FK is composite, `(question_id, criterion_id)` onto `test_version_rubric_criteria (test_version_question_id, id)`, where plan 76 named `criterion_id` alone | The single-column FK would accept a grade that names another question's criterion; the composite one refuses it in the database, and its index follows the FK (§59). Chosen by the R6 migrations thread (T-R6.1b) |
+| D-69 | Media named inside a prompt or an explanation gets reference rows, `question_media_references` and the frozen `test_version_question_media_references` (`00154`), rather than the readers scanning `prompt_content` and `explanation_content` | "Used in", the delete refusal, the unreferenced sweep, staff readability and student reach all ask whether an asset is in use; a row with a composite FK onto `media_assets (id, kind)` and `RESTRICT` answers that in the database, and `field` keeps a prompt's media (signed while the paper is sat) apart from an explanation's (signed only through the gated result) (§60, D-064) |
 
 ---
 
@@ -1591,6 +1593,7 @@ the file it adds.
 | `00151_index_question_options_identity.sql` | `NO TRANSACTION`: unique indexes `question_options (question_id, id)` and `test_version_options (test_version_question_id, id)`, `CONCURRENTLY` | R6 (T-R6.1b), D-66 |
 | `00152_create_question_match_items.sql` | `question_match_items`, `test_version_match_items` (`UPDATE` revoked), `match_allow_reuse` on both question tables, backfilled on matching rows; Down refuses while a matching question exists; `lock_timeout` 5 s | R6 (T-R6.1b), D-66 |
 | `00153_add_attempt_answer_bands.sql` | `attempt_answers.band`, `attempt_answer_criteria`; Down refuses while a band or a criterion grade exists; `lock_timeout` 5 s | R6 (T-R6.1b), D-67 |
+| `00154_create_question_media_references.sql` | `question_media_references`, `test_version_question_media_references` (`UPDATE` revoked), both with `media_asset_binding_guard`; Down refuses while either holds a row | R6 (T-R6.2b), D-69, §60 |
 
 Notes on migration mechanics (§13.7):
 
@@ -4256,12 +4259,13 @@ Otherwise it drops the columns and the tables; the indexes stay for `00151`'s Do
   CASCADE`, and `attempt_answer_criteria_criterion_fk FOREIGN KEY (question_id, criterion_id) →
   test_version_rubric_criteria (test_version_question_id, id) ON DELETE RESTRICT`, with the same step CHECK and an
   index on `(question_id, criterion_id)` for the RESTRICT check. The plan named a single-column `criterion_id` FK;
-  the composite one also refuses a grade naming another question's criterion, and the index follows it.
+  the composite one also refuses a grade naming another question's criterion, and the index follows it (D-68).
 
 `manual_score = round(band × points ÷ 9, 2)`, so `final_score`, `finishGrading` and every points total are
 unchanged. The criteria table is not append-only: a regrade replaces its rows, as it overwrites `manual_score`. A
-grade write is not audited (last write wins, ledger T-11); whether a regrade keeps a history in the audit log is an
-open decision for the user (spec §13.4), so this file records only what it builds. The retention sweep keeps
+grade that changes a mark is audited since T-R6.7 (D-069 in `decisions.md`, spec §13.4): one `attempt.graded` row per
+attempt, whose diff holds the changed `manualScore`, `band` and `criteria` as `{old, new}`; the tables themselves keep no
+history. The retention sweep keeps
 answer rows (D-61), so a band outlives a removed response with its points. Down refuses while any band or criterion
 grade exists, and otherwise drops the table and the column.
 
@@ -4276,7 +4280,7 @@ and leaves `band`, so no binary older than T-R6.4 may grade once bands are writt
 
 An image or audio block in a question's prompt or explanation names a media asset by id inside the JSON
 (`prompt_content`, `explanation_content`). `00154` makes each such name a row, so the database and not a scan of the JSON
-answers whether an asset is in use:
+answers whether an asset is in use (D-69):
 
 - `app.question_media_references (question_id → questions ON DELETE CASCADE, field, media_asset_id, media_asset_kind)`,
   primary key `(question_id, field, media_asset_id)`, written by `WriteMediaReferences` in the transaction that writes

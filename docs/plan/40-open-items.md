@@ -820,6 +820,52 @@ per-question scores and the band together. Gating the band alone would hide noth
 production behaviour that predates R6, so it is the owner's call. Raised as QC-R6RS-4; T-R6.8b
 keeps today's behaviour (D-071).
 
+R6's other open items, moved here from `76-r6.md` "Open items" by T-R6.15. Each default is what
+v0.13.0 ships; an answer that differs becomes a task in the release it names. The design
+departures behind them are in `docs/design/gaps.md`.
+
+### O-R6.2 — The undrawn authoring panels · design team (DG-60, DG-113, DG-228)
+**Default (built):** "Choose N", the word limit, the essay with its rubric, and matching's reuse
+switch are built from deck primitives and listed in DG-228. Two points differ from the builder's
+drawing and follow `76-r6.md`: `tfng` stays its own stored type behind the drawn switch, and
+matching keeps 12 choices and 20 items where the deck stops at ten of each.
+**Open:** the design team draws the panels and confirms both limits.
+
+### O-R6.3 — Matching on the Student page · design team (DG-194)
+**Default (built, D-063):** one key style, derived from the authored order (choices i, ii, iii …,
+items A, B, C …). The deck's three key styles and the nouns "pick the {pick} for each {what}"
+have no model and are not built.
+**Open:** whether teachers need another key style, and where its nouns would come from.
+
+### O-R6.4 — A per-question hint line and an image caption · design team (DG-189)
+**Default:** not built; neither has a field.
+
+### O-R6.5 — The rubric model · Thuong or the design team (DG-61)
+**Default (built, interim):** criteria per essay, at most six, frozen at publish; the band is
+their mean rounded half up to 0.5.
+**Open:** confirm the model, or name a weighted or fixed-criteria one.
+
+### O-R6.6 — The essay grading scale · design team (DG-86)
+**Default (built):** thirteen values, 3 to 9 in half steps, where the deck draws nine from 3 to 8.
+**Open:** the design team redraws the score row.
+
+### O-R6.7 — Topic tiles · Thuong or the design team (DG-85)
+**Default (built):** a paper with one part and one skill shows no tiles; nothing models a topic.
+**Proposed interim rule:** a tile per question tag shared by two or more scored questions, which
+needs publish to freeze tags with the question. Thuong or the design team decides.
+
+### O-R6.8 — YES / NO / NOT GIVEN · any release
+**Default:** not built. It would need a label set on `tfng`; teachers use TFNG meanwhile.
+
+### O-R6.9 — Essays in the Word import · any release
+**Default:** a writing prompt ("Write at least 150 words") is not recognised as an essay; the
+teacher changes the type in review.
+
+### O-R6.10 — Inline media in passages, and a second recording in one question · not planned (DG-109)
+**Default:** images and audio in a prompt or an explanation ship in R6 (D-064). Inline media in
+passages stays out of scope, and a second recording in one question outside a group would
+need a per-node play count, which is attempts work and not planned.
+
 ---
 
 ## Answered during planning
