@@ -14,6 +14,7 @@ import (
 	mediahttp "quizzivy/internal/modules/media/http"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/content"
 	"quizzivy/internal/shared/validation"
 	"time"
 
@@ -358,7 +359,36 @@ func (h Attempts) toAPIReviewQuestion(ctx context.Context, q domain.ReviewQuesti
 		media := mediahttp.ToAPIMediaAsset(asset, url)
 		out.Media = &media
 	}
-	return out, nil
+	return out, h.reviewContentAssets(ctx, q, &out)
+}
+
+// reviewContentAssets signs the media the frozen prompt and explanation show
+// (DG-109) for the grader, as the editor's reader does, so a review shows
+// what the student saw (D-077); a file that cannot be loaded is left out.
+func (h Attempts) reviewContentAssets(ctx context.Context, q domain.ReviewQuestion, out *openapi.AdminQuestion) error {
+	shown, err := content.QuestionMedia(q.PromptContent, q.ExplanationContent)
+	if err != nil || len(shown) == 0 || h.media == nil {
+		return nil
+	}
+	seen := make(map[string]bool, len(shown))
+	assets := make([]openapi.MediaAsset, 0, len(shown))
+	for _, ref := range shown {
+		if seen[ref.ID] {
+			continue
+		}
+		seen[ref.ID] = true
+		asset, err := h.media.Get(ctx, ref.ID)
+		if err != nil {
+			continue
+		}
+		url, err := h.media.SignedURL(ctx, asset)
+		if err != nil {
+			return err
+		}
+		assets = append(assets, mediahttp.ToAPIMediaAsset(asset, url))
+	}
+	out.ContentAssets = &assets
+	return nil
 }
 
 func toAPIRubric(rubric []domain.RubricCriterion) []openapi.RubricCriterion {

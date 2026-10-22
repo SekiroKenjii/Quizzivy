@@ -2289,6 +2289,14 @@ components:
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
         sampleAnswer: { type: [string, 'null'] }
+        contentAssets:
+          type: array
+          items: { $ref: '#/components/schemas/MediaAsset' }
+          description: |
+            The media the frozen `promptContent` and `explanationContent` show
+            (DG-109), signed for the grader as `AdminQuestion.contentAssets`
+            is (D-077), once each, prompt first. Absent when they show none; a
+            file that cannot be loaded is left out.
         sharedContext: { $ref: '#/components/schemas/SharedReviewContext' }
 
     QuestionAnswerRow:
@@ -4639,6 +4647,9 @@ components:
             The media `promptContent` and `explanationContent` show (DG-109),
             signed for the editor, once each, prompt first. Absent when they
             show none; a file that cannot be loaded is left out, as `media` is.
+            The attempt review and grade-by-question readers sign the frozen
+            version's media here too, so a grader sees what the student saw
+            (D-077).
         mediaAlt:
           type: [string, 'null']
           description: |

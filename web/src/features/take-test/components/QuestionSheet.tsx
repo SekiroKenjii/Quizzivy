@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next";
 import { PAPER_SURFACE } from "@/components/shared/content/paperSurface";
 import { cn } from "@/lib/utils";
 import { QuestionBody } from "./QuestionBody";
+import { marksAudio } from "@/components/shared/content/proseMediaRenderer";
+import { PromptMedia } from "./PromptMedia";
 import { QuestionImage } from "./QuestionImage";
 import { UnknownType } from "./UnknownType";
 import { questionKind, questionLine } from "../questionType";
@@ -17,7 +19,9 @@ import type { Answer, StudentQuestion } from "../api";
  * the answer what the question is worth. A short answer says its worth beside
  * the word count. A type this page has no renderer for gets UnknownType in
  * place of the prompt and the answer, and claims no worth. Images and rich
- * tables inside it keep the paper surface in dark mode. It holds no state:
+ * tables inside it keep the paper surface in dark mode. The prompt's own
+ * images draw from `promptAssets`, and a prompt that places the recording
+ * (D-064) draws it there instead of above the prompt. It holds no state:
  * the engine joins it to the store through QuestionCard, and the teacher's
  * preview draws it read-only.
  */
@@ -50,6 +54,7 @@ export function QuestionSheet({
 }>) {
   const { t } = useTranslation();
   const kind = questionKind(question);
+  const marked = kind !== "unknown" && marksAudio(question);
   return (
     <div className={cn("flex flex-col gap-4.5", PAPER_SURFACE)}>
       <div className="flex items-center justify-between gap-2.5">
@@ -63,17 +68,23 @@ export function QuestionSheet({
         {action}
       </div>
       {lead}
-      {audio}
+      {marked ? null : audio}
       <QuestionImage question={question} onRetry={onRetryMedia} />
       {kind === "unknown" ? (
         <UnknownType number={number} />
       ) : (
-        <QuestionBody
-          question={question}
-          answer={answer}
-          onAnswer={onAnswer}
-          disabled={disabled}
-        />
+        <PromptMedia
+          assets={question.promptAssets}
+          audio={marked ? audio : null}
+          onRetry={onRetryMedia}
+        >
+          <QuestionBody
+            question={question}
+            answer={answer}
+            onAnswer={onAnswer}
+            disabled={disabled}
+          />
+        </PromptMedia>
       )}
       {(kind === "choice" || kind === "fill_blank" || kind === "matching") && (
         <p className="text-muted-fg text-meta -mt-3 leading-normal">

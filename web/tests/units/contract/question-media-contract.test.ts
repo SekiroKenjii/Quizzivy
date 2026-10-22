@@ -3,22 +3,29 @@ import { resolve } from "node:path";
 import Ajv from "ajv/dist/2020";
 import addFormats from "ajv-formats";
 import { loadSpec, SPEC_PATH } from "@tests/support/openapi";
+import { QUESTION_MEDIA_LIMITS } from "@/components/shared/content/model";
+import { contentPlainText } from "@/components/shared/content/plainText";
 import {
   isQuestionContent,
-  isQuestionPromptContent,
+  placesAudio,
+  questionMedia,
+  validateQuestionProse,
 } from "@/components/shared/content/questionContent";
 
 /**
  * api/testdata/question-media-v1.json is the server's statement of DG-109's
  * media rules (D-064). The schema must accept every document the server
- * accepts, and until R6-14 draws media this client's guards refuse each one,
- * as the bank write does until R6-13.
+ * accepts, and this client's guards must take and refuse exactly what the
+ * server does, projecting each document to the server's plain text.
  */
 type Case = {
   name: string;
   profile: "prompt" | "explanation";
   document: unknown;
   valid: boolean;
+  plainText?: string;
+  assets?: { id: string; kind: "image" | "audio" }[];
+  placesAudio?: boolean;
 };
 
 const cases = JSON.parse(
@@ -47,12 +54,34 @@ test.each(cases.filter((fixture) => fixture.valid))(
 );
 
 test.each(cases.filter((fixture) => fixture.valid))(
-  "$name is refused by this client until R6-14",
+  "$name is taken by this client as the server takes it",
   (fixture) => {
-    expect(isQuestionPromptContent(fixture.document)).toBe(false);
+    const parsed = validateQuestionProse(fixture.document, fixture.profile);
+    expect(parsed.ok).toBe(true);
+    if (!parsed.ok) return;
+    expect(contentPlainText(parsed.value)).toBe(fixture.plainText);
+    expect(questionMedia(parsed.value)).toEqual(fixture.assets);
+    expect(placesAudio(parsed.value)).toBe(fixture.placesAudio ?? false);
     expect(isQuestionContent(fixture.document)).toBe(false);
   },
 );
+
+test.each(cases.filter((fixture) => !fixture.valid))(
+  "$name is refused by this client too",
+  (fixture) => {
+    expect(validateQuestionProse(fixture.document, fixture.profile).ok).toBe(false);
+  },
+);
+
+test("the client's media limit is the contract's x-media-blocks", () => {
+  const schemas = doc.components.schemas as Record<string, Record<string, unknown>>;
+  expect(schemas["QuestionPromptContent"]?.["x-media-blocks"]).toBe(
+    QUESTION_MEDIA_LIMITS.blocks,
+  );
+  expect(schemas["QuestionExplanationContent"]?.["x-media-blocks"]).toBe(
+    QUESTION_MEDIA_LIMITS.blocks,
+  );
+});
 
 test("a media block inside a list item is no document the contract describes", () => {
   const nested = cases.find(

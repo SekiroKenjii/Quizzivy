@@ -1,7 +1,6 @@
 import { api } from "@/lib/api/client";
 import type { components } from "@/lib/api/schema";
 import type { QuestionValues } from "@/features/question-bank/questionSchema";
-import { formProse } from "@/components/shared/content/questionContent";
 
 export type AdminQuestion = components["schemas"]["AdminQuestion"];
 export type QuestionType = components["schemas"]["QuestionType"];
@@ -65,8 +64,8 @@ export function toFormValues(question: AdminQuestion): QuestionValues {
     level: question.level,
     skill: question.skill,
     prompt: question.prompt,
-    promptContent: formProse(question.promptContent),
-    explanationContent: formProse(question.explanationContent),
+    promptContent: question.promptContent ?? null,
+    explanationContent: question.explanationContent ?? null,
     mediaAssetId: question.media?.id ?? null,
     mediaAlt: question.mediaAlt ?? null,
     audio: question.audio ?? null,

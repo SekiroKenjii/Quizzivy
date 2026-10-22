@@ -53,6 +53,7 @@ export function groupPreview(bundle: GroupBundle, assets: MediaAsset[]) {
           points: input.points,
           media: media.get(input.mediaAssetId ?? "") ?? null,
           mediaAlt: input.mediaAlt ?? null,
+          promptAssets: assets,
           audio: input.audio ? studentAudioPolicy(input.audio) : null,
           options: (input.options ?? []).map((option, index) => ({
             id: option.id ?? `${member.questionId}-option-${index}`,
@@ -120,6 +121,7 @@ export function asStudent(
     promptContent: q.promptContent ?? null,
     points: q.points,
     media: q.media ?? null,
+    promptAssets: q.contentAssets ?? [],
     audio: q.audio ? studentAudioPolicy(q.audio) : null,
     options: (q.options ?? []).map((o) => ({
       id: o.id,
