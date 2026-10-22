@@ -27,6 +27,7 @@ func questionInput(q DraftQuestion) questionsdomain.Input {
 		PromptContent: q.PromptContent, ExplanationContent: q.ExplanationContent,
 		MediaAssetID: q.MediaAssetID, MediaAlt: q.MediaAlt, Transcript: q.Transcript,
 		Explanation: q.Explanation, SampleAnswer: q.SampleAnswer,
+		SelectCount: q.SelectCount, MaxWords: q.MaxWords, MatchAllowReuse: q.MatchAllowReuse,
 	}
 	if q.AllowSeek != nil || q.ShowTranscript != nil || q.MaxPlays != nil {
 		in.Audio = &questionsdomain.AudioPolicy{MaxPlays: q.MaxPlays, AllowPause: q.AllowPause}
@@ -43,6 +44,12 @@ func questionInput(q DraftQuestion) questionsdomain.Input {
 	for _, blank := range q.Blanks {
 		in.Blanks = append(in.Blanks, questionsdomain.BlankInput{GapID: blank.GapID, Ordinal: blank.Ordinal, AcceptedAnswers: blank.AcceptedAnswers, CaseSensitive: blank.CaseSensitive})
 	}
+	for _, item := range q.MatchItems {
+		in.MatchItems = append(in.MatchItems, questionsdomain.MatchItemInput{Text: item.Text, CorrectOption: item.CorrectOption})
+	}
+	for _, criterion := range q.Rubric {
+		in.Rubric = append(in.Rubric, questionsdomain.RubricCriterionInput{Label: criterion.Label})
+	}
 	return in
 }
 
@@ -55,6 +62,8 @@ func questionRule(field, questionType string) Rule {
 	case strings.HasPrefix(field, "options[") && strings.HasSuffix(field, ".content"):
 		return OptionContentValid
 	case strings.HasPrefix(field, "options"):
+		return ChoiceHasCorrectOption
+	case strings.HasPrefix(field, "matchItems[") && strings.HasSuffix(field, ".correctOption"):
 		return ChoiceHasCorrectOption
 	case strings.Contains(field, "acceptedAnswers"):
 		return BlankHasAcceptedAnswer

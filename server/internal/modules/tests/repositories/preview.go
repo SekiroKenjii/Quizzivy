@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/matchkey"
 	"quizzivy/internal/shared/opt"
 
 	"github.com/jackc/pgx/v5"
@@ -65,7 +66,8 @@ func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]do
 	rows, err := s.Query(ctx, `
 		SELECT q.id::text, q.test_version_section_id::text, q.type::text, q.prompt, q.prompt_content, q.points::text,
 		       q.media_asset_id::text, q.media_alt, q.audio_max_plays, q.audio_allow_seek,
-		       q.audio_show_transcript_after, coalesce(q.audio_allow_pause, true)
+		       q.audio_show_transcript_after, coalesce(q.audio_allow_pause, true),
+		       q.select_count, q.max_words, q.match_allow_reuse
 		  FROM app.test_version_sections s
 		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id
 		 WHERE s.test_version_id = $1
@@ -80,7 +82,8 @@ func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]do
 	for rows.Next() {
 		var q domain.PreviewQuestion
 		if err := rows.Scan(&q.ID, &q.SectionID, &q.Type, &q.Prompt, &q.PromptContent, &q.Points, &q.MediaAssetID, &q.MediaAlt,
-			&q.MaxPlays, &q.AllowSeek, &q.ShowScript, &q.AllowPause); err != nil {
+			&q.MaxPlays, &q.AllowSeek, &q.ShowScript, &q.AllowPause,
+			&q.SelectCount, &q.MaxWords, &q.MatchReuse); err != nil {
 			return nil, fmt.Errorf("tests: scan preview question: %w", err)
 		}
 		byID[q.ID] = len(out)
@@ -96,6 +99,9 @@ func (s *Postgres) previewQuestions(ctx context.Context, versionID string) ([]do
 	if err := s.attachPreviewOptions(ctx, versionID, out, byID); err != nil {
 		return nil, err
 	}
+	if err := s.attachPreviewMatchItems(ctx, versionID, out, byID); err != nil {
+		return nil, err
+	}
 	return out, s.attachPreviewBlanks(ctx, versionID, out, byID)
 }
 
@@ -103,7 +109,7 @@ func (s *Postgres) attachPreviewOptions(
 	ctx context.Context, versionID string, out []domain.PreviewQuestion, byID map[string]int,
 ) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT o.test_version_question_id::text, o.id::text, o.text, o.content
+		SELECT o.test_version_question_id::text, o.id::text, o.text, o.content, o.ordinal, q.type = 'matching'
 		  FROM app.test_version_sections s
 		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id
 		  JOIN app.test_version_options o ON o.test_version_question_id = q.id
@@ -112,7 +118,12 @@ func (s *Postgres) attachPreviewOptions(
 		func(rows pgx.Rows) (string, domain.PreviewOption, error) {
 			var questionID string
 			var option domain.PreviewOption
-			err := rows.Scan(&questionID, &option.ID, &option.Text, &option.Content)
+			var ordinal int
+			var keyed bool
+			err := rows.Scan(&questionID, &option.ID, &option.Text, &option.Content, &ordinal, &keyed)
+			if keyed {
+				option.Key = matchkey.Option(ordinal)
+			}
 			return questionID, option, err
 		})
 	if err != nil {
@@ -121,6 +132,35 @@ func (s *Postgres) attachPreviewOptions(
 	for questionID, options := range byQuestion {
 		if i, ok := byID[questionID]; ok {
 			out[i].Options = options
+		}
+	}
+	return nil
+}
+
+func (s *Postgres) attachPreviewMatchItems(
+	ctx context.Context, versionID string, out []domain.PreviewQuestion, byID map[string]int,
+) error {
+	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
+		SELECT i.test_version_question_id::text, i.id::text, i.ordinal, i.text
+		  FROM app.test_version_sections s
+		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id
+		  JOIN app.test_version_match_items i ON i.test_version_question_id = q.id
+		 WHERE s.test_version_id = $1
+		 ORDER BY i.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, domain.PreviewMatchItem, error) {
+			var questionID string
+			var item domain.PreviewMatchItem
+			var ordinal int
+			err := rows.Scan(&questionID, &item.ID, &ordinal, &item.Text)
+			item.Key = matchkey.Item(ordinal)
+			return questionID, item, err
+		})
+	if err != nil {
+		return fmt.Errorf("tests: preview match items: %w", err)
+	}
+	for questionID, items := range byQuestion {
+		if i, ok := byID[questionID]; ok {
+			out[i].MatchItems = items
 		}
 	}
 	return nil

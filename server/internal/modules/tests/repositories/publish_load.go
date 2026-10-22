@@ -71,7 +71,8 @@ func loadQuestions(ctx context.Context, tx pgx.Tx, testID string) (map[string][]
 		SELECT sq.test_section_id::text, sq.ordinal, q.id::text, q.type::text, q.prompt,
 		       q.media_asset_id::text, q.media_asset_kind::text, q.media_alt,
 		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after, q.audio_allow_pause,
-		       q.transcript, q.points::text, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content, q.level, q.skill
+		       q.transcript, q.points::text, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content, q.level, q.skill,
+		       q.select_count, q.max_words, q.match_allow_reuse
 		  FROM members sq
 		  JOIN app.test_sections s ON s.id = sq.test_section_id
 		  JOIN app.questions q ON q.id = sq.question_id
@@ -89,7 +90,8 @@ func loadQuestions(ctx context.Context, tx pgx.Tx, testID string) (map[string][]
 		var q domain.DraftQuestion
 		if err := rows.Scan(&sectionID, &q.Ordinal, &q.SourceID, &q.Type, &q.Prompt,
 			&q.MediaAssetID, &q.MediaAssetKind, &q.MediaAlt, &q.MaxPlays, &q.AllowSeek, &q.ShowTranscript, &q.AllowPause,
-			&q.Transcript, &q.Points, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent, &q.Level, &q.Skill); err != nil {
+			&q.Transcript, &q.Points, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent, &q.Level, &q.Skill,
+			&q.SelectCount, &q.MaxWords, &q.MatchAllowReuse); err != nil {
 			return nil, fmt.Errorf("publish: scan question: %w", err)
 		}
 		byQuestion[sectionID] = append(byQuestion[sectionID], q)
@@ -113,6 +115,9 @@ func loadQuestions(ctx context.Context, tx pgx.Tx, testID string) (map[string][]
 			list[i].Blanks = blanks[list[i].SourceID]
 		}
 		byQuestion[sectionID] = list
+	}
+	if err := attachTypeChildren(ctx, tx, bankChildren, byQuestion, sourceKey); err != nil {
+		return nil, err
 	}
 	return byQuestion, nil
 }
@@ -162,3 +167,7 @@ func loadBlanks(ctx context.Context, tx pgx.Tx, questionIDs []string) (map[strin
 	}
 	return byQuestion, nil
 }
+
+func sourceKey(q domain.DraftQuestion) string { return q.SourceID }
+
+func frozenKey(q domain.DraftQuestion) string { return q.FrozenID }

@@ -26,6 +26,9 @@ const (
 	FieldPrompt      ChangedField = "prompt"
 	FieldOptions     ChangedField = "options"
 	FieldBlanks      ChangedField = "blanks"
+	FieldItems       ChangedField = "items"
+	FieldRubric      ChangedField = "rubric"
+	FieldRules       ChangedField = "rules"
 	FieldMedia       ChangedField = "media"
 	FieldPoints      ChangedField = "points"
 	FieldExplanation ChangedField = "explanation"
@@ -134,6 +137,9 @@ func changedFields(from, to paperQuestion, fromContext, toContext string) []Chan
 		{FieldPrompt, from.parts.prompt == to.parts.prompt},
 		{FieldOptions, from.parts.options == to.parts.options},
 		{FieldBlanks, from.parts.blanks == to.parts.blanks},
+		{FieldItems, from.parts.items == to.parts.items},
+		{FieldRubric, from.parts.rubric == to.parts.rubric},
+		{FieldRules, from.parts.rules == to.parts.rules},
 		{FieldMedia, from.parts.media == to.parts.media},
 		{FieldPoints, from.parts.points == to.parts.points},
 		{FieldExplanation, from.parts.explanation == to.parts.explanation},

@@ -69,9 +69,11 @@ func copySnapshotQuestion(ctx context.Context, tx pgx.Tx, sourceID, actorID stri
 	var id string
 	err := tx.QueryRow(ctx, `INSERT INTO app.questions
   (type, prompt, media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek,
-   audio_show_transcript_after, transcript, points, explanation, sample_answer, created_by, prompt_content, explanation_content, owner_id, level, skill, media_alt, audio_allow_pause)
+   audio_show_transcript_after, transcript, points, explanation, sample_answer, created_by, prompt_content, explanation_content, owner_id, level, skill, media_alt, audio_allow_pause,
+   select_count, max_words, match_allow_reuse)
   SELECT q.type, q.prompt, q.media_asset_id, q.media_asset_kind, q.audio_max_plays, q.audio_allow_seek,
-   q.audio_show_transcript_after, q.transcript, q.points, q.explanation, q.sample_answer, $2, q.prompt_content, q.explanation_content, t.owner_id, q.level, q.skill, q.media_alt, q.audio_allow_pause
+   q.audio_show_transcript_after, q.transcript, q.points, q.explanation, q.sample_answer, $2, q.prompt_content, q.explanation_content, t.owner_id, q.level, q.skill, q.media_alt, q.audio_allow_pause,
+   q.select_count, q.max_words, q.match_allow_reuse
   FROM app.test_version_questions q
   JOIN app.test_version_sections vs ON vs.id = q.test_version_section_id
   JOIN app.test_versions v ON v.id = vs.test_version_id
@@ -85,6 +87,9 @@ func copySnapshotQuestion(ctx context.Context, tx pgx.Tx, sourceID, actorID stri
 		return "", err
 	}
 	if err := copySnapshotBlanks(ctx, tx, sourceID, id); err != nil {
+		return "", err
+	}
+	if err := copySnapshotTypeChildren(ctx, tx, sourceID, id); err != nil {
 		return "", err
 	}
 	if err := rebindCopiedGaps(ctx, tx, id); err != nil {
@@ -139,5 +144,19 @@ func copySnapshotBlanks(ctx context.Context, tx pgx.Tx, sourceID, questionID str
  SELECT copied.id, a.answer FROM copied
  JOIN app.test_version_blanks b ON b.test_version_question_id = $1 AND b.ordinal = copied.ordinal
  JOIN app.test_version_blank_answers a ON a.test_version_blank_id = b.id`, sourceID, questionID)
+	return err
+}
+
+func copySnapshotTypeChildren(ctx context.Context, tx pgx.Tx, sourceID, questionID string) error {
+	if _, err := tx.Exec(ctx, `INSERT INTO app.question_match_items (question_id, ordinal, text, correct_option_id)
+  SELECT $2, i.ordinal, i.text, o.id
+    FROM app.test_version_match_items i
+    JOIN app.test_version_options frozen ON frozen.test_version_question_id = i.test_version_question_id AND frozen.id = i.correct_option_id
+    JOIN app.question_options o ON o.question_id = $2 AND o.ordinal = frozen.ordinal
+   WHERE i.test_version_question_id = $1`, sourceID, questionID); err != nil {
+		return err
+	}
+	_, err := tx.Exec(ctx, `INSERT INTO app.question_rubric_criteria (question_id, ordinal, label)
+  SELECT $2, ordinal, label FROM app.test_version_rubric_criteria WHERE test_version_question_id = $1`, sourceID, questionID)
 	return err
 }

@@ -47,8 +47,13 @@ type DraftQuestion struct {
 	Points             string
 	Explanation        *string
 	SampleAnswer       *string
+	SelectCount        *int
+	MaxWords           *int
+	MatchAllowReuse    *bool
 	Options            []DraftOption
 	Blanks             []DraftBlank
+	MatchItems         []DraftMatchItem
+	Rubric             []DraftCriterion
 }
 
 // PauseAllowed reports whether a student may pause the question's audio. An
@@ -61,6 +66,21 @@ type DraftOption struct {
 	Ordinal   int
 	Text      string
 	IsCorrect bool
+}
+
+// DraftMatchItem is a matching item as the draft holds it. CorrectOption is
+// the index, in the question's Options in ordinal order, of the choice it is
+// keyed to, or -1 when it names none of them.
+type DraftMatchItem struct {
+	Ordinal       int
+	Text          string
+	CorrectOption int
+}
+
+// DraftCriterion is one of an essay's rubric criteria as the draft holds it.
+type DraftCriterion struct {
+	Ordinal int
+	Label   string
 }
 
 // DraftBlank is a fill_blank slot with its accepted answers.
@@ -85,14 +105,29 @@ type PreviewQuestion struct {
 	AllowSeek     *bool
 	ShowScript    *bool
 	AllowPause    bool
+	SelectCount   *int
+	MaxWords      *int
+	MatchReuse    *bool
 	Options       []PreviewOption
 	Blanks        []PreviewBlank
+	MatchItems    []PreviewMatchItem
 }
 
+// PreviewOption is a choice as a student receives it. Key is a matching
+// choice's key and empty on every other type.
 type PreviewOption struct {
 	Content json.RawMessage
 	ID      string
+	Key     string
 	Text    string
+}
+
+// PreviewMatchItem is a matching item as a student receives it: its label
+// and text, never the choice it is keyed to.
+type PreviewMatchItem struct {
+	ID   string
+	Key  string
+	Text string
 }
 
 type PreviewBlank struct {

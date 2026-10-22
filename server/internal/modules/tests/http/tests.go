@@ -417,20 +417,33 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 		return openapi.StudentQuestion{}, err
 	}
 	sq := openapi.StudentQuestion{
-		Id:            httpapi.ParseUUID(q.ID),
-		SectionId:     httpapi.ParseUUID(q.SectionID),
-		Type:          openapi.QuestionType(q.Type),
-		Prompt:        q.Prompt,
-		PromptContent: q.PromptContent,
-		MediaAlt:      q.MediaAlt,
-		Points:        points,
+		Id:              httpapi.ParseUUID(q.ID),
+		SectionId:       httpapi.ParseUUID(q.SectionID),
+		Type:            openapi.QuestionType(q.Type),
+		Prompt:          q.Prompt,
+		PromptContent:   q.PromptContent,
+		MediaAlt:        q.MediaAlt,
+		Points:          points,
+		SelectCount:     q.SelectCount,
+		MaxWords:        q.MaxWords,
+		MatchAllowReuse: q.MatchReuse,
 	}
 	if len(q.Options) > 0 {
 		options := make([]openapi.StudentOption, len(q.Options))
 		for j, o := range q.Options {
 			options[j] = openapi.StudentOption{Id: httpapi.ParseUUID(o.ID), Text: o.Text, Content: o.Content}
+			if o.Key != "" {
+				options[j].Key = &o.Key
+			}
 		}
 		sq.Options = &options
+	}
+	if len(q.MatchItems) > 0 {
+		items := make([]openapi.StudentMatchItem, len(q.MatchItems))
+		for j, item := range q.MatchItems {
+			items[j] = openapi.StudentMatchItem{Id: httpapi.ParseUUID(item.ID), Key: item.Key, Text: item.Text}
+		}
+		sq.MatchItems = &items
 	}
 	if len(q.Blanks) > 0 {
 		blanks := make([]openapi.StudentBlank, len(q.Blanks))
