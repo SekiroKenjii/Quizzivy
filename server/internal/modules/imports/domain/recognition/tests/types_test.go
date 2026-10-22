@@ -340,3 +340,19 @@ func TestTheKeyOnlyTFNGRuleNeedsEveryQuestionKeyedAndAllThreeValues(t *testing.T
 }
 
 func decompose(s string) string { return norm.NFD.String(s) }
+
+// D-068: the key-only rule keeps the types QC found sound.
+func TestTheKeyOnlyTFNGRuleLeavesOtherKeyedSectionsAlone(t *testing.T) {
+	d := recognize(t, tfngPaper("Read the passage about the museum."), key(lines("I.\t1. T\t2. F\t3. T\t4. F")))
+	for _, q := range d.Questions() {
+		if q.Type != "true_false" {
+			t.Fatalf("a section keyed only T and F stays true_false: %+v", q)
+		}
+	}
+	d = recognize(t, tfngPaper("Read the passage about the museum."), key(lines("I.\t1. YES\t2. NO\t3. NOT GIVEN\t4. YES")))
+	for _, q := range d.Questions() {
+		if q.Type != "short_answer" {
+			t.Fatalf("a YES / NO / NOT GIVEN section stays short answer: %+v", q)
+		}
+	}
+}
