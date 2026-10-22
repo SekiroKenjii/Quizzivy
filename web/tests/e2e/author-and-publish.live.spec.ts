@@ -107,7 +107,11 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await answer.press("Enter");
 
   // --------------------------------------------------------- short_answer
-  await addQuestion(page, "Tự luận", "Viết 2–3 câu tả thói quen buổi sáng của bạn.");
+  await addQuestion(
+    page,
+    "Trả lời ngắn",
+    "Viết 2–3 câu tả thói quen buổi sáng của bạn.",
+  );
   await page.getByLabel("Đáp án mẫu").fill("I usually wake up at six.");
 
   // ------------------------------------------ audio, with a real upload

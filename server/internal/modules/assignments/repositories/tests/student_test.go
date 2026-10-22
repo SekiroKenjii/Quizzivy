@@ -978,3 +978,59 @@ func askNewTypeInAttempt(t *testing.T, pool *pgxpool.Pool, attemptID, kind strin
 	}
 	return question, options, items
 }
+
+func TestACompletedCardCarriesThePapersBandOnlyWhenTheScoreIsShown(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := repositories.NewPostgres(db.NewContext(pool))
+	ctx := context.Background()
+
+	shown := createFor(t, store, w, legalInput(w))
+	hidden := legalInput(w)
+	hidden.Review.ShowScore = false
+	quiet := createFor(t, store, w, hidden)
+	attempts := []string{
+		sitAttempt(t, pool, w, shown.ID, "graded", "7.00", false),
+		sitAttempt(t, pool, w, quiet.ID, "graded", "7.00", false),
+	}
+	for _, q := range []string{
+		`DELETE FROM app.test_version_options o USING app.test_version_questions q, app.test_version_sections s
+		  WHERE o.test_version_question_id = q.id AND s.id = q.test_version_section_id AND s.test_version_id = $1::uuid`,
+		`UPDATE app.test_version_questions q SET type = 'essay' FROM app.test_version_sections s
+		  WHERE s.id = q.test_version_section_id AND s.test_version_id = $1::uuid`,
+	} {
+		if _, err := pool.Exec(ctx, q, w.versionID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO app.attempt_answers (attempt_id, question_id, payload, requires_manual, manual_score, band, graded_by, graded_at)
+		SELECT at, q.id, '{"type":"text","value":"An essay."}', true, round(q.points * 6.5 / 9, 2), 6.5, $3::uuid, now()
+		  FROM unnest($2::uuid[]) AS at
+		  CROSS JOIN app.test_version_questions q
+		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+		 WHERE s.test_version_id = $1::uuid
+		ON CONFLICT (attempt_id, question_id) DO UPDATE
+		   SET payload = excluded.payload, requires_manual = true,
+		       manual_score = excluded.manual_score, band = excluded.band,
+		       graded_by = excluded.graded_by, graded_at = excluded.graded_at`, w.versionID, attempts, w.admin); err != nil {
+		t.Fatal(err)
+	}
+
+	sections, err := store.ForStudent(ctx, w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, c := range sections.Completed {
+		switch c.ID {
+		case shown.ID:
+			if c.Score == nil || c.Score.Band == nil || *c.Score.Band != 6.5 {
+				t.Errorf("shown card score %+v, want band 6.5", c.Score)
+			}
+		case quiet.ID:
+			if c.Score != nil {
+				t.Errorf("score and band shown although review.showScore is off: %+v", *c.Score)
+			}
+		}
+	}
+}

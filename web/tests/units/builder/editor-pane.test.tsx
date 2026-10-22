@@ -125,7 +125,9 @@ describe("the builder's editor pane", () => {
     );
 
     expect(await screen.findByRole("heading", { name: "Câu 1" })).toBeVisible();
-    expect(screen.getByRole("button", { name: "Loại câu hỏi: Tự luận" })).toBeVisible();
+    expect(
+      screen.getByRole("button", { name: "Loại câu hỏi: Trả lời ngắn" }),
+    ).toBeVisible();
     expect(screen.getByLabelText("Điểm")).toHaveValue(5);
     expect(screen.queryByRole("button", { name: "Cài đặt câu hỏi" })).toBeNull();
     expect(screen.queryByRole("complementary")).toBeNull();
@@ -205,7 +207,7 @@ describe("the builder's editor pane", () => {
       await screen.findByRole("button", { name: /tả thói quen/ }, { timeout: 5000 }),
     );
     await user.click(
-      await screen.findByRole("button", { name: "Loại câu hỏi: Tự luận" }),
+      await screen.findByRole("button", { name: "Loại câu hỏi: Trả lời ngắn" }),
     );
     const menu = await screen.findByRole("menu");
     const items = within(menu).getAllByRole("menuitem");
@@ -214,7 +216,7 @@ describe("the builder's editor pane", () => {
       "Nhiều đáp án",
       "Đúng/Sai",
       "Điền từ",
-      "Tự luậnĐang dùng",
+      "Trả lời ngắnĐang dùng",
     ]);
     await user.click(within(menu).getByRole("menuitem", { name: /Một đáp án/ }));
 

@@ -184,3 +184,26 @@ func TestTheBriefingOfAVoidedOrMissingAttemptIsNotFound(t *testing.T) {
 		t.Errorf("a missing attempt: %v, want ErrNotFound", err)
 	}
 }
+
+func TestTheResultNoticeOfABandedPaperHoldsNoBand(t *testing.T) {
+	pool := newPool(t)
+	p := seedEssayPaper(t, pool)
+	svc := announcing(pool, realNotifications(pool).Commands.Notify, nil)
+	ctx := context.Background()
+	if _, err := svc.Commands.Grade.Handle(ctx, command.Grade{
+		AttemptID: p.attempt, GraderID: p.admin, Scope: everyone,
+		Items: []domain.GradeItem{{QuestionID: p.plain, Band: pts(7)}, {QuestionID: p.rubric, Criteria: p.bands(7, 7, 7, 7)}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Commands.Finish.Handle(ctx, command.Finish{AttemptID: p.attempt, Scope: everyone}); err != nil {
+		t.Fatal(err)
+	}
+	var params string
+	if err := pool.QueryRow(ctx, `SELECT params::text FROM app.notifications WHERE user_id = $1::uuid AND kind = 'result.ready'`, p.student).Scan(&params); err != nil {
+		t.Fatalf("the student holds no result notice: %v", err)
+	}
+	if params != `{"title": "Unit 5"}` {
+		t.Errorf("the stored params are %s, want the title alone and no band", params)
+	}
+}

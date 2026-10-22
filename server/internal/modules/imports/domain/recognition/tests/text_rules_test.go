@@ -74,8 +74,16 @@ func TestTextWritingAnswerLinesUseTheSameGapMode(t *testing.T) {
 	}
 }
 
-func TestNotGivenRemainsShortAnswer(t *testing.T) {
+func TestTextNotGivenUnderATFNGInstructionIsTFNG(t *testing.T) {
 	d := recognize(t, textExam("Part 1. Decide True or False or Not given.", "1. Parks are cheaper than roads.", "Answer: Not given"))
+	q := question(t, d, "1")
+	if q.Type != "tfng" || q.Answer.State != domain.AnswerKnown || !slices.Equal(answerLabels(q), []string{"NG"}) {
+		t.Fatalf("Not given under a TFNG instruction: %+v", q)
+	}
+}
+
+func TestNotGivenOutsideATFNGSectionRemainsShortAnswer(t *testing.T) {
+	d := recognize(t, textExam("Part 1. True or False.", "1. Parks are cheaper than roads.", "Answer: Not given", "2. Stem two.", "Answer: north"))
 	q := question(t, d, "1")
 	if q.Type != "short_answer" || q.Answer.State != domain.AnswerKnown || q.Answer.Text != "Not given" {
 		t.Fatalf("Not given is teacher-reviewed short answer: %+v", q)
@@ -126,7 +134,7 @@ func TestTextRulesAreGatedByExamEvidenceVersion(t *testing.T) {
 					t.Fatal("file Ans broadened")
 				}
 			}},
-			{"not-given", []string{"Exam title", "Part 1. True or False or Not given.", "1. Stem.", "Answer: Not given"}, func(t *testing.T, d domain.Draft) {
+			{"not-given", []string{"Exam title", "Part 1. True or False.", "1. Stem.", "Answer: Not given", "2. Stem two.", "Answer: north"}, func(t *testing.T, d domain.Draft) {
 				q := question(t, d, "1")
 				if q.Type != "true_false" || q.Answer.State != domain.AnswerConflict {
 					t.Fatalf("file Not given changed: %+v", q)

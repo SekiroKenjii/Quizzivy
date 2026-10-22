@@ -11,6 +11,7 @@ import {
 } from "@/components/shared/content/questionContent";
 import { optionContentSchema } from "@/components/shared/content/optionContent";
 import type { GroupBundle } from "./api";
+import { formProse } from "@/components/shared/content/questionContent";
 
 const policy = z.object({
   maxPlays: z.number().int().min(1).nullable(),
@@ -210,7 +211,7 @@ export function independentBundle(source: GroupBundle): GroupBundle {
   const questions = bundle.questions.map((question) => {
     const input = question.input;
     const gaps = input.promptContent
-      ? remapGaps(input.promptContent)
+      ? remapGaps(formProse(input.promptContent)!)
       : new Map<string, string>();
     blankGaps.set(question.id, gaps);
     return {

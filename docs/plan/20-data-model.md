@@ -4271,3 +4271,24 @@ It waits, without a bound, for transactions older than it, so the deploy should 
 (QC-R6B-5). Nothing in the database ties a criterion, an item or a band to its question's type (QC-R6B-3): the
 bank's rules (T-R6.3) and the grader (T-R6.4) do. A v0.12 binary that regrades an essay overwrites `manual_score`
 and leaves `band`, so no binary older than T-R6.4 may grade once bands are written.
+
+## 60. Media in question prose (T-R6.2b, DG-109, D-064)
+
+An image or audio block in a question's prompt or explanation names a media asset by id inside the JSON
+(`prompt_content`, `explanation_content`). `00154` makes each such name a row, so the database and not a scan of the JSON
+answers whether an asset is in use:
+
+- `app.question_media_references (question_id → questions ON DELETE CASCADE, field, media_asset_id, media_asset_kind)`,
+  primary key `(question_id, field, media_asset_id)`, written by `WriteMediaReferences` in the transaction that writes
+  the content and rewritten on every write.
+- `app.test_version_question_media_references`, the same keyed by `test_version_question_id`, written at publish
+  (T-R6.5b) and never updated (`REVOKE UPDATE`, as `00039` does for the frozen group graph).
+
+`field` is `prompt` or `explanation` (a CHECK), because the two are reached differently: a student signs a frozen prompt's
+media while sitting the paper, and an explanation's only through the gated result. The composite FK onto
+`media_assets (id, kind)` refuses an image block that names a recording, and `RESTRICT` keeps an asset row while any row
+names it. A prompt's audio marker names no asset (it places the question's own `media_asset_id`), so it has no row. The
+readers ("Used in", the delete refusal, the question count, the unreferenced sweep, staff readability and student reach)
+treat a row exactly as they treat the question's attached media. The Down refuses while either table holds a row.
+Both tables carry `00113`'s `media_asset_binding_guard`, so no row can name a file the sweep removed, and the guard's
+coverage test now finds every `app` table with a `media_asset_id` column rather than a fixed list (QC-R6D-1).

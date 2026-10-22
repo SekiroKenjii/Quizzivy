@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next";
 import { Markdown } from "@/components/shared/Markdown";
 import { ContentView } from "./ContentView";
 import { contentPlainText } from "./plainText";
-import { isQuestionPromptContent, type QuestionPromptContent } from "./questionContent";
+import { isQuestionPromptContent, type StoredQuestionProse } from "./questionContent";
 
 /** QuestionProse preserves historical Markdown and validates rich content without falling back to a different interpretation. */
 export function QuestionProse({
@@ -11,7 +11,7 @@ export function QuestionProse({
   className,
 }: Readonly<{
   text: string;
-  content?: QuestionPromptContent | null | undefined;
+  content?: StoredQuestionProse | null | undefined;
   className?: string;
 }>) {
   const { t } = useTranslation();

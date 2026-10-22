@@ -410,7 +410,7 @@ describe("Make a practice set", () => {
       .getAllByRole("button")
       .filter((chip) => chip.getAttribute("aria-pressed") === "true")
       .map((chip) => chip.textContent);
-    expect(pressed).toEqual(["Đúng/Sai", "Tự luận"]);
+    expect(pressed).toEqual(["Đúng/Sai", "Trả lời ngắn"]);
     expect(within(dialog).getByLabelText(vi_.ai.generate.source)).toHaveValue(PASSAGE);
     await user.click(within(dialog).getByRole("button", { name: vi_.ai.generate.run }));
     await user.click(

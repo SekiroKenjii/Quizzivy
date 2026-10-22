@@ -2140,7 +2140,10 @@ export interface paths {
         /**
          * Save manual grades
          * @description Saved per call rather than as one giant submit, so a half-graded attempt
-         *     survives a refresh. `points` is rejected above the question's ceiling.
+         *     survives a refresh. `points` is rejected above the question's ceiling,
+         *     and a question named by more than one item is rejected: both are 400
+         *     `VALIDATION_FAILED` with `details` keyed by the question's id. The
+         *     refusals are answered in this order: 409, then 422, then 400.
          *
          *     An item for an `essay` takes a `band` when the question has no rubric
          *     criteria, or `criteria` naming every one of them, and no `points`: the
@@ -5934,7 +5937,7 @@ export interface components {
             /** @description The band each rubric criterion was given, once graded. Absent when the essay has no criteria. */
             criteria?: components["schemas"]["CriterionBand"][];
             explanation?: string | null;
-            explanationContent?: components["schemas"]["QuestionContent"] | null;
+            explanationContent?: components["schemas"]["QuestionExplanationContent"] | null;
             sampleAnswer?: string | null;
             sharedContext?: components["schemas"]["SharedReviewContext"];
         };
@@ -6993,11 +6996,14 @@ export interface components {
             allowPause: boolean;
         };
         /**
-         * @description Bounded semantic prose for prompts and explanations: paragraphs, headings,
-         *     lists and tables with marked text, breaks and safe links. No media, gaps,
-         *     source metadata or answer-key properties. ContentDocument aggregate budgets
-         *     and cross-node validation apply to original raw JSON. The companion string
-         *     must equal the exact plain projection. Explanations never contain gaps.
+         * @description Bounded semantic prose: paragraphs, headings, lists and tables with
+         *     marked text, breaks and safe links. No media, gaps, source metadata or
+         *     answer-key properties. A group's instructions use it as it is; an
+         *     explanation is `QuestionExplanationContent`, which adds media, and a
+         *     prompt `QuestionPromptContent`, which adds gaps and media; their nested
+         *     blocks are these. ContentDocument aggregate budgets and cross-node
+         *     validation apply to original raw JSON. The companion string must equal
+         *     the exact plain projection.
          *     On question updates, omitting a rich field preserves its stored document
          *     only if the companion string is unchanged; otherwise the whole write is
          *     rejected. Explicit null removes the document.
@@ -7053,17 +7059,31 @@ export interface components {
             content: components["schemas"]["QuestionContentBlocks"];
         };
         /**
-         * @description Bounded semantic question prompt without media or answer keys. Gaps are
+         * @description Bounded semantic question prompt without answer keys. Gaps are
          *     supported only for fill_blank and must match blank gapId values exactly.
          *     Gap identity is stable within this question; labels never select answers.
          *     The companion prompt equals the exact plain projection. Omitted content
          *     on update preserves the stored document only when prompt is unchanged.
+         *
+         *     Media (DG-109, D-064): the document's own blocks, never a table cell or
+         *     a list item, may be an image or the audio marker, at most
+         *     `x-media-blocks` of them together. An image names a media asset by id
+         *     and never by file name; its alt text may be empty, which marks it
+         *     decorative, and it projects to its alt text. The audio marker names no
+         *     asset: it places the question's own audio (`mediaAssetId`, with its
+         *     `AudioPolicy` and play count) in the text, at most once, and projects
+         *     to nothing. A media block that projects to nothing adds no separator.
+         *     Until the bank's media task (R6-13) every write refuses a media block
+         *     with the bank's field error (400 VALIDATION_FAILED naming promptContent).
          */
         QuestionPromptContent: {
             /** @constant */
             format: "semantic_v1";
-            blocks: components["schemas"]["QuestionPromptContentBlocks"];
+            blocks: components["schemas"]["QuestionPromptDocumentBlocks"];
         };
+        /** @description A prompt's own blocks, where media may stand. */
+        QuestionPromptDocumentBlocks: components["schemas"]["QuestionPromptDocumentBlock"][];
+        QuestionPromptDocumentBlock: components["schemas"]["QuestionPromptContentParagraph"] | components["schemas"]["QuestionPromptContentHeading"] | components["schemas"]["QuestionPromptContentList"] | components["schemas"]["QuestionPromptContentTable"] | components["schemas"]["QuestionContentImage"] | components["schemas"]["QuestionPromptAudio"];
         QuestionPromptContentBlocks: components["schemas"]["QuestionPromptContentBlock"][];
         QuestionPromptContentBlock: components["schemas"]["QuestionPromptContentParagraph"] | components["schemas"]["QuestionPromptContentHeading"] | components["schemas"]["QuestionPromptContentList"] | components["schemas"]["QuestionPromptContentTable"];
         QuestionPromptContentInlines: (components["schemas"]["ContentText"] | components["schemas"]["ContentBreak"] | components["schemas"]["ContentLink"] | components["schemas"]["ContentGap"])[];
@@ -7108,6 +7128,64 @@ export interface components {
             rowSpan: number;
             colSpan: number;
             content: components["schemas"]["QuestionPromptContentBlocks"];
+        };
+        /**
+         * @description A question's explanation: the prose of `QuestionContent`, without gaps,
+         *     plus media in the document's own blocks (DG-109, D-064), never in a
+         *     table cell or a list item, at most `x-media-blocks` of them. An image
+         *     is as in a prompt. An audio block names its own asset and plays without
+         *     a policy or a count. Explanation media is reachable by a student only
+         *     through the result, under the gate that shows explanations; no student
+         *     operation signs it before then. Until the bank's media task (R6-13)
+         *     every write refuses a media block with the bank's field error (400
+         *     VALIDATION_FAILED naming explanationContent). The companion string, the
+         *     update rules and the budgets are `QuestionContent`'s.
+         */
+        QuestionExplanationContent: {
+            /** @constant */
+            format: "semantic_v1";
+            blocks: components["schemas"]["QuestionExplanationDocumentBlocks"];
+        };
+        /** @description An explanation's own blocks, where media may stand. */
+        QuestionExplanationDocumentBlocks: components["schemas"]["QuestionExplanationDocumentBlock"][];
+        QuestionExplanationDocumentBlock: components["schemas"]["QuestionContentParagraph"] | components["schemas"]["QuestionContentHeading"] | components["schemas"]["QuestionContentList"] | components["schemas"]["QuestionContentTable"] | components["schemas"]["QuestionContentImage"] | components["schemas"]["QuestionExplanationAudio"];
+        /**
+         * @description An image in a prompt or an explanation, by media asset id. `alt` is the
+         *     text a screen reader reads and the plain projection carries; empty
+         *     marks the image decorative. It is never filled from a file name, and no
+         *     file name travels with the node.
+         */
+        QuestionContentImage: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "image";
+            /** Format: uuid */
+            assetId: string;
+            alt: string;
+        };
+        /**
+         * @description Where the question's own audio is drawn in its prompt. It names no
+         *     asset: the recording, its policy and its play count are the question's
+         *     (`mediaAssetId`, `audio`), so a prompt holds at most one.
+         */
+        QuestionPromptAudio: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "audio";
+        };
+        /** @description A recording in an explanation, by media asset id, played without a policy or a count. */
+        QuestionExplanationAudio: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "audio";
+            /** Format: uuid */
+            assetId: string;
         };
         /**
          * @description Versioned inline option text: one paragraph of marked text and line breaks.
@@ -7558,7 +7636,7 @@ export interface components {
             options?: components["schemas"]["AdminQuestionOption"][];
             blanks?: components["schemas"]["AdminQuestionBlank"][];
             points: components["schemas"]["Points"];
-            explanationContent?: components["schemas"]["QuestionContent"] | null;
+            explanationContent?: components["schemas"]["QuestionExplanationContent"] | null;
             explanation?: string | null;
             /**
              * @description `short_answer` and `essay` only. **Teacher-only, shown during grading.** Never
@@ -7766,7 +7844,7 @@ export interface components {
             /** @description The skill frozen with the version (R4). Present under every review policy, for the skill tiles. */
             skill?: components["schemas"]["QuestionSkill"] | null;
             /** @description Absent unless review.showExplanations permits the frozen explanation. */
-            explanationContent?: components["schemas"]["QuestionContent"] | null;
+            explanationContent?: components["schemas"]["QuestionExplanationContent"] | null;
             /** @description Only when `review.showExplanations`. */
             explanation?: string | null;
             /**
@@ -9376,7 +9454,7 @@ export interface components {
                 caseSensitive: boolean;
             }[];
             points: components["schemas"]["Points"];
-            explanationContent?: components["schemas"]["QuestionContent"] | null;
+            explanationContent?: components["schemas"]["QuestionExplanationContent"] | null;
             explanation?: string | null;
             /** @description `short_answer` and `essay` only. Rejected on any other type. */
             sampleAnswer?: string | null;
@@ -9470,7 +9548,7 @@ export interface components {
                 caseSensitive: boolean;
             }[];
             points: components["schemas"]["Points"];
-            explanationContent?: components["schemas"]["QuestionContent"] | null;
+            explanationContent?: components["schemas"]["QuestionExplanationContent"] | null;
             explanation?: string | null;
             /** @description `short_answer` and `essay` only. Rejected on any other type. */
             sampleAnswer?: string | null;

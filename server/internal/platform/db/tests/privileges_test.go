@@ -385,3 +385,21 @@ func TestTheMaintenanceRoleCannotRewriteARecordOrCreateAnything(t *testing.T) {
 		}
 	}
 }
+
+// TestTheAppRoleCannotRewriteFrozenMediaReferences keeps a published paper's
+// media references (00154) as frozen as the rest of its version: publish
+// inserts them and nothing changes them, while the bank's rows follow every
+// edit.
+func TestTheAppRoleCannotRewriteFrozenMediaReferences(t *testing.T) {
+	conn := migrated(t)
+	for priv, want := range map[string]bool{"SELECT": true, "INSERT": true, "UPDATE": false, "DELETE": true} {
+		if got := hasTablePrivilege(t, conn, appRole, "app.test_version_question_media_references", priv); got != want {
+			t.Errorf("%s %s on the frozen media references = %v, want %v", appRole, priv, got, want)
+		}
+	}
+	for _, priv := range []string{"SELECT", "INSERT", "UPDATE", "DELETE"} {
+		if !hasTablePrivilege(t, conn, appRole, "app.question_media_references", priv) {
+			t.Errorf("%s cannot %s the bank's media references", appRole, priv)
+		}
+	}
+}

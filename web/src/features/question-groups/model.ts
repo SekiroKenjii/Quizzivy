@@ -10,6 +10,7 @@ import {
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
 import type { GroupBundle } from "./api";
+import { formProse } from "@/components/shared/content/questionContent";
 
 type GroupQuestionInput = components["schemas"]["QuestionInput"];
 export type GroupMaterial = GroupBundle["group"]["stimuli"][number];
@@ -68,13 +69,14 @@ export function emptyMaterial(title: string): GroupMaterial {
   };
 }
 
-export function memberValues(input: GroupQuestionInput): QuestionValues {
+export function memberValues(full: GroupQuestionInput): QuestionValues {
+  const { matchItems, rubric, ...input } = full;
   return {
     ...input,
     level: input.level ?? null,
     skill: input.skill ?? null,
-    promptContent: input.promptContent ?? null,
-    explanationContent: input.explanationContent ?? null,
+    promptContent: formProse(input.promptContent),
+    explanationContent: formProse(input.explanationContent),
     mediaAssetId: input.mediaAssetId ?? null,
     mediaAlt: input.mediaAlt ?? null,
     audio: input.audio ?? null,
@@ -92,6 +94,17 @@ export function memberValues(input: GroupQuestionInput): QuestionValues {
       id: blank.id ?? null,
       caseSensitive: blank.caseSensitive ?? false,
     })),
+    ...(matchItems === undefined
+      ? {}
+      : { matchItems: matchItems.map((item) => ({ ...item, id: item.id ?? null })) }),
+    ...(rubric === undefined
+      ? {}
+      : {
+          rubric: rubric.map((criterion) => ({
+            ...criterion,
+            id: criterion.id ?? null,
+          })),
+        }),
   };
 }
 
