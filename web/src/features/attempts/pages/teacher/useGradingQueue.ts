@@ -521,6 +521,30 @@ export function useGradingQueue(params: GradingQueueParams) {
     return t(essay(item) ? "grading.pickBandFirst" : "grading.pickFirst");
   };
   /**
+   * saveAndGo saves `item`'s comment and score, if it has unsaved ones, and
+   * then runs the held leave, if any, and `action`. A refused save keeps the
+   * page and says why.
+   */
+  const saveAndGo = async (item: GradingQueueItem | undefined, action?: () => void) => {
+    if (!acquire()) return;
+    try {
+      const unscored = item ? commentWithoutScore(item) : null;
+      if (unscored !== null) {
+        setError(unscored);
+        return;
+      }
+      if (item) await flush(item);
+      if (!current()) return;
+      setHeldLeave(null);
+      heldLeave?.();
+      action?.();
+    } catch (cause) {
+      if (current()) report(cause, item);
+    } finally {
+      release();
+    }
+  };
+  /**
    * leave saves the open answer and runs `action`. While any essay holds a
    * part-marked rubric, which no save can write, it holds `action` in
    * `heldLeave` instead, for the page to ask whether to `discard` those bands.
@@ -530,34 +554,24 @@ export function useGradingQueue(params: GradingQueueParams) {
       if (current() && !lock.current) setHeldLeave(() => action);
       return;
     }
-    if (!acquire()) return;
-    try {
-      const unscored = selected ? commentWithoutScore(selected) : null;
-      if (unscored !== null) {
-        setError(unscored);
-        return;
-      }
-      if (selected) await flush(selected);
-      if (current()) action();
-    } catch (cause) {
-      if (current()) report(cause, selected);
-    } finally {
-      release();
-    }
+    await saveAndGo(selected, action);
   };
-  /** discard drops every part-marked rubric's bands, saves nothing, and runs the held leave and `action`. */
-  const discard = (action?: () => void) => {
+  /**
+   * discard drops every part-marked rubric's bands, then leaves as `leave`
+   * does: the open answer's comment and score, unless it is one of those
+   * rubrics, are saved first.
+   */
+  const discard = async (action?: () => void) => {
     if (!current() || lock.current) return;
-    const held = heldLeave;
-    setHeldLeave(null);
     setError(null);
+    const open =
+      selected && !halfMarked(selected, draftFor(selected)) ? selected : undefined;
     setDrafts((previous) =>
       Object.fromEntries(
         Object.entries(previous).filter(([, entry]) => !halfMarked(entry.item, entry)),
       ),
     );
-    held?.();
-    action?.();
+    await saveAndGo(open, action);
   };
   /** keepMarking closes the leave question and keeps the part-marked rubric. */
   const keepMarking = () => setHeldLeave(null);

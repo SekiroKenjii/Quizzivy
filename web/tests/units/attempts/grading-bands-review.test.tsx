@@ -198,7 +198,13 @@ it("grades essays question by question, one band scale per paper", async () => {
   );
   const scale = await screen.findByRole("group", { name: "Band" });
   expect(screen.queryByText("This question is graded automatically.")).toBeNull();
+  const save = screen.getByRole("button", { name: "Save" });
+  expect(save).toHaveAttribute("aria-disabled", "true");
+  await user.click(save);
+  expect(screen.getByRole("alert")).toHaveTextContent("Pick a band first (keys 3–9).");
+  expect(graded).toEqual([]);
   await user.click(within(scale).getByRole("button", { name: "Give band 8.0" }));
+  expect(screen.queryByRole("alert")).toBeNull();
   await user.click(screen.getByRole("button", { name: "Save" }));
   await waitFor(() =>
     expect(graded).toEqual([
