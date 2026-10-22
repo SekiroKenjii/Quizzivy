@@ -86,7 +86,7 @@ describe("the builder's editor pane on its own", () => {
     await user.click(screen.getByRole("button", { name: "Loại câu hỏi: Điền từ" }));
     const menu = await screen.findByRole("menu");
     expect(within(menu).getByText("Loại câu hỏi")).toBeVisible();
-    for (const name of ["Một đáp án", "Nhiều đáp án", "Đúng/Sai", "Tự luận"]) {
+    for (const name of ["Một đáp án", "Nhiều đáp án", "Đúng/Sai", "Trả lời ngắn"]) {
       const item = within(menu).getByRole("menuitem", { name: new RegExp(name) });
       expect(item).toHaveAttribute("aria-disabled", "true");
       expect(item).toHaveTextContent("Bỏ chỗ trống trước");

@@ -2568,7 +2568,7 @@
       "fill_blank": "Điền từ",
       "matching": "Nối",
       "multiple_choice": "Nhiều đáp án",
-      "short_answer": "Tự luận",
+      "short_answer": "Trả lời ngắn",
       "single_choice": "Một đáp án",
       "tfng": "Đúng/Sai/Không có thông tin",
       "true_false": "Đúng/Sai"
@@ -3992,7 +3992,7 @@
       "multiple_choice": "Nhiều đáp án",
       "true_false": "Đúng/Sai",
       "fill_blank": "Điền từ",
-      "short_answer": "Tự luận",
+      "short_answer": "Trả lời ngắn",
       "tfng": "Đúng/Sai/Không có thông tin",
       "matching": "Nối",
       "essay": "Bài luận"
@@ -5095,7 +5095,7 @@
       "multiple_choice": "Nhiều đáp án",
       "true_false": "Đúng/Sai",
       "fill_blank": "Điền từ",
-      "short_answer": "Tự luận",
+      "short_answer": "Trả lời ngắn",
       "tfng": "Đúng/Sai/Không có thông tin",
       "unsupported": "Chưa hỗ trợ"
     },
