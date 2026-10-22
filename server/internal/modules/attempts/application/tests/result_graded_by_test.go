@@ -12,6 +12,8 @@ import (
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/retention"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 // essayResult is an essay paper whose two essays both wait for a grader, and
@@ -153,15 +155,17 @@ func TestAGraderWhoseAccountIsGoneNamesNobody(t *testing.T) {
 		RETURNING id::text`).Scan(&gone); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := pool.Exec(ctx, `UPDATE app.attempt_answers SET graded_by = $3::uuid WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
-		p.attempt, p.plain, gone); err != nil {
+	if _, err := pool.Exec(ctx, `UPDATE app.attempt_answers SET graded_by = $2::uuid WHERE attempt_id = $1::uuid`, p.attempt, gone); err != nil {
 		t.Fatal(err)
+	}
+	if got := score(); got == nil || got.GradedBy == nil || *got.GradedBy != "Thầy Cũ" {
+		t.Fatalf("score %+v, want it graded by Thầy Cũ before the delete", got)
 	}
 	if _, err := pool.Exec(ctx, `DELETE FROM app.users WHERE id = $1::uuid`, gone); err != nil {
 		t.Fatal(err)
 	}
 	if got := score(); got == nil || got.GradedBy != nil {
-		t.Fatalf("score %+v, want no grader named once one grader's account is deleted", got)
+		t.Fatalf("score %+v, want no grader named once the only grader's account is deleted", got)
 	}
 }
 
@@ -249,7 +253,7 @@ func TestAPaperNobodyGradedByHandNamesNobody(t *testing.T) {
 	}
 }
 
-func TestAnAnswerRetentionRemovedDoesNotKeepTheGraderOut(t *testing.T) {
+func TestAnUngradedAnswerRetentionRemovedDoesNotKeepTheGraderOut(t *testing.T) {
 	p, score := essayResult(t)
 	if _, err := newPool(t).Exec(context.Background(), `UPDATE app.attempt_answers SET payload = '`+retention.RemovedAnswer+`'::jsonb WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
 		p.attempt, p.rubric); err != nil {
@@ -259,4 +263,67 @@ func TestAnAnswerRetentionRemovedDoesNotKeepTheGraderOut(t *testing.T) {
 	if got := score(); got == nil || got.GradedBy == nil || *got.GradedBy != "Giáo viên" {
 		t.Fatalf("score %+v, want it graded by Giáo viên", got)
 	}
+}
+
+// The retention sweep replaces every answer of an attempt at once and keeps
+// their grades, so the paper is still the grader's (QC-R6GB-4).
+func TestAPaperTheSweepEmptiedKeepsItsGrader(t *testing.T) {
+	p, score := gradedEssayPaper(t)
+	if _, err := newPool(t).Exec(context.Background(), `UPDATE app.attempt_answers SET payload = '`+retention.RemovedAnswer+`'::jsonb WHERE attempt_id = $1::uuid`, p.attempt); err != nil {
+		t.Fatal(err)
+	}
+	if got := score(); got == nil || got.GradedBy == nil || *got.GradedBy != "Giáo viên" {
+		t.Fatalf("score %+v, want it still graded by Giáo viên", got)
+	}
+}
+
+func TestARemovedAnswerGradedBySomeoneElseStillCounts(t *testing.T) {
+	p, score := gradedEssayPaper(t)
+	pool := newPool(t)
+	ctx := context.Background()
+	other := teacherAccount(t, pool, "Thầy Hai")
+	if _, err := pool.Exec(ctx, `UPDATE app.attempt_answers SET payload = '`+retention.RemovedAnswer+`'::jsonb, graded_by = $3::uuid WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
+		p.attempt, p.rubric, other); err != nil {
+		t.Fatal(err)
+	}
+	if got := score(); got == nil || got.GradedBy != nil {
+		t.Fatalf("score %+v, want no grader: two accounts graded the paper", got)
+	}
+}
+
+// An override by one teacher beside essays another graded names the essays'
+// grader (GB-5).
+func TestAnOverrideByAnotherTeacherDoesNotHideTheEssaysGrader(t *testing.T) {
+	pool := newPool(t)
+	p := seedPaper(t, pool, "submitted")
+	ctx := context.Background()
+	other := teacherAccount(t, pool, "Thầy Hai")
+	grade(t, p.attempt, other, domain.GradeItem{QuestionID: p.choice, Points: pts(4)})
+	grade(t, p.attempt, p.admin, domain.GradeItem{QuestionID: p.essay, Points: pts(3)})
+	var assignment string
+	if err := pool.QueryRow(ctx, `SELECT assignment_id::text FROM app.attempts WHERE id = $1::uuid`, p.attempt).Scan(&assignment); err != nil {
+		t.Fatal(err)
+	}
+	setReview(t, pool, world{assignment: assignment}, true, false, false)
+	result, err := newService(t, pool).Queries.Result.Handle(ctx, query.Result{AttemptID: p.attempt, StudentID: p.student})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Score == nil || result.Score.GradedBy == nil || *result.Score.GradedBy != "Giáo viên" {
+		t.Fatalf("score %+v, want it graded by Giáo viên", result.Score)
+	}
+}
+
+// teacherAccount inserts a teacher's account named name, removed when the test
+// ends.
+func teacherAccount(t *testing.T, pool *pgxpool.Pool, name string) string {
+	t.Helper()
+	var id string
+	if err := pool.QueryRow(context.Background(), `INSERT INTO app.users (email, full_name, role_id)
+		VALUES ('grader-'||gen_random_uuid()||'@example.com', $1, (SELECT id FROM app.roles WHERE builtin_key = 'teacher'))
+		RETURNING id::text`, name).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanUp(t, pool, `DELETE FROM app.users WHERE id = $1::uuid`, id) })
+	return id
 }
