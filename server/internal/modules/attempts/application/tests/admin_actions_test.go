@@ -41,8 +41,7 @@ func auditRows(t *testing.T, pool *pgxpool.Pool, attemptID, action string) []aud
 		out = append(out, r)
 	}
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(),
-			`DELETE FROM app.audit_log WHERE entity = 'attempt' AND entity_id = $1::uuid`, attemptID)
+		cleanUp(t, pool, `DELETE FROM app.audit_log WHERE entity = 'attempt' AND entity_id = $1::uuid`, attemptID)
 	})
 	return out
 }

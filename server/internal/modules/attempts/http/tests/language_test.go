@@ -296,6 +296,7 @@ func TestAttemptRefusalsSpeakTheCallersLanguage(t *testing.T) {
 				{QuestionID: unanswered, Reason: "unanswered"},
 				{QuestionID: notOnPaper, Reason: "not_on_paper"},
 				{QuestionID: repeated, Reason: "repeated"},
+				{QuestionID: aboveCeiling, Reason: "repeated"},
 			}}),
 			status: http.StatusBadRequest,
 			code:   openapi.VALIDATIONFAILED,

@@ -230,8 +230,9 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 	      VALUES ($1::uuid,$2::uuid)`, w.assignment, w.class)
 
 	t.Cleanup(func() {
-		c := context.Background()
 		for _, q := range []string{
+			`DELETE FROM app.audit_log WHERE entity_id = $1::uuid
+			    OR entity_id IN (SELECT id FROM app.attempts WHERE assignment_id = $1::uuid)`,
 			`DELETE FROM app.attempt_events WHERE attempt_id IN
 			   (SELECT id FROM app.attempts WHERE assignment_id = $1::uuid)`,
 			`DELETE FROM app.attempt_answers WHERE attempt_id IN
@@ -241,14 +242,14 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 			`DELETE FROM app.assignment_students WHERE assignment_id = $1::uuid`,
 			`DELETE FROM app.assignments WHERE id = $1::uuid`,
 		} {
-			_, _ = pool.Exec(c, q, w.assignment)
+			cleanUp(t, pool, q, w.assignment)
 		}
-		_, _ = pool.Exec(c, `DELETE FROM app.test_versions WHERE test_id = $1::uuid`, w.testID)
-		_, _ = pool.Exec(c, `DELETE FROM app.media_assets WHERE uploaded_by = $1::uuid`, w.admin)
-		_, _ = pool.Exec(c, `DELETE FROM app.tests WHERE id = $1::uuid`, w.testID)
-		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE class_id = $1::uuid`, w.class)
-		_, _ = pool.Exec(c, `DELETE FROM app.classes WHERE id = $1::uuid`, w.class)
-		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id IN ($1::uuid,$2::uuid,$3::uuid)`,
+		cleanUp(t, pool, `DELETE FROM app.test_versions WHERE test_id = $1::uuid`, w.testID)
+		cleanUp(t, pool, `DELETE FROM app.media_assets WHERE uploaded_by = $1::uuid`, w.admin)
+		cleanUp(t, pool, `DELETE FROM app.tests WHERE id = $1::uuid`, w.testID)
+		cleanUp(t, pool, `DELETE FROM app.class_members WHERE class_id = $1::uuid`, w.class)
+		cleanUp(t, pool, `DELETE FROM app.classes WHERE id = $1::uuid`, w.class)
+		cleanUp(t, pool, `DELETE FROM app.users WHERE id IN ($1::uuid,$2::uuid,$3::uuid)`,
 			w.admin, w.student, w.outsider)
 	})
 	return w
@@ -257,4 +258,13 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 func newService(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
 	return application.New(nil, nil, repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}))
+}
+
+// cleanUp runs one statement of a test's cleanup and reports, without
+// stopping the rest, a row it could not remove.
+func cleanUp(t *testing.T, pool *pgxpool.Pool, sql string, args ...any) {
+	t.Helper()
+	if _, err := pool.Exec(context.Background(), sql, args...); err != nil {
+		t.Errorf("clean up: %v", err)
+	}
 }

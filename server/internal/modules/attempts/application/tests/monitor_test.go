@@ -66,14 +66,13 @@ func enrol(t *testing.T, pool *pgxpool.Pool, w world, n int) []string {
 		}
 	}
 	t.Cleanup(func() {
-		c := context.Background()
-		_, _ = pool.Exec(c, `DELETE FROM app.attempt_answers WHERE attempt_id IN
+		cleanUp(t, pool, `DELETE FROM app.attempt_answers WHERE attempt_id IN
 			(SELECT id FROM app.attempts WHERE student_id = ANY($1::uuid[]))`, ids)
-		_, _ = pool.Exec(c, `DELETE FROM app.attempt_events WHERE attempt_id IN
+		cleanUp(t, pool, `DELETE FROM app.attempt_events WHERE attempt_id IN
 			(SELECT id FROM app.attempts WHERE student_id = ANY($1::uuid[]))`, ids)
-		_, _ = pool.Exec(c, `DELETE FROM app.attempts WHERE student_id = ANY($1::uuid[])`, ids)
-		_, _ = pool.Exec(c, `DELETE FROM app.class_members WHERE user_id = ANY($1::uuid[])`, ids)
-		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id = ANY($1::uuid[])`, ids)
+		cleanUp(t, pool, `DELETE FROM app.attempts WHERE student_id = ANY($1::uuid[])`, ids)
+		cleanUp(t, pool, `DELETE FROM app.class_members WHERE user_id = ANY($1::uuid[])`, ids)
+		cleanUp(t, pool, `DELETE FROM app.users WHERE id = ANY($1::uuid[])`, ids)
 	})
 	return ids
 }
@@ -256,4 +255,44 @@ func TestAnUnknownAssignmentIsNotAnEmptyMonitor(t *testing.T) {
 	if err != domain.ErrNotFound {
 		t.Errorf("got %v, want ErrNotFound", err)
 	}
+}
+
+func TestAFullyGradedEssayPaperShowsItsBandOnTheMonitor(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, openAssignment())
+	ctx := context.Background()
+	const onPaper = `SELECT q.id FROM app.test_version_questions q
+	                   JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+	                  WHERE s.test_version_id = $1::uuid`
+	for _, q := range []string{
+		`DELETE FROM app.test_version_options WHERE test_version_question_id IN (` + onPaper + `)`,
+		`DELETE FROM app.test_version_blanks WHERE test_version_question_id IN (` + onPaper + `)`,
+		`UPDATE app.test_version_questions SET type = 'essay' WHERE id IN (` + onPaper + `)`,
+	} {
+		if _, err := pool.Exec(ctx, q, w.versionID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	attempt := handIn(t, pool, w, w.student, 1, "submitted")
+	if _, err := pool.Exec(ctx, `INSERT INTO app.attempt_answers (attempt_id, question_id, payload, requires_manual, manual_score, band, graded_by, graded_at)
+		SELECT $2::uuid, id, '{"type":"text","value":"An essay."}', true, 0, 6.5, $3::uuid, now() FROM (`+onPaper+`) paper`,
+		w.versionID, attempt, w.admin); err != nil {
+		t.Fatal(err)
+	}
+
+	store := repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{})
+	monitor, err := store.Monitor(ctx, everyone, w.assignment, time.Now())
+	if err != nil {
+		t.Fatalf("monitor: %v", err)
+	}
+	for _, row := range monitor.Rows {
+		if row.AttemptID == nil || *row.AttemptID != attempt {
+			continue
+		}
+		if row.Score == nil || row.Score.Band == nil || *row.Score.Band != 6.5 {
+			t.Fatalf("the monitor row's score is %+v, want band 6.5", row.Score)
+		}
+		return
+	}
+	t.Fatalf("no monitor row for the attempt in %+v", monitor.Rows)
 }
