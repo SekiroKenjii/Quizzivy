@@ -11025,7 +11025,7 @@
               "name"
             ],
             "additionalProperties": false,
-            "description": "Who graded the paper, on the student's result only (D-072). Present\nonly under `review.showScore`, only when every hand-graded answer\nwas graded by the same account, and only while that account keeps\nits name (it has not been anonymised). Otherwise absent. Name only:\nno id, no avatar.\n",
+            "description": "Who graded the paper, on the student's result only (D-072, D-074).\nPresent only under `review.showScore`, when the attempt has at\nleast one answer that requires manual grading, none of those is\npending, one account graded them all, and that account keeps its\nname (it has not been anonymised). Otherwise absent; an override\nof an auto mark does not make its author the paper's grader. Name\nonly: no id, no avatar.\n",
             "properties": {
               "name": {
                 "type": "string",
