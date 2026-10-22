@@ -174,6 +174,11 @@ var queries = map[string]string{
 		       (x.payload = '{"removed": true}'::jsonb)::text AS removed,
 		       x.requires_manual::text AS requires_manual, x.auto_score::text AS auto_score,
 		       x.manual_score::text AS manual_score, x.final_score::text AS final_score,
+		       x.band::text AS band,
+		       (SELECT string_agg(g.criterion_id::text || '=' || g.band::text, ';' ORDER BY c.ordinal)
+		          FROM app.attempt_answer_criteria g
+		          JOIN app.test_version_rubric_criteria c ON c.id = g.criterion_id
+		         WHERE g.attempt_id = x.attempt_id AND g.question_id = x.question_id) AS criteria,
 		       x.grader_comment AS grader_comment, x.graded_by::text AS graded_by,
 		       ` + at("x.graded_at") + ` AS graded_at, ` + at("x.updated_at") + ` AS updated_at
 		  FROM app.attempt_answers x

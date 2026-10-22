@@ -133,6 +133,24 @@ type ResultQuestion struct {
 	Explanation    *string
 	Transcript     *string
 	AudioPlaysUsed *int
+	Skill          *string
+	Band           *float64
+	CorrectMatches []MatchPair
+	Criteria       []ResultCriterion
+}
+
+// MatchPair is one matching item and the choice that answers it.
+type MatchPair struct {
+	ItemID   string
+	OptionID string
+}
+
+// ResultCriterion is one rubric criterion of a graded essay and the band it
+// was given.
+type ResultCriterion struct {
+	ID    string
+	Label string
+	Band  float64
 }
 
 // GradeItem is one manual mark: the question, its points or, for an essay,
