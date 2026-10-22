@@ -1,5 +1,12 @@
 import { beforeEach, expect, it } from "vitest";
-import { act, render, screen, waitFor, within } from "@testing-library/react";
+import {
+  act,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+  within,
+} from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router";
@@ -407,4 +414,89 @@ it("names a banded essay graded on a band, not partly correct", async () => {
     await screen.findByRole("button", { name: "Question 2, Graded on a band" }),
   ).toBeInTheDocument();
   expect(screen.queryByText("Partly correct")).toBeNull();
+});
+
+function servePointsRows(row: { manualScore: number | null }) {
+  const question = review().questions[1]!;
+  server.use(
+    http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/answers`, () =>
+      contractJson("/teacher/assignments/{id}/answers", "get", 200, {
+        question,
+        questionNumber: 2,
+        questionCount: 2,
+        manualQuestionIds: [ESSAY_ID],
+        items: [
+          {
+            attemptId: ATTEMPT_ID,
+            studentId: STUDENT_ID,
+            studentName: "Nguyễn Đức Minh",
+            attemptNo: 1,
+            answer: { type: "text", value: "I usually wake up at six o'clock." },
+            manualScore: row.manualScore,
+            graderComment: null,
+          },
+        ],
+      }),
+    ),
+    http.post(`${BASE}/teacher/attempts/:id/grade`, async ({ request }) => {
+      const body = (await request.json()) as { items: { points: number }[] };
+      graded.push(body);
+      row.manualScore = body.items[0]!.points;
+      return contractJson("/teacher/attempts/{id}/grade", "post", 200, {
+        earned: 6,
+        total: 10,
+        pendingManual: 0,
+      });
+    }),
+  );
+  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  render(
+    <QueryClientProvider client={client}>
+      <MemoryRouter>
+        <GradeByQuestion
+          assignmentId={ASSIGNMENT_ID}
+          testTitle="Daily routines"
+          initialQuestionId={ESSAY_ID}
+          onExit={() => {}}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+  return { user: userEvent.setup({ delay: null }), client };
+}
+
+it("reads a saved 0.50 on a G-04 points row as the 0.5 the server keeps", async () => {
+  const row = { manualScore: null as number | null };
+  const { user, client } = servePointsRows(row);
+  const box = await screen.findByLabelText("Points for Student 01");
+  // user-event drops the trailing zero a teacher can type, so set it whole.
+  fireEvent.change(box, { target: { value: "0.50" } });
+  expect(box).toHaveValue(0.5);
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(row.manualScore).toBe(0.5));
+  await act(async () => {
+    await client.refetchQueries();
+  });
+  await screen.findByText("Graded");
+  expect(screen.queryByText(/graded elsewhere/)).toBeNull();
+});
+
+it("keeps a G-04 points edit that came back to its start when a grade lands elsewhere", async () => {
+  const row = { manualScore: 0.5 as number | null };
+  const { user, client } = servePointsRows(row);
+  // Every paper is graded, so the board shows names.
+  const box = await screen.findByLabelText("Points for Nguyễn Đức Minh");
+  expect(box).toHaveValue(0.5);
+  await user.clear(box);
+  await user.type(box, "0.5");
+  // Another tab saves 1.5 while this box reads its starting value again.
+  row.manualScore = 1.5;
+  await act(async () => {
+    await client.refetchQueries();
+  });
+  expect(await screen.findByText(/graded elsewhere/)).toBeVisible();
+  expect(box).toHaveValue(0.5);
+  await user.click(screen.getByRole("button", { name: "Show that grade" }));
+  expect(box).toHaveValue(1.5);
+  expect(screen.queryByText(/graded elsewhere/)).toBeNull();
 });

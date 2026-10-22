@@ -32,7 +32,7 @@ import {
   type EssayMark,
 } from "../essayMark";
 import { useUnsavedSection } from "@/features/settings/unsavedSection";
-import { useSavedSync } from "../savedSync";
+import { pointsSignature, useFocusWithin, useSavedSync } from "../savedSync";
 import { EssayBands, GradedElsewhere } from "./BandScale";
 import type { GradeMarks } from "./GradingCard";
 
@@ -361,8 +361,12 @@ function AnswerRow({
   const labelId = useId();
   const savedPoints = row.manualScore == null ? "" : String(row.manualScore);
   const [points, setPoints] = useState(savedPoints);
-  const sync = useSavedSync(savedPoints, rubric === null ? points : savedPoints, () =>
-    setPoints(savedPoints),
+  const [holding, hold] = useFocusWithin();
+  const sync = useSavedSync(
+    savedPoints,
+    rubric === null ? pointsSignature(points) : savedPoints,
+    () => setPoints(savedPoints),
+    holding,
   );
   useUnsavedSection(`g04:${row.attemptId}`, sync.dirty);
   const value = Number(points);
@@ -435,7 +439,7 @@ function AnswerRow({
           <GradedElsewhere onShow={() => setPoints(savedPoints)} />
         )}
         {!blank && rubric === null && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" {...hold}>
             <Button
               variant="outline"
               size="icon-xs"
@@ -522,15 +526,18 @@ function EssayRowMarks({
     setMark(savedMark);
     setMissing(null);
   };
+  const [holding, hold] = useFocusWithin();
   const { dirty, elsewhere } = useSavedSync(
     markSignature(rubric, savedMark),
     markSignature(rubric, mark),
     reset,
+    holding,
   );
   useUnsavedSection(`g04:${row.attemptId}:marks`, dirty);
   return (
     <div
       className="space-y-3"
+      {...hold}
       ref={(el) => inputRef(el?.querySelector<HTMLElement>("[data-score]") ?? null)}
     >
       <EssayBands

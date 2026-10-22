@@ -16,7 +16,7 @@ import {
   markSignature,
   type EssayMark,
 } from "../essayMark";
-import { useSavedSync } from "../savedSync";
+import { pointsSignature, useFocusWithin, useSavedSync } from "../savedSync";
 import { EssayBands, GradedElsewhere } from "./BandScale";
 
 /** GradeMarks is a grade item's marks: `points`, or an essay's `band` or `criteria`. */
@@ -87,10 +87,12 @@ export function GradingCard({
     setComment(answer?.graderComment ?? "");
     setMissing(null);
   };
+  const [holding, hold] = useFocusWithin();
   const { dirty, elsewhere } = useSavedSync(
     saved,
-    signed(essay ? markSignature(rubric, mark) : points, comment),
+    signed(essay ? markSignature(rubric, mark) : pointsSignature(points), comment),
     reset,
+    holding,
   );
   useUnsavedSection(`grade:${question.id}`, dirty);
   useEffect(() => {
@@ -127,7 +129,7 @@ export function GradingCard({
 
   return (
     <Card>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3" {...hold}>
         {essay ? (
           <div ref={bands}>
             <EssayBands
