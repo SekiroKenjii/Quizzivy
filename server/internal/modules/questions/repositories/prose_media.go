@@ -39,7 +39,8 @@ var groupAuthorized = access.Scope{All: true}
 // question-media attach path checks its asset (D-064 ruling 5), in the write's
 // transaction: each asset is locked in id order, then the writer must be able
 // to read it, and its kind must be its block's. Another teacher's asset is
-// refused exactly as a missing one is. It runs on the prose the write will
+// refused exactly as a missing one is, and the field a refusal names comes from
+// the references in field order, never from which lock failed. It runs on the prose the write will
 // store, after an omitted document has been preserved.
 func (s *Postgres) lockProseMedia(ctx context.Context, tx pgx.Tx, in domain.WriteInput, groupMember bool) error {
 	refs, err := content.QuestionMedia(in.Input.PromptContent, in.Input.ExplanationContent)
@@ -49,46 +50,46 @@ func (s *Postgres) lockProseMedia(ctx context.Context, tx pgx.Tx, in domain.Writ
 	if s.media == nil {
 		return fmt.Errorf("questions: media locks unavailable")
 	}
-	ids, field := proseAssetIDs(refs)
+	ids := proseAssetIDs(refs)
+	live := make([]string, 0, len(ids))
 	for _, id := range ids {
 		err := s.media.LockForVersionUse(ctx, tx, id)
 		if errors.Is(err, domain.ErrMediaNotFound) {
-			return &domain.ProseMediaError{Field: fieldName(field[id])}
+			continue
 		}
 		if err != nil {
 			return fmt.Errorf("questions: lock media %s: %w", id, err)
 		}
+		live = append(live, id)
 	}
 	scope := access.Scope{UserID: in.ActorID, All: in.All}
 	if groupMember {
 		scope = groupAuthorized
 	}
-	kinds, err := s.media.ReadableKinds(ctx, tx, scope, ids)
-	if err != nil {
-		return err
+	kinds := map[string]string{}
+	if len(live) > 0 {
+		if kinds, err = s.media.ReadableKinds(ctx, tx, scope, live); err != nil {
+			return err
+		}
 	}
 	return usableKinds(refs, kinds)
 }
 
 // proseAssetIDs is the distinct assets refs name, in id order, the order every
-// writer locks them in, with the first field that names each.
-func proseAssetIDs(refs []content.FieldAsset) ([]string, map[string]string) {
-	field := make(map[string]string, len(refs))
+// writer locks them in.
+func proseAssetIDs(refs []content.FieldAsset) []string {
+	ids := make([]string, 0, len(refs))
 	for _, ref := range refs {
-		if _, seen := field[ref.ID]; !seen {
-			field[ref.ID] = ref.Field
-		}
-	}
-	ids := make([]string, 0, len(field))
-	for id := range field {
-		ids = append(ids, id)
+		ids = append(ids, ref.ID)
 	}
 	slices.Sort(ids)
-	return ids, field
+	return slices.Compact(ids)
 }
 
-// usableKinds refuses a reference to an asset the writer may not read, as a
-// missing one, and one whose kind is not its block's.
+// usableKinds refuses, in field order, the first reference to an asset that is
+// missing or the writer may not read, alike, or whose kind is not its block's.
+// Naming the field from this walk alone, never from the lock order, keeps a
+// refusal from telling which of two ids exists (QC-R6M-1).
 func usableKinds(refs []content.FieldAsset, kinds map[string]string) error {
 	for _, ref := range refs {
 		kind, readable := kinds[strings.ToLower(ref.ID)]

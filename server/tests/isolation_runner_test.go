@@ -274,6 +274,11 @@ func answer(s sent) string {
 
 func success(s sent) bool { return s.status >= 200 && s.status < 300 }
 
+// substitute sends each scoped id as the caller's own, as another party's and as
+// a missing one. A blind slot is one where the caller's own id answers as a
+// missing one does (QC-R6D-4): once it no longer does, the entry would hide
+// the own-id check, so the run fails until it goes. A spent budget is the one
+// blind the request itself cannot be tried for.
 func (x *iso) substitute(op scopedOp, c isoCase) {
 	x.t.Helper()
 	caller := func(p *party) *party {
@@ -329,10 +334,6 @@ func (x *iso) substitute(op scopedOp, c isoCase) {
 		case blind == "" && answer(mine) == answer(missing):
 			x.t.Errorf("%s: the caller's own %s answers as a missing one does (%s): the case proves nothing", where, s.Kind, answer(mine))
 		case blind != "" && answer(mine) != answer(missing):
-			// QC-R6D-4: a blind slot is one where the caller's own id answers
-			// as a missing one does; once it no longer does, the entry would
-			// hide the own-id check, so it must go. A spent budget is the one
-			// blind the request itself cannot be tried for.
 			x.t.Errorf("%s: blind (%s), yet the caller's own %s now answers %s where a missing one answers %s: remove the blind entry", where, blind, s.Kind, answer(mine), answer(missing))
 		}
 	}

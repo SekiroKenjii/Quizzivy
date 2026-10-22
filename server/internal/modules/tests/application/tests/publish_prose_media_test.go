@@ -165,7 +165,7 @@ func TestPublishNamesTheQuestionWhoseProseShowsAGoneAsset(t *testing.T) {
 	repo := repositories.NewPostgres(db.NewContext(tx), adapters.GroupQuestions{}, mediarepo.NewPostgres(db.NewContext(tx))).WithGroupQuestions(adapters.GroupQuestions{})
 	_, err := repo.Publish(ctx, domain.PublishRequest{TestID: testID, ActorID: author, Scope: scope}, time.Now(), domain.Publishing.Validate)
 	var invalid *domain.PublishValidationError
-	if !errors.As(err, &invalid) || len(invalid.Violations) != 1 || invalid.Violations[0].QuestionID != standalone || invalid.Violations[0].Rule != domain.QuestionValid {
+	if !errors.As(err, &invalid) || len(invalid.Violations) != 1 || invalid.Violations[0].QuestionID != standalone || invalid.Violations[0].Rule != domain.QuestionValid || invalid.Violations[0].English == "" {
 		t.Fatalf("publishing a prompt whose image was deleted answered %v", err)
 	}
 }

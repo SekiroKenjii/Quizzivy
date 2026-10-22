@@ -102,6 +102,7 @@ func (PublishManager) MissingMedia(d DraftContent, missing []string) error {
 				violations = append(violations, Violation{
 					Rule:       QuestionValid,
 					Message:    "Một hình ảnh hoặc âm thanh trong nội dung câu hỏi không tồn tại hoặc đã bị xoá. Hãy chọn tệp khác.",
+					English:    "An image or audio in the question's text does not exist or has been deleted. Choose another file.",
 					SectionID:  section.ID,
 					QuestionID: q.SourceID,
 				})

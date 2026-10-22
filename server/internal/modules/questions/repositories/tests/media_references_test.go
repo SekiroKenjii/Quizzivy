@@ -91,7 +91,9 @@ func TestWriteMediaReferencesMakesTheRowsWhatTheProseNames(t *testing.T) {
 // write's transaction. Another teacher's asset is refused exactly as a
 // missing one is (ruling 5), a block naming the other kind is refused, the
 // prompt's audio marker needs the question's own audio (ruling 3), and an
-// update that omits its prose keeps the stored media (composedProse).
+// update that omits its prose keeps the stored media (composedProse). The
+// refused field never tells whether an id exists (QC-R6M-1): it is the first
+// unusable reference in field order, whatever order the locks ran in.
 func TestTheBankWriteStoresProseMediaItsWriterMayUse(t *testing.T) {
 	ctx, _, tx, owner, foreign := metadataBank(t)
 	repo := repositories.NewPostgres(db.NewContext(tx)).WithMedia(adapters.QuestionMedia{})
@@ -131,6 +133,16 @@ func TestTheBankWriteStoresProseMediaItsWriterMayUse(t *testing.T) {
 	_, missingErr := write("", domain.Input{PromptContent: prose(lookParagraph, imageBlock("01935000-0000-7000-8000-0000000000ff"))})
 	if !refused(theirErr, "promptContent", false) || !refused(missingErr, "promptContent", false) || theirErr.Error() != missingErr.Error() {
 		t.Fatalf("another teacher's image answered %v, a missing one %v: want the same refusal", theirErr, missingErr)
+	}
+	low, high := "00000000-0000-7000-8000-000000000001", "ffffffff-ffff-7fff-bfff-ffffffffffff"
+	for _, probe := range []string{theirs, low} {
+		for _, pair := range [][3]string{{probe, high, "promptContent"}, {high, probe, "promptContent"}, {image, probe, "explanationContent"}} {
+			_, err := write("", domain.Input{PromptContent: prose(lookParagraph, imageBlock(pair[0])),
+				Explanation: &explained, ExplanationContent: prose(lookParagraph, imageBlock(pair[1]))})
+			if !refused(err, pair[2], false) {
+				t.Fatalf("prompt %s and explanation %s answered %v: want %s whether or not the probe exists", pair[0], pair[1], err, pair[2])
+			}
+		}
 	}
 	if _, err := write(q.ID, domain.Input{PromptContent: prose(lookParagraph), Explanation: &explained, ExplanationContent: prose(lookParagraph, imageBlock(theirs))}); !refused(err, "explanationContent", false) {
 		t.Fatalf("another teacher's image in an explanation answered %v", err)
