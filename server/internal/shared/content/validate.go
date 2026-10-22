@@ -6,12 +6,16 @@ import (
 )
 
 type validator struct {
-	nodes      int
-	characters int
-	gaps       map[string]bool
-	gapIDs     []string
-	assets     map[string]string
-	assetRefs  []AssetReference
+	profile     profile
+	nested      int
+	media       int
+	audioMarker bool
+	nodes       int
+	characters  int
+	gaps        map[string]bool
+	gapIDs      []string
+	assets      map[string]string
+	assetRefs   []AssetReference
 }
 
 func (v *validator) document(value any) (string, bool) {
@@ -50,6 +54,9 @@ func (v *validator) blocks(value any, inTable bool, separator string) (string, b
 		if !ok {
 			return "", false
 		}
+		if part == "" && v.profile != materialProfile && isMedia(block) {
+			continue
+		}
 		parts = append(parts, part)
 	}
 	return strings.Join(parts, separator), true
@@ -70,9 +77,13 @@ func (v *validator) block(value any, inTable bool) (string, bool) {
 			return "", false
 		}
 		return v.table(value)
-	case image:
-		return v.asset(value, "alt", 1000)
-	case audio:
+	case image, audio:
+		if v.profile != materialProfile {
+			return v.questionMedia(value)
+		}
+		if kind(value, typeKey) == image {
+			return v.asset(value, "alt", 1000)
+		}
 		return v.asset(value, labelKey, 200)
 	default:
 		return "", false
@@ -104,6 +115,8 @@ func (v *validator) list(value any, inTable bool) (string, bool) {
 	if !ok || !boolean || !number || !sequence || !ordered && start != 1 {
 		return "", false
 	}
+	v.nested++
+	defer func() { v.nested-- }()
 	parts := make([]string, 0, len(items))
 	for _, item := range items {
 		blocks, valid := array(item, 1, MaxNodes)
@@ -121,20 +134,28 @@ func (v *validator) list(value any, inTable bool) (string, bool) {
 
 func (v *validator) asset(value any, field string, max int) (string, bool) {
 	obj, ok := object(value, typeKey, assetKey, field)
-	id, stringID := obj[assetKey].(string)
-	if !ok || !stringID || !assetID.MatchString(id) {
+	if !ok || !v.reference(value, obj) {
 		return "", false
+	}
+	return v.string(obj[field], 1, max)
+}
+
+// reference records a media node's asset, refusing an id that is malformed or names another kind elsewhere in the document.
+func (v *validator) reference(value any, obj map[string]any) bool {
+	id, stringID := obj[assetKey].(string)
+	if !stringID || !assetID.MatchString(id) {
+		return false
 	}
 	id = strings.ToLower(id)
 	assetKind := kind(value, typeKey)
 	if previous, exists := v.assets[id]; exists && previous != assetKind {
-		return "", false
+		return false
 	}
 	if _, exists := v.assets[id]; !exists {
 		v.assets[id] = assetKind
 		v.assetRefs = append(v.assetRefs, AssetReference{ID: id, Kind: assetKind})
 	}
-	return v.string(obj[field], 1, max)
+	return true
 }
 
 func (v *validator) inlines(value any, textOnly bool) (string, bool) {

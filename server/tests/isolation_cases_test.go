@@ -47,6 +47,32 @@ func choiceInput(own *party) map[string]any {
 	}
 }
 
+// withProseMedia gives a question input an image, first, in its prompt or
+// explanation when slot is that image's asset, its prose otherwise matching
+// its text, so the media block is the only thing the bank can refuse (D-064
+// ruling 7).
+func withProseMedia(input map[string]any, own *party, slot string) map[string]any {
+	image := map[string]any{"type": "image", "assetId": own.id("media"), "alt": ""}
+	switch {
+	case strings.HasSuffix(slot, "/promptContent/blocks/-/assetId"):
+		doc := textDoc(input["prompt"].(string))
+		doc["blocks"] = append([]any{image}, doc["blocks"].([]any)...)
+		input["promptContent"] = doc
+	case strings.HasSuffix(slot, "/explanationContent/blocks/-/assetId"):
+		doc := textDoc("Giải thích")
+		doc["blocks"] = append([]any{image}, doc["blocks"].([]any)...)
+		input["explanation"], input["explanationContent"] = "Giải thích", doc
+	}
+	return input
+}
+
+func proseMediaBlind(input string) map[string]string {
+	return map[string]string{
+		"body " + input + "/promptContent/blocks/-/assetId":      proseMediaNotYet,
+		"body " + input + "/explanationContent/blocks/-/assetId": proseMediaNotYet,
+	}
+}
+
 func groupBundle(own *party, groupID, slot string) map[string]any {
 	questionID := uuid.NewString()
 	group := map[string]any{
@@ -64,7 +90,7 @@ func groupBundle(own *party, groupID, slot string) map[string]any {
 			"policy": map[string]any{"maxPlays": 2, "allowSeek": false, "showTranscriptAfterSubmit": false},
 		}}
 	}
-	return map[string]any{"group": group, "questions": []any{map[string]any{"id": questionID, "input": choiceInput(own)}}}
+	return map[string]any{"group": group, "questions": []any{map[string]any{"id": questionID, "input": withProseMedia(choiceInput(own), own, slot)}}}
 }
 
 func (x *iso) testUpdatedAt(own *party) string {
@@ -213,12 +239,13 @@ const (
 	optionAsset       = "body /sections/-/items/-/question/options/-/content/blocks/-/assetId"
 	memberOptionAsset = "body /sections/-/items/-/group/questions/-/options/-/content/blocks/-/assetId"
 
-	storedUnchecked = "a review stores asset references unchecked, whoever owns them; the commit check proves they resolve in the owner's scope"
-	textOnly        = "an option holds one text paragraph, so an asset is refused whatever it names"
-	notMember       = "removing someone who is not a member answers as removing a member does"
-	outsideEvent    = "an event naming a question outside the attempt's paper is kept without it; the cross-reference scan proves the id is not stored"
-	outsideAnswer   = "an answer to a question outside the attempt's paper is dropped; the cross-reference scan proves no row names it"
-	ownOnly         = "marks only the caller's own notifications; any other id is skipped"
+	storedUnchecked  = "a review stores asset references unchecked, whoever owns them; the commit check proves they resolve in the owner's scope"
+	textOnly         = "an option holds one text paragraph, so an asset is refused whatever it names"
+	notMember        = "removing someone who is not a member answers as removing a member does"
+	outsideEvent     = "an event naming a question outside the attempt's paper is kept without it; the cross-reference scan proves the id is not stored"
+	outsideAnswer    = "an answer to a question outside the attempt's paper is dropped; the cross-reference scan proves no row names it"
+	ownOnly          = "marks only the caller's own notifications; any other id is skipped"
+	proseMediaNotYet = "until R6-13 the bank refuses an image in a prompt or an explanation whatever it names (D-064 ruling 7); R6-13 makes this the attach path's ownership check"
 
 	reportedPerStudent = "answers 200 and reports each student it cannot reset as NOT_FOUND, another teacher's as a missing one's; the bulk reset flow test proves the rows stay untouched"
 	budgetSpent        = "the third call in a minute is refused 429 (two a minute per user), so the caller's own id cannot be tried here; the bulk reset flow test resets the caller's own students beside another teacher's in one batch"
@@ -248,7 +275,7 @@ func isolationCases() map[string]isoCase {
 	later := rfc3339(time.Now().Add(24 * time.Hour))
 	return map[string]isoCase{
 		"listQuestionGroups": {},
-		"createQuestionGroup": {fresh: freshPublishedTest, as: map[string]string{"body /bundle/group/recordings/-/assetId": "audio"}, link: map[string][]string{"body /bundle/group/recordings/-/assetId": {"/bundle/group/stimuli/-/content/blocks/-/assetId"}}, body: func(x *iso, own *party, slot string) any {
+		"createQuestionGroup": {blind: proseMediaBlind("/bundle/questions/-/input"), fresh: freshPublishedTest, as: map[string]string{"body /bundle/group/recordings/-/assetId": "audio"}, link: map[string][]string{"body /bundle/group/recordings/-/assetId": {"/bundle/group/stimuli/-/content/blocks/-/assetId"}}, body: func(x *iso, own *party, slot string) any {
 			body := map[string]any{"bundle": groupBundle(own, uuid.NewString(), slot)}
 			if slot == "/ownerSectionId" {
 				body["ownerSectionId"] = own.id("section")
@@ -258,6 +285,7 @@ func isolationCases() map[string]isoCase {
 		}},
 		"getQuestionGroup": {},
 		"updateQuestionGroup": {
+			blind: proseMediaBlind("/bundle/questions/-/input"),
 			fresh: freshGroup,
 			as:    map[string]string{"body /bundle/group/recordings/-/assetId": "audio"},
 			body: func(_ *iso, own *party, slot string) any {
@@ -316,11 +344,15 @@ func isolationCases() map[string]isoCase {
 			},
 		},
 
-		"listQuestions":     {query: map[string]string{"limit": "100"}},
-		"createQuestion":    {body: func(_ *iso, own *party, _ string) any { return choiceInput(own) }},
-		"tagQuestions":      {excuse: map[string]string{"*": "tags only the questions the caller reaches"}, body: fixed(map[string]any{"questionIds": []any{""}, "tags": []any{"đã kiểm tra"}})},
-		"getQuestion":       {},
-		"updateQuestion":    {body: func(_ *iso, own *party, _ string) any { return choiceInput(own) }},
+		"listQuestions": {query: map[string]string{"limit": "100"}},
+		"createQuestion": {blind: proseMediaBlind(""), body: func(_ *iso, own *party, slot string) any {
+			return withProseMedia(choiceInput(own), own, slot)
+		}},
+		"tagQuestions": {excuse: map[string]string{"*": "tags only the questions the caller reaches"}, body: fixed(map[string]any{"questionIds": []any{""}, "tags": []any{"đã kiểm tra"}})},
+		"getQuestion":  {},
+		"updateQuestion": {blind: proseMediaBlind(""), body: func(_ *iso, own *party, slot string) any {
+			return withProseMedia(choiceInput(own), own, slot)
+		}},
 		"deleteQuestion":    {fresh: freshQuestion},
 		"duplicateQuestion": {},
 

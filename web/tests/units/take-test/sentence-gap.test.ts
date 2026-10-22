@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { contentPlainText } from "@/components/shared/content/plainText";
+import { formProse } from "@/components/shared/content/questionContent";
 import { sentenceGap } from "@/features/take-test/sentenceGap";
 import type { StudentQuestion } from "@/features/take-test/api";
 
@@ -36,7 +37,7 @@ function image(alt: string): Block {
 
 function rich(...blocks: Block[]): Prompted {
   const promptContent: Rich = { format: "semantic_v1", blocks };
-  return single(contentPlainText(promptContent), { promptContent });
+  return single(contentPlainText(formProse(promptContent)!), { promptContent });
 }
 
 describe("a choice sentence with its gap", () => {

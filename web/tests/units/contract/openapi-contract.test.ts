@@ -188,6 +188,52 @@ describe("§13.5: the student-payload boundary", () => {
   });
 });
 
+describe("DG-109: media inside a prompt or an explanation (D-064)", () => {
+  const media = [
+    "QuestionContentImage",
+    "QuestionPromptAudio",
+    "QuestionExplanationAudio",
+  ];
+
+  it("names an asset by id and never by file name", () => {
+    for (const name of media) {
+      const names = propertyNames(doc, doc.components.schemas[name]);
+      expect(names.has("type"), `the walk does not reach ${name}`).toBe(true);
+      for (const bad of [
+        "originalFilename",
+        "filename",
+        "fileName",
+        "displayName",
+        "url",
+      ])
+        expect(names.has(bad), `${name} carries ${bad}`).toBe(false);
+    }
+  });
+
+  it("places the question's own audio in a prompt, naming no asset", () => {
+    expect(Object.keys(doc.components.schemas.QuestionPromptAudio.properties)).toEqual([
+      "type",
+    ]);
+  });
+
+  it("bounds media blocks the same in both documents", () => {
+    expect(doc.components.schemas.QuestionPromptContent["x-media-blocks"]).toBe(8);
+    expect(doc.components.schemas.QuestionExplanationContent["x-media-blocks"]).toBe(8);
+  });
+
+  it("keeps explanations, and so their media, off the attempt session", () => {
+    const leaks = ops
+      .filter(({ op }) =>
+        ["startOrResumeAttempt", "getAttempt"].includes(op.operationId),
+      )
+      .filter(({ op }) =>
+        propertyNames(doc, jsonResponseSchema(op, 200)).has("explanationContent"),
+      )
+      .map(({ op }) => op.operationId);
+    expect(leaks).toEqual([]);
+  });
+});
+
 describe("§6.5: public endpoints", () => {
   const publicOps = ops.filter(({ op }) => isPublic(op));
 

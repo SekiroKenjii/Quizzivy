@@ -18,6 +18,28 @@ func ParseQuestionPrompt(raw []byte) (Document, error) {
 	return d, nil
 }
 
+// ParsePromptWithMedia validates a question prompt under DG-109's media rules: ParseQuestionPrompt's prose and gaps,
+// plus images and at most one audio marker among the document's own blocks. Assets lists the images; the marker names
+// none, and PlacesQuestionAudio reports it. A prompt ParseQuestionPrompt accepts parses here to the same projection.
+func ParsePromptWithMedia(raw []byte) (Document, error) {
+	d, err := parse(raw, promptProfile)
+	if err != nil || d.Format() != semanticFormat {
+		return Document{}, ErrInvalidDocument
+	}
+	return d, nil
+}
+
+// ParseExplanationWithMedia validates an explanation under DG-109's media rules: ParseQuestion's prose, plus images and
+// audio, each naming its asset, among the document's own blocks. An explanation ParseQuestion accepts parses here to
+// the same projection.
+func ParseExplanationWithMedia(raw []byte) (Document, error) {
+	d, err := parse(raw, explanationProfile)
+	if err != nil || d.Format() != semanticFormat || len(d.GapIDs()) != 0 {
+		return Document{}, ErrInvalidDocument
+	}
+	return d, nil
+}
+
 // ParseMaterial validates a shared group material, which is always semantic content because frozen versions store only that format.
 func ParseMaterial(raw []byte) (Document, error) {
 	d, err := Parse(raw)

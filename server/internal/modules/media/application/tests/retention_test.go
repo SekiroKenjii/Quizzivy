@@ -504,6 +504,8 @@ func TestNothingCanNameAFileWhoseObjectIsGone(t *testing.T) {
 	for _, id := range []string{gone, goneImage} {
 		w.exec(t, `UPDATE app.media_assets SET deleted_at=$2,unreferenced_at=$2,purged_at=$2 WHERE id=$1`, id, epoch)
 	}
+	live := w.asset(t, w.a, domain.KindAudio, 20)
+	liveQuestion := w.question(t, w.a, live, domain.KindAudio, nil)
 	group := w.group(t, w.a, nil)
 	stimulus := w.id(t, `INSERT INTO app.group_stimuli(group_id,ordinal,title,content) VALUES($1,0,'Ngữ liệu',$2) RETURNING id::text`, group, []byte(`{"format":"semantic_v1","blocks":[]}`))
 
@@ -518,6 +520,17 @@ func TestNothingCanNameAFileWhoseObjectIsGone(t *testing.T) {
 			return err
 		},
 		"a version's question": func(tx pgx.Tx) error { return freezeIn(ctx, tx, w.a, gone) },
+		"a question's prose": func(tx pgx.Tx) error {
+			_, err := tx.Exec(ctx, `INSERT INTO app.question_media_references(question_id,field,media_asset_id,media_asset_kind) VALUES($1,'prompt',$2,'image')`, liveQuestion, goneImage)
+			return err
+		},
+		"a version's prose": func(tx pgx.Tx) error {
+			if err := freezeIn(ctx, tx, w.a, live); err != nil {
+				return err
+			}
+			_, err := tx.Exec(ctx, `INSERT INTO app.test_version_question_media_references(test_version_question_id,field,media_asset_id,media_asset_kind) SELECT id,'explanation',$2,'image' FROM app.test_version_questions WHERE media_asset_id=$1`, live, goneImage)
+			return err
+		},
 	} {
 		tx, err := w.pool.Begin(ctx)
 		if err != nil {
@@ -534,16 +547,22 @@ func TestNothingCanNameAFileWhoseObjectIsGone(t *testing.T) {
 
 func TestTheGuardIsOnEveryTableThatNamesAFile(t *testing.T) {
 	w := newReplacementWorld(t, nil)
-	rows, err := w.pool.Query(context.Background(), `SELECT tgrelid::regclass::text FROM pg_trigger WHERE tgfoid='app.media_asset_binding_guard'::regproc AND NOT tgisinternal ORDER BY 1`)
-	if err != nil {
-		t.Fatal(err)
+	names := func(query string) []string {
+		rows, err := w.pool.Query(context.Background(), query)
+		if err != nil {
+			t.Fatal(err)
+		}
+		got, err := pgx.CollectRows(rows, pgx.RowTo[string])
+		if err != nil {
+			t.Fatal(err)
+		}
+		return got
 	}
-	triggers, err := pgx.CollectRows(rows, pgx.RowTo[string])
-	if err != nil {
-		t.Fatal(err)
-	}
-	want := []string{"app.group_recordings", "app.group_stimulus_assets", "app.questions", "app.test_version_group_assets", "app.test_version_group_recordings", "app.test_version_questions"}
-	if !slices.Equal(triggers, want) {
+	triggers := names(`SELECT tgrelid::regclass::text FROM pg_trigger WHERE tgfoid='app.media_asset_binding_guard'::regproc AND NOT tgisinternal ORDER BY 1`)
+	// Every table with a media_asset_id column names a file, so a new one is
+	// held to the guard without this list being edited (QC-R6D-1).
+	want := names(`SELECT 'app.' || c.table_name FROM information_schema.columns c JOIN information_schema.tables t USING (table_schema, table_name) WHERE c.table_schema = 'app' AND c.column_name = 'media_asset_id' AND t.table_type = 'BASE TABLE' ORDER BY 1`)
+	if len(want) < 8 || !slices.Equal(triggers, want) {
 		t.Errorf("the guard is on %v, want %v", triggers, want)
 	}
 }
