@@ -348,7 +348,7 @@ func (b *builder) question(q *questionBuilder) domain.DraftQuestion {
 	switch kind {
 	case singleChoice, multipleChoice, trueFalse:
 		out.Options, out.Origins.Options = b.options(q, kind)
-		out.Answer = choiceAnswer(out.Options, q.keys)
+		out.Answer = choiceAnswer(out.Options, vietnameseTruthKeys(kind, q.keys))
 		if out.Answer.State == domain.AnswerKnown && len(out.Answer.OptionIDs) > 1 && kind == singleChoice {
 			out.Type = multipleChoice
 		}
@@ -463,6 +463,24 @@ func trueFalseValue(v string) (string, bool) {
 		return "F", true
 	}
 	return "", false
+}
+
+// vietnameseTruthKeys reads the letters of a Vietnamese true / false key, "Đ" (đúng) and "S" (sai), as the words. Only a
+// question already typed true / false, kind, has them read: "S" alone names nothing (QC-R6GRM-24).
+func vietnameseTruthKeys(kind string, keys []keyValue) []keyValue {
+	if kind != trueFalse {
+		return keys
+	}
+	out := slices.Clone(keys)
+	for i, k := range out {
+		switch strings.ToLower(strings.Trim(norm.NFC.String(k.value), " .")) {
+		case "đ":
+			out[i].value = "Đúng"
+		case "s":
+			out[i].value = "Sai"
+		}
+	}
+	return out
 }
 
 // tfngValue reads a True / False / Not given key: TRUE, FALSE or NOT GIVEN, T, F or NG, or the Vietnamese words.
