@@ -67,6 +67,8 @@ test("E2E 9: GET /app/attempts/:id contains no part of the grading key", async (
   test.setTimeout(120_000);
   await signInAsStudent(page);
   const attemptId = await freshAttempt(page, ASSIGNMENT.payload);
+  // As below: the engine's own first read lands before the awaited one.
+  await expect(page.getByRole("group", { name: "Câu 1", exact: true })).toBeVisible();
 
   const read = apiRead(page, `/app/attempts/${attemptId}`);
   await page.reload({ waitUntil: "commit" });
