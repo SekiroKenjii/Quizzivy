@@ -25,7 +25,7 @@ type GenerateInput struct {
 	Section      *domain.Section
 }
 
-// Question is a draft question the assistant wrote. For a choice type Options are in order and AnswerKey holds the text of each correct one exactly as written in Options; a true/false question has the options True and False; for fill_blank Prompt holds one ___ and AnswerKey the accepted answers; for short_answer AnswerKey holds the sample answers.
+// Question is a draft question the assistant wrote. For a choice type Options are in order and AnswerKey holds the text of each correct one exactly as written in Options; a true/false question has the options True and False, and a tfng question True, False and Not given; for fill_blank Prompt holds one ___ and AnswerKey the accepted answers; for short_answer AnswerKey holds the sample answers.
 type Question struct {
 	Type        string
 	Prompt      string
@@ -38,7 +38,7 @@ const generateSystem = "You write English test questions for Vietnamese learners
 
 const standaloneSystem = "You write English test questions for Vietnamese learners. Each question stands alone: it holds everything needed to answer it and never refers to a passage, a text, a recording, a conversation, a picture or another question. Each key is the one answer a careful teacher would accept. " + untrusted + "Reply with JSON only."
 
-const generateSchema = `{"type":"object","additionalProperties":false,"required":["questions"],"properties":{"questions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["type","prompt","options","answers","explanation"],"properties":{"type":{"type":"string","enum":["single_choice","multiple_choice","true_false","fill_blank","short_answer"]},"prompt":{"type":"string"},"options":{"type":"array","items":{"type":"string"}},"answers":{"type":"array","items":{"type":"string"}},"explanation":{"type":"string"}}}}}}`
+const generateSchema = `{"type":"object","additionalProperties":false,"required":["questions"],"properties":{"questions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["type","prompt","options","answers","explanation"],"properties":{"type":{"type":"string","enum":["single_choice","multiple_choice","true_false","fill_blank","short_answer","tfng"]},"prompt":{"type":"string"},"options":{"type":"array","items":{"type":"string"}},"answers":{"type":"array","items":{"type":"string"}},"explanation":{"type":"string"}}}}}}`
 
 var typeRules = map[string]string{
 	SingleChoice:   "single_choice = 4 options, one correct.",
@@ -46,6 +46,7 @@ var typeRules = map[string]string{
 	TrueFalse:      "true_false = a statement; the options are exactly True and False.",
 	FillBlank:      "fill_blank = a sentence with ___ for one gap; the answer is 1-3 words from the source.",
 	ShortAnswer:    "short_answer = a question answered in 1-3 words from the source.",
+	Tfng:           "tfng = a statement about the source; the options are exactly True, False and Not given. True when the source says it, False when the source says the opposite, Not given when the source does not say either way.",
 }
 
 var standaloneRules = map[string]string{
@@ -70,7 +71,7 @@ func Generate(in GenerateInput) Prompt {
 		explain = fmt.Sprintf("Write each explanation in %s: 1-2 sentences saying where the source supports the answer.", in.Language.Name())
 	}
 	user := fmt.Sprintf("Source:\n\"\"\"\n%s\n\"\"\"\n\nWrite %d questions at CEFR %s. Use only these types: %s.\n%s\n"+
-		"For single_choice, multiple_choice and true_false, answers must equal option texts exactly. For fill_blank and short_answer, options is an empty array.\n%s\n"+
+		"For single_choice, multiple_choice, true_false and tfng, answers must equal option texts exactly. For fill_blank and short_answer, options is an empty array.\n%s\n"+
 		"Put all %d questions in \"questions\", each with its type, prompt, options, answers and explanation written from the source.",
 		clip(in.Source, MaxSource), in.Count, strings.ToUpper(in.Level), strings.Join(in.Types, ", "), strings.Join(rules, "\n"), explain, in.Count)
 	return Prompt{Feature: domain.FeatureGenerate, Tier: domain.TierCapable, System: generateSystem, User: user, Schema: json.RawMessage(generateSchema), MaxTokens: 6000}
@@ -197,6 +198,10 @@ func withKey(out Question, q rawQuestion) (Question, bool) {
 		return out, choiceKeyHolds(out)
 	case TrueFalse:
 		out.Options = []string{"True", "False"}
+		out.AnswerKey = matchingOptions(out.Options, q.Answers)
+		return out, len(out.AnswerKey) == 1
+	case Tfng:
+		out.Options = TfngOptions()
 		out.AnswerKey = matchingOptions(out.Options, q.Answers)
 		return out, len(out.AnswerKey) == 1
 	case FillBlank:

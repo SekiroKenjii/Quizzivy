@@ -1,8 +1,10 @@
 package recognition_test
 
 import (
+	"encoding/json"
 	"quizzivy/internal/modules/imports/domain"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -474,7 +476,7 @@ func TestAnInstructionBrokenOverHardLinesStaysWhole(t *testing.T) {
 // heading's instruction that took a sentence after its first line, with questions straight after it and no passage,
 // carries one informational finding on its section. An instruction whose later lines name the answer format, or a
 // section with a passage, carries none.
-func TestALongInstructionPointsAtAPossiblePassage(t *testing.T) {
+func TestAPassageLikeLineInAHeadingInstructionIsPointedAt(t *testing.T) {
 	for _, c := range []struct{ heading, instruction, passage string }{
 		{"Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Choose your words carefully, the old saying goes, because they cannot be taken back."},
 		{"Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Complete silence filled the hall when the museum opened in 1990."},
@@ -485,7 +487,7 @@ func TestALongInstructionPointsAtAPossiblePassage(t *testing.T) {
 	} {
 		t.Run(c.passage, func(t *testing.T) {
 			d := recognize(t, exam(lines(c.heading, c.instruction, c.passage, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
-			got := notices(d, domain.CodeLongInstruction)
+			got := notices(d, domain.CodePassageInInstruction)
 			if len(got) != 1 || got[0].Severity != domain.Informational || got[0].Target != d.Sections[0].ID {
 				t.Fatalf("one informational finding on the section: %+v", got)
 			}
@@ -502,7 +504,7 @@ func TestALongInstructionPointsAtAPossiblePassage(t *testing.T) {
 		"a short later line":         exam(lines("Questions 1-2", "Answer the questions below.", "Read carefully.", "1. When did it open?", "2. Who paid?")),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := notices(recognize(t, doc), domain.CodeLongInstruction); len(got) != 0 {
+			if got := notices(recognize(t, doc), domain.CodePassageInInstruction); len(got) != 0 {
 				t.Fatalf("no finding: %+v", got)
 			}
 		})
@@ -532,13 +534,13 @@ func TestACommandLikePassageAfterAnyInstructionStaysTheStimulus(t *testing.T) {
 		}
 		t.Run("bare heading/"+passage, func(t *testing.T) {
 			d := recognize(t, exam(lines("Questions 1-2", passage, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. FALSE")))
-			if got := notices(d, domain.CodeLongInstruction); len(got) != 1 || got[0].Severity != domain.Informational {
+			if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || got[0].Severity != domain.Informational {
 				t.Fatalf("the line is pointed at: %+v", got)
 			}
 		})
 	}
 	d := recognize(t, exam(lines("Questions 1-2", "Choose the best answer for each question.", "1. When did it open?", "A. 1980\tB. 1990", "2. Who paid?", "A. city\tB. residents")), key(lines("1. B\t2. B")))
-	if got := notices(d, domain.CodeLongInstruction); len(got) != 0 {
+	if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
 		t.Fatalf("an instruction straight under a heading is not pointed at: %+v", got)
 	}
 }
@@ -600,51 +602,252 @@ func instructionsOf(d domain.Draft) string {
 	return strings.Join(text, " ")
 }
 
-// QC-R6GRM-10: a "và" joining a compound subject does not end the first clause, so a Vietnamese passage that opens
-// "Viết nhật ký và đọc sách là…" stays the stimulus in every layout.
-func TestAVietnameseCompoundSubjectStaysThePassage(t *testing.T) {
-	passage := "Viết nhật ký và đọc sách là hai thói quen tốt của học sinh."
-	for name, head := range map[string][]string{
-		"heading": {"Câu 1-2", "Chọn Đúng, Sai hoặc Không có thông tin."},
-		"roman":   {"I. Chọn Đúng, Sai hoặc Không có thông tin."},
-		"plain":   {"Chọn Đúng, Sai hoặc Không có thông tin."},
+// QC-R6GRM-10, QC-R6GRM-13, D-075: a Vietnamese line with "là"/"giúp"/"khiến"/"ngày càng" after a joining
+// "và"/"rồi" reads two ways: a second command ("Đọc đoạn văn và chọn những câu là ý chính") or a passage with a
+// compound subject ("Viết nhật ký và đọc sách là…"). In every layout it stays the instruction, never a line of the
+// stimulus, and the draft points at it, whether a passage follows or not. After an instruction with nothing under it
+// yet, it joins that instruction, so nothing is left unassigned (D-076).
+func TestAVietnameseLineJoinedByVaStaysTheInstructionAndIsPointedAt(t *testing.T) {
+	passage := "Bảo tàng mở cửa năm 1990 sau nhiều năm vận động của người dân."
+	layouts := map[string][]string{
+		"heading second":     {"Câu 1-2", "Đọc đoạn văn sau."},
+		"roman second":       {"I. Đọc đoạn văn sau."},
+		"plain second":       {"Đọc đoạn văn sau."},
+		"roman title first":  {"I. ĐỌC HIỂU"},
+		"bare heading first": {"Câu 1-2"},
+		"no structure":       nil,
+	}
+	for _, line := range []string{
+		"Đọc đoạn văn và chọn những câu là ý chính của bài.",
+		"Đọc bài đọc và tìm các từ giúp nối các câu.",
+		"Đọc đoạn văn rồi cho biết điều khiến nhân vật thay đổi.",
+		"Đọc kỹ đoạn văn và gạch chân các từ là danh từ.",
+		"Đọc đoạn văn và tìm chi tiết cho thấy đời sống ngày càng tốt hơn.",
+		"Viết nhật ký và đọc sách là hai thói quen tốt của học sinh.",
+		"Viết thư rồi gửi bưu điện từng là cách liên lạc phổ biến.",
 	} {
-		d := recognize(t, exam(lines(append(head, passage, "1. Học sinh nên viết nhật ký.", "2. Đọc sách tốn thời gian.")...)), key(lines("1. Đúng\t2. Không có thông tin")))
-		if g := d.Sections[0].Items[0].Group; g == nil || g.Stimulus == nil || strings.Contains(d.Sections[0].Title+g.Instructions, "nhật ký") {
-			t.Fatalf("%s: the passage is the stimulus: %+v", name, d.Sections)
+		for name, head := range layouts {
+			for _, after := range [][]string{{passage}, nil} {
+				doc := exam(lines(append(append(append(slices.Clone(head), line), after...), "1. Bảo tàng mở cửa năm nào?", "A. 1980\tB. 1990", "2. Ai góp tiền?", "A. thành phố\tB. người dân")...))
+				d := recognize(t, doc, key(lines("1. B\t2. B")))
+				g := d.Sections[0].Items[0].Group
+				if g == nil || !strings.Contains(d.Sections[0].Title+" "+g.Instructions, line) || strings.Contains(stimulusText(g), line[:12]) {
+					t.Fatalf("%s, %s (passage %v): the line is the instruction: %q %+v", line, name, len(after) > 0, d.Sections[0].Title, g)
+				}
+				if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || got[0].Severity != domain.Informational || got[0].Count != 1 {
+					t.Fatalf("%s, %s (passage %v): one pointer at one line: %+v", line, name, len(after) > 0, got)
+				}
+				if got := notices(d, domain.CodeUnassignedText); len(got) != 0 {
+					t.Fatalf("%s, %s: the instruction before it is kept: %+v", line, name, got)
+				}
+				if name == "plain second" && !strings.Contains(d.Sections[0].Title+" "+g.Instructions, "Đọc đoạn văn sau. "+line) {
+					t.Fatalf("%s, %s: both lines are the instruction: %q %q", line, name, d.Sections[0].Title, g.Instructions)
+				}
+			}
 		}
-		if q := question(t, d, "1"); q.Type != "tfng" {
-			t.Fatalf("%s: %+v", name, q)
+	}
+	for _, line := range []string{"Đọc đoạn văn và trả lời câu hỏi.", "Đọc đoạn văn và cho biết câu nào là đúng.", "Đọc sách là thói quen tốt và bổ ích của học sinh."} {
+		d := recognize(t, exam(lines(line, passage, "1. Bảo tàng mở cửa năm nào?", "A. 1980\tB. 1990")), key(lines("1. B")))
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
+			t.Fatalf("%s is not pointed at: %+v", line, got)
 		}
 	}
 }
 
-// QC-R6GRM-9: in a Roman section whose heading carries the instruction, a line of five words or more that opens the
-// group with questions straight after it is pointed at, as under a range heading. A shorter line is not.
+// QC-R6GRM-9, QC-R6GRM-14: in a Roman section whose heading is an instruction, a line of five words or more that
+// opens the group with questions straight after it is pointed at, as under a range heading. A shorter line is not,
+// nor the first instruction line under a Roman title.
 func TestALongLineUnderARomanInstructionPointsAtAPossiblePassage(t *testing.T) {
 	for _, line := range []string{
 		"Choose your words carefully, the old saying goes, because they cannot be taken back.",
 		"Tìm việc làm ở thành phố ngày nay rất khó.",
 		"Read the passage below carefully.",
 	} {
-		d := recognize(t, exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
-		if got := notices(d, domain.CodeLongInstruction); len(got) != 1 || got[0].Severity != domain.Informational || got[0].Target != d.Sections[0].ID {
-			t.Fatalf("%s: one informational finding on the section: %+v", line, got)
+		for _, heading := range []string{"I. Write TRUE, FALSE or NOT GIVEN.", "I. Read the text below.", "I. TRUE, FALSE OR NOT GIVEN"} {
+			d := recognize(t, exam(lines(heading, line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
+			if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || got[0].Severity != domain.Informational || got[0].Target != d.Sections[0].ID {
+				t.Fatalf("%s / %s: one informational finding on the section: %+v", heading, line, got)
+			}
 		}
 	}
 	passage := "The museum opened in 1990 after a long campaign by local residents, who raised money for more than a decade."
 	for name, doc := range map[string]domain.EvidenceDocument{
-		"a four-word line":       exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a passage after it":     exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage below carefully.", passage, "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a format on the line":   exam(lines("I. Read the passage.", "Write TRUE, FALSE or NOT GIVEN for each statement.", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a title for a heading":  exam(lines("I. READING", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"two plain instructions": exam(lines("Read the passage and answer the questions.", "Write TRUE, FALSE or NOT GIVEN.", "Decide for yourself whether each statement is right.", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a four-word head line":  exam(lines("Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a four-word line":         exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a passage after it":       exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage below carefully.", passage, "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a format on the line":     exam(lines("I. Read the passage.", "Write TRUE, FALSE or NOT GIVEN for each statement.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"under a Roman title":      exam(lines("I. GRAMMAR", "Choose the best answer to complete each sentence.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"under a Vietnamese title": exam(lines("I. TRẮC NGHIỆM (3 điểm)", "Chọn đáp án đúng nhất cho mỗi câu sau.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a title for a heading":    exam(lines("I. READING", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a later group":            exam(lines("I. Choose the correct letter, A or B.", "1. When did it open?", "A. 1980\tB. 1990", "Decide for yourself which answer fits best here.", "2. Who paid?", "A. city\tB. residents")),
+		"two plain instructions":   exam(lines("Read the passage and answer the questions.", "Write TRUE, FALSE or NOT GIVEN.", "Decide for yourself whether each statement is right.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a four-word head line":    exam(lines("Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := notices(recognize(t, doc, key(lines("1. TRUE\t2. NOT GIVEN"))), domain.CodeLongInstruction); len(got) != 0 {
+			if got := notices(recognize(t, doc, key(lines("1. TRUE\t2. NOT GIVEN"))), domain.CodePassageInInstruction); len(got) != 0 {
 				t.Fatalf("no finding: %+v", got)
 			}
 		})
+	}
+}
+
+// stimulusText returns the plain text of a group's stimulus.
+func stimulusText(g *domain.DraftGroup) string {
+	var doc struct {
+		Blocks []struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"blocks"`
+	}
+	_ = json.Unmarshal(g.Stimulus, &doc)
+	var b strings.Builder
+	for _, block := range doc.Blocks {
+		for _, c := range block.Content {
+			b.WriteString(c.Text)
+		}
+	}
+	return b.String()
+}
+
+// QC-R6GRM-17, QC-R6GRM-19: a Roman heading is an instruction when it is a command that ends its sentence, after a
+// label or a score if it has one; one that only opens with a command word is a title, and the line under it is the
+// instruction's first, which is never pointed at.
+func TestARomanHeadingIsAnInstructionOnlyWhenItIsACommand(t *testing.T) {
+	line := "Choose your words carefully, the old saying goes, because they cannot be taken back."
+	for _, heading := range []string{
+		"I. READING: Read the passage and decide if the statements are true.",
+		"I. (2 points) Read the passage and answer the questions.",
+		"I. Phonetics - Choose the word whose underlined part is pronounced differently.",
+		// QC-R6GRM-22: a trailing score, a colon or no stop at all.
+		"I. Choose the word whose underlined part is pronounced differently. (1.0 point)",
+		"I. Read the passage and answer the questions (2 points)",
+		"I. Đọc đoạn văn sau và trả lời câu hỏi (3,0 điểm)",
+		"I. Read the passage below and answer the questions:",
+		"I. Choose the best answer to complete each sentence",
+		"I. Read the passage carefully",
+		"I. PHONETICS: CHOOSE THE WORD WHOSE UNDERLINED PART IS PRONOUNCED DIFFERENTLY.",
+	} {
+		d := recognize(t, exam(lines(heading, line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. FALSE")))
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 {
+			t.Fatalf("%s: the line is pointed at: %+v", heading, got)
+		}
+	}
+	for _, title := range []string{
+		"I. ĐỌC HIỂU (3,0 điểm)", "I. ĐỌC HIỂU", "I. Đọc hiểu", "I. USE OF ENGLISH", "I. READ AND WRITE",
+		// QC-R6GRM-23: a stop or a colon after a title.
+		"I. ĐỌC HIỂU:", "I. ĐỌC HIỂU.", "I. ĐỌC HIỂU (3,0 điểm):", "I. Đọc hiểu.", "I. USE OF ENGLISH.", "I. USE OF ENGLISH:",
+		"I. Use of English (2,0 điểm).", "I. VIẾT:", "I. Use of English and Grammar", "I. Read and write.",
+		"I. ĐỌC HIỂU VĂN BẢN (3,0 điểm)",
+	} {
+		d := recognize(t, exam(lines(title, "Chọn đáp án đúng nhất cho mỗi câu sau.", "1. When did it open?", "A. 1980\tB. 1990", "2. Who paid?", "A. city\tB. residents")), key(lines("1. B\t2. B")))
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
+			t.Fatalf("%s: the first instruction line is not pointed at: %+v", title, got)
+		}
+	}
+}
+
+// QC-R6GRM-24: "Đ" and "S" key a true / false question, so a Vietnamese paper keyed the usual way is ready.
+func TestAVietnameseTrueFalseKeyReadsDAndS(t *testing.T) {
+	for _, instruction := range []string{
+		"Đọc đoạn văn sau và cho biết các câu sau là Đúng (Đ) hay Sai (S).",
+		"Đọc đoạn văn sau và cho biết các câu sau Đúng hay Sai.",
+	} {
+		d := recognize(t, exam(lines("I. ĐỌC HIỂU", instruction, "Bảo tàng thành phố mở cửa năm 1990 và do người dân góp tiền xây.", "1. Bảo tàng mở cửa năm 1990.", "2. Bảo tàng do nhà nước xây.")), key(lines("1. Đ\t2. S")))
+		for label, want := range map[string]string{"1": "T", "2": "F"} {
+			if q := question(t, d, label); q.Type != "true_false" || q.Answer.State != domain.AnswerKnown || !slices.Equal(answerLabels(q), []string{want}) {
+				t.Fatalf("%s: question %s is true / false keyed %s: %+v", instruction, label, want, q)
+			}
+		}
+		if got := notices(d, domain.CodeUnusableKey); len(got) != 0 {
+			t.Fatalf("%s: the key is usable: %+v", instruction, got)
+		}
+	}
+	// Outside a true / false question "S" is no truth value.
+	d := recognize(t, exam(lines("Câu 1", "Viết từ còn thiếu.", "1. Ba mẹ con ___ đi chợ.")), key(lines("1. S")))
+	if q := question(t, d, "1"); q.Type == "true_false" {
+		t.Fatalf("a lone S keys no true / false question: %+v", q)
+	}
+	d = recognize(t, exam(lines("Chọn cỡ áo phù hợp.", "1. Áo của em cỡ nào?", "A. S\tB. M\tC. L", "2. Áo của anh cỡ nào?", "A. S\tB. M\tC. L")), key(lines("1. S\t2. M")))
+	if q := question(t, d, "1"); q.Answer.State != domain.AnswerKnown || !slices.Equal(answerLabels(q), []string{"A"}) {
+		t.Fatalf("S keys the option S: %+v", q)
+	}
+}
+
+// QC-R6GRM-25, D-076: an ambiguous line after a group's questions opens a new group; it joins only an instruction
+// with no questions yet.
+func TestAnAmbiguousLineAfterQuestionsDoesNotJoinTheirInstruction(t *testing.T) {
+	instruction := "Chọn đáp án đúng nhất cho mỗi câu sau."
+	line := "Viết nhật ký và đọc sách là hai thói quen tốt của học sinh."
+	d := recognize(t, exam(lines(instruction, "1. When did it open?", "A. 1980\tB. 1990", "2. Who paid?", "A. city\tB. residents", line, "3. Học sinh nên viết nhật ký.", "4. Thói quen đọc sách tốn nhiều thời gian.")), key(lines("1. B\t2. B\t3. Đúng\t4. Sai")))
+	if len(d.Sections) != 2 || d.Sections[0].Title != instruction || d.Sections[1].Title != line {
+		t.Fatalf("the line opens its own section: %q", sectionTitles(d))
+	}
+	if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || got[0].Target != d.Sections[1].ID {
+		t.Fatalf("the pointer is on the line: %+v", got)
+	}
+}
+
+func sectionTitles(d domain.Draft) []string {
+	var out []string
+	for _, s := range d.Sections {
+		out = append(out, s.Title)
+	}
+	return out
+}
+
+// QC-R6GRM-20, QC-R6GRM-21: a Vietnamese line that names an answer format, or whose "và … là" lies past its first
+// sentence, is no ambiguous line (D-075) and carries no pointer.
+func TestAnInstructionNamingItsFormatIsNotAmbiguous(t *testing.T) {
+	passage := "Bảo tàng mở cửa năm 1990 sau nhiều năm vận động của người dân."
+	for _, line := range []string{
+		"Đọc đoạn văn sau và cho biết các câu sau là Đúng (T) hay Sai (F).",
+		"Đọc đoạn văn và chọn đáp án đúng là A, B, C hoặc D.",
+		"Đọc đoạn văn. Viết và đọc là hai kỹ năng em cần luyện.",
+	} {
+		d := recognize(t, exam(lines("Câu 1-2", "Đọc đoạn văn sau.", line, passage, "1. Bảo tàng mở cửa năm nào?", "A. 1980\tB. 1990\tC. 2000\tD. 2010", "2. Ai góp tiền?", "A. a\tB. b\tC. c\tD. d")), key(lines("1. B\t2. B")))
+		if !strings.Contains(d.Sections[0].Title, line) {
+			t.Fatalf("%s stays the instruction: %q", line, d.Sections[0].Title)
+		}
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
+			t.Fatalf("%s is not pointed at: %+v", line, got)
+		}
+	}
+}
+
+// QC-R6GRM-18, D-076: after the real instruction under a Roman title or with no heading, a compound-subject passage
+// joins the instruction with the pointer on it, so nothing is unassigned and the questions keep the instruction's
+// true / false / not given format. A plain statement after the instruction still opens the passage.
+func TestAnAmbiguousLineJoinsTheOpenInstruction(t *testing.T) {
+	instruction := "Chọn Đúng, Sai hoặc Không có thông tin."
+	line := "Viết nhật ký và đọc sách là hai thói quen tốt của học sinh."
+	for name, head := range map[string][]string{"roman title": {"I. ĐỌC HIỂU"}, "no heading": nil, "label key": {"I. ĐỌC HIỂU"}} {
+		answers := "1. Đúng\t2. Không có thông tin"
+		if name == "label key" {
+			answers = "1. T\t2. NG"
+		}
+		d := recognize(t, exam(lines(append(slices.Clone(head), instruction, line, "1. Học sinh nên viết nhật ký.", "2. Thói quen đọc sách tốn nhiều thời gian.")...)), key(lines(answers)))
+		if got := notices(d, domain.CodeUnassignedText); len(got) != 0 {
+			t.Fatalf("%s: nothing is unassigned: %+v", name, got)
+		}
+		g := d.Sections[0].Items[0].Group
+		if g == nil || !strings.Contains(d.Sections[0].Title+" "+g.Instructions, instruction+" "+line) {
+			t.Fatalf("%s: both lines are the instruction: %q %+v", name, d.Sections[0].Title, g)
+		}
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || len(got[0].Evidence) != 1 || got[0].Evidence[0].BlockID != "exam-"+strconv.Itoa(len(head)+2) {
+			t.Fatalf("%s: the pointer is on the ambiguous line: %+v", name, got)
+		}
+		for _, label := range []string{"1", "2"} {
+			if q := question(t, d, label); q.Type != "tfng" {
+				t.Fatalf("%s: question %s keeps the format: %+v", name, label, q)
+			}
+		}
+	}
+	d := recognize(t, exam(lines("I. ĐỌC HIỂU", instruction, "Bảo tàng mở cửa năm 1990.", line, "1. Học sinh nên viết nhật ký.", "2. Thói quen đọc sách tốn nhiều thời gian.")), key(lines("1. Đúng\t2. Không có thông tin")))
+	if g := d.Sections[0].Items[0].Group; g != nil && strings.Contains(g.Instructions, line) && strings.Contains(g.Instructions, instruction) {
+		t.Fatalf("after a passage the line does not join the instruction: %+v", d.Sections)
+	}
+	d = recognize(t, exam(lines("I. ĐỌC HIỂU", instruction, "Đọc sách là thói quen tốt của học sinh.", "1. Học sinh nên viết nhật ký.", "2. Thói quen đọc sách tốn nhiều thời gian.")), key(lines("1. Đúng\t2. Không có thông tin")))
+	if g := d.Sections[0].Items[0].Group; g == nil || g.Stimulus == nil || len(notices(d, domain.CodePassageInInstruction)) != 0 {
+		t.Fatalf("a plain statement opens the passage: %+v", d.Sections)
 	}
 }

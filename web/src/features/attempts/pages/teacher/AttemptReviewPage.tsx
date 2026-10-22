@@ -50,18 +50,38 @@ import { gradeFieldMessage } from "../../gradeErrors";
 import { handMarked } from "../../essayMark";
 import { paperScoreText } from "../../paperScore";
 import { DOT, type Verdict } from "../../components/answerStyles";
+import { UnsavedChangesGuard } from "@/features/settings/UnsavedChangesGuard";
+import "../../gradingMessages";
 
 type Tab = "paper" | "integrity";
 
 /**
  * AttemptReviewPage is one student's paper in the teacher shell: the answers
  * with a rail of questions and the grading card, Finish grading, the flag, and
- * an Integrity tab with the full timeline and the private note.
+ * an Integrity tab with the full timeline and the private note. Marks given
+ * here or in G-04 and not saved yet ask before a navigation leaves the paper.
  */
 export default function AttemptReviewPage() {
-  useDisplayTimeZone();
   const { t } = useTranslation();
   const { id = "" } = useParams<{ id: string }>();
+  return (
+    <UnsavedChangesGuard
+      base={`/teacher/attempts/${id}`}
+      copy={{
+        title: t("grading.reviewLeave.title"),
+        description: t("grading.reviewLeave.body"),
+        confirm: t("grading.reviewLeave.confirm"),
+        stay: t("grading.stay"),
+      }}
+    >
+      <ReviewPage id={id} />
+    </UnsavedChangesGuard>
+  );
+}
+
+function ReviewPage({ id }: Readonly<{ id: string }>) {
+  useDisplayTimeZone();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const locale = useLocale();
   const [tab, setTab] = useState<Tab>("paper");
@@ -77,6 +97,8 @@ export default function AttemptReviewPage() {
   const review = useQuery({
     queryKey: reviewKey(id),
     queryFn: ({ signal }) => getAttemptForReview(id, signal),
+    // Another tab or teacher may grade this paper meanwhile.
+    refetchOnWindowFocus: "always",
   });
 
   const invalidate = () =>
@@ -228,10 +250,13 @@ export default function AttemptReviewPage() {
             {tab === "paper" && (
               <Button
                 size="sm"
-                disabled={!gradable || pending > 0}
-                aria-disabled={finish.isPending || undefined}
+                aria-disabled={
+                  !gradable || pending > 0 || finish.isPending || undefined
+                }
                 onClick={() => {
-                  if (!finish.isPending) finish.mutate();
+                  const blocked = finishBlocked(gradable, live, pending, t);
+                  if (blocked !== null) toast(blocked);
+                  else if (!finish.isPending) finish.mutate();
                 }}
               >
                 {t("review.finish")}
@@ -334,7 +359,7 @@ export default function AttemptReviewPage() {
                       type: t(`questionEditor.type.${question.type}`, {
                         defaultValue: question.type,
                       }),
-                      points: question.points,
+                      count: question.points,
                     })}
                   </span>
                   <VerdictBadge verdict={verdicts[current ?? 0] ?? "unanswered"} />
@@ -357,7 +382,12 @@ export default function AttemptReviewPage() {
                 )}
                 <Card id="review-answer" tabIndex={-1}>
                   <CardContent className="space-y-4">
-                    <AnswerReview question={question} answer={answer} />
+                    <AnswerReview
+                      question={question}
+                      answer={answer}
+                      // The grading card below shows these marks while they can change.
+                      marks={!cardShown(question, answer, gradable)}
+                    />
                     {handMarked(question.type) && question.sampleAnswer != null && (
                       <details open className="bg-muted rounded-lg border p-4">
                         <summary className="text-muted-fg flex w-fit cursor-pointer items-center gap-1.5 rounded-sm text-xs">
@@ -394,30 +424,28 @@ export default function AttemptReviewPage() {
                 {handMarked(question.type) && answer?.answerRemoved === true && (
                   <RecordedGrade answer={answer} max={question.points} />
                 )}
-                {handMarked(question.type) &&
-                  gradable &&
-                  answer?.answerRemoved !== true && (
-                    <GradingCard
-                      key={question.id}
-                      question={question}
-                      answer={answer}
-                      pending={grade.isPending}
-                      error={
-                        fieldFailure?.questionId === question.id
-                          ? fieldFailure.message
-                          : null
-                      }
-                      focusPoints={pointsFor === question.id}
-                      onPointsFocused={() => setPointsFor(null)}
-                      onSave={(marks, comment) =>
-                        grade.mutate(
-                          { questionId: question.id, ...marks, comment },
-                          { onSuccess: next },
-                        )
-                      }
-                      onSkip={next}
-                    />
-                  )}
+                {cardShown(question, answer, gradable) && (
+                  <GradingCard
+                    key={question.id}
+                    question={question}
+                    answer={answer}
+                    pending={grade.isPending}
+                    error={
+                      fieldFailure?.questionId === question.id
+                        ? fieldFailure.message
+                        : null
+                    }
+                    focusPoints={pointsFor === question.id}
+                    onPointsFocused={() => setPointsFor(null)}
+                    onSave={(marks, comment) =>
+                      grade.mutate(
+                        { questionId: question.id, ...marks, comment },
+                        { onSuccess: next },
+                      )
+                    }
+                    onSkip={next}
+                  />
+                )}
                 {handMarked(question.type) && !gradable && (
                   <p className="text-muted-fg text-sm">
                     {t(live ? "review.notYetSubmitted" : "review.voided")}
@@ -491,6 +519,7 @@ function headerMeta(data: AttemptReview, t: TFunction): string {
 
 function RailStats({ data }: Readonly<{ data: AttemptReview }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   const { attempt, questions, answers, integrity } = data;
   let autoEarned = 0;
   let autoTotal = 0;
@@ -521,11 +550,11 @@ function RailStats({ data }: Readonly<{ data: AttemptReview }>) {
     <div className="space-y-2 text-sm">
       <Line
         label={t("review.stats.auto")}
-        value={`${trim(autoEarned)} / ${trim(autoTotal)}`}
+        value={`${trim(autoEarned, locale)} / ${trim(autoTotal, locale)}`}
       />
       <Line
         label={t("review.stats.manual")}
-        value={`${trim(manualEarned)} / ${trim(manualTotal)}`}
+        value={`${trim(manualEarned, locale)} / ${trim(manualTotal, locale)}`}
       />
       <Line
         label={t("review.stats.duration")}
@@ -543,8 +572,29 @@ function RailStats({ data }: Readonly<{ data: AttemptReview }>) {
   );
 }
 
-function trim(n: number): string {
-  return String(Math.round(n * 100) / 100);
+/** cardShown says the paper shows a grading card for this answer: hand-marked, gradable and still held. */
+function cardShown(
+  question: AdminQuestion,
+  answer: ReviewAnswer | undefined,
+  gradable: boolean,
+) {
+  return handMarked(question.type) && gradable && answer?.answerRemoved !== true;
+}
+
+/** finishBlocked is why Finish grading cannot run yet, or null when it can. */
+function finishBlocked(
+  gradable: boolean,
+  live: boolean,
+  pending: number,
+  t: TFunction,
+) {
+  if (!gradable) return t(live ? "review.notYetSubmitted" : "review.voided");
+  return pending > 0 ? t("review.pendingNote", { count: pending }) : null;
+}
+
+/** trim writes a score to two decimals at most, in the reader's locale ("13,17" in vi). */
+function trim(n: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(n);
 }
 
 function Line({ label, value }: Readonly<{ label: string; value: string }>) {
@@ -585,6 +635,7 @@ function RecordedGrade({
   max,
 }: Readonly<{ answer: ReviewAnswer; max: number }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   const comment = answer.graderComment?.trim() ?? "";
   if (answer.manualScore == null && comment === "") return null;
   return (
@@ -594,7 +645,7 @@ function RecordedGrade({
           <p className="flex items-center gap-3 text-sm">
             <span className="font-medium">{t("review.points")}</span>
             <span className="tabular-nums">
-              {trim(answer.manualScore)} / {trim(max)}
+              {trim(answer.manualScore, locale)} / {trim(max, locale)}
             </span>
           </p>
         )}
@@ -635,6 +686,8 @@ function verdictOf(question: AdminQuestion, answer: ReviewAnswer | undefined): V
     if (answer.manualScore == null && answer.autoScore == null) return "removed";
   } else if (answer.answer === null) return "unanswered";
   if (isPending(answer)) return "pending";
+  // An essay marked on a band is neither right nor wrong.
+  if (answer.band != null) return "banded";
   const earned = answer.manualScore ?? answer.autoScore ?? 0;
   if (earned >= question.points) return "correct";
   if (earned > 0) return "partial";

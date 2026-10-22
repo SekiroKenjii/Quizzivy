@@ -506,6 +506,30 @@ export function useGradingQueue(params: GradingQueueParams) {
     setPicked(gradingItemKey(item));
     return true;
   };
+  /**
+   * fillMark lays a suggested essay mark and comment into the draft without
+   * saving, as `fill` does a score, so the teacher's Save & next writes it. A
+   * mark that is not complete is refused.
+   */
+  const fillMark = (item: GradingQueueItem, mark: EssayMark, value: string) => {
+    if (!essay(item) || !current() || lock.current) return false;
+    const points = markPoints(rubricOf(item), mark, item.points);
+    if (points === null) return false;
+    setFinishReady(null);
+    setFieldError(null);
+    setDrafts((previous) => ({
+      ...previous,
+      [gradingItemKey(item)]: {
+        ...draftFor(item),
+        mark,
+        points,
+        comment: value,
+        filled: true,
+      },
+    }));
+    setPicked(gradingItemKey(item));
+    return true;
+  };
   const select = async (item: GradingQueueItem) => {
     if (!acquire()) return;
     try {
@@ -809,6 +833,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     pickBand,
     comment,
     fill,
+    fillMark,
     select,
     leave,
     move,

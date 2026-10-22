@@ -8,8 +8,16 @@ import { Kbd } from "@/components/ui/kbd";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import type { AdminQuestion, GradeItem, ReviewAnswer } from "../api";
-import { markBand, markFields, markOf, type EssayMark } from "../essayMark";
-import { EssayBands } from "./BandScale";
+import { useUnsavedSection } from "@/features/settings/unsavedSection";
+import {
+  markBand,
+  markFields,
+  markOf,
+  markSignature,
+  type EssayMark,
+} from "../essayMark";
+import { pointsSignature, useFocusWithin, useSavedSync } from "../savedSync";
+import { EssayBands, GradedElsewhere } from "./BandScale";
 
 /** GradeMarks is a grade item's marks: `points`, or an essay's `band` or `criteria`. */
 export type GradeMarks = Omit<GradeItem, "questionId" | "comment">;
@@ -23,7 +31,10 @@ export type GradeMarks = Omit<GradeItem, "questionId" | "comment">;
  * question, so a half-graded paper survives a refresh. While `focusPoints` is
  * set it focuses the points box (an essay's first band), mounted or not, and
  * reports it through `onPointsFocused`, so the caller asks once per move.
- * `error` is a refused save's message for these marks.
+ * `error` is a refused save's message for these marks; when it appears with
+ * focus lost to the page, focus goes back to the points box. Unsaved marks
+ * hold the page's leave guard, and a grade saved elsewhere meanwhile replaces
+ * the card's while it is untouched, or is named beside it once it is not.
  */
 export function GradingCard({
   question,
@@ -63,6 +74,33 @@ export function GradingCard({
     answer?.manualScore == null ? "" : String(answer.manualScore),
   );
   const [comment, setComment] = useState(answer?.graderComment ?? "");
+  const signed = (marks: string, remark: string) =>
+    `${essay ? "band" : "points"}:${marks}|${remark.trim()}`;
+  const savedMark = markOf(answer ?? {});
+  const saved = signed(
+    essay ? markSignature(rubric, savedMark) : String(answer?.manualScore ?? ""),
+    answer?.graderComment ?? "",
+  );
+  const reset = () => {
+    setMark(savedMark);
+    setPoints(answer?.manualScore == null ? "" : String(answer.manualScore));
+    setComment(answer?.graderComment ?? "");
+    setMissing(null);
+  };
+  const [holding, hold] = useFocusWithin();
+  const { dirty, elsewhere } = useSavedSync(
+    saved,
+    signed(essay ? markSignature(rubric, mark) : pointsSignature(points), comment),
+    reset,
+    holding,
+  );
+  useUnsavedSection(`grade:${question.id}`, dirty);
+  useEffect(() => {
+    if (error === null || essay) return;
+    const lost =
+      document.activeElement === null || document.activeElement === document.body;
+    if (lost) pointsInput.current?.focus();
+  }, [error, essay]);
 
   const value = Number(points);
   const valid =
@@ -91,7 +129,7 @@ export function GradingCard({
 
   return (
     <Card>
-      <CardContent className="space-y-3">
+      <CardContent className="space-y-3" {...hold}>
         {essay ? (
           <div ref={bands}>
             <EssayBands
@@ -189,6 +227,7 @@ export function GradingCard({
             {error}
           </p>
         )}
+        {elsewhere && <GradedElsewhere onShow={reset} />}
         <div className="flex items-center gap-2 pt-1">
           <Button
             type="button"

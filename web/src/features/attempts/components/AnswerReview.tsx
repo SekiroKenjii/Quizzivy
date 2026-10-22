@@ -37,17 +37,21 @@ type ShortAnswerPresentation = Readonly<{ label: string }>;
  * response. The R6 types: true / false / not given by its position labels,
  * "Choose N" with its picks against the key, matching as pairs against the
  * key, an essay with its word count, band and criteria, and a short answer
- * past its word limit with the over-limit badge. The prompt's images draw
- * from `contentAssets`, signed for the grader (D-077).
+ * past its word limit with the over-limit badge. `marks` false leaves an
+ * essay's band and criteria out, for a page whose grading card shows them.
+ * The prompt's images draw from `contentAssets`, signed for the grader
+ * (D-077).
  */
 export function AnswerReview({
   question,
   answer,
   shortAnswerPresentation,
+  marks = true,
 }: Readonly<{
   question: ReviewQuestion;
   answer: ReviewAnswer | undefined;
   shortAnswerPresentation?: ShortAnswerPresentation;
+  marks?: boolean;
 }>) {
   const { t } = useTranslation();
   const given = answer?.answer ?? null;
@@ -83,7 +87,7 @@ export function AnswerReview({
             shortAnswerPresentation={shortAnswerPresentation}
           />
         )}
-        {question.type === "essay" && answer?.answerRemoved !== true && (
+        {marks && question.type === "essay" && answer?.answerRemoved !== true && (
           <EssayMarksReview question={question} answer={answer} />
         )}
       </div>

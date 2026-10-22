@@ -47,13 +47,15 @@ export function MatchingReview({
   );
   const label = (id: string | undefined) => {
     const option = id === undefined ? undefined : options.get(id);
-    return option ? `${option.key ?? ""} ${nfc(option.text)}`.trim() : null;
+    if (!option) return null;
+    return option.key ? `${option.key} · ${nfc(option.text)}` : nfc(option.text);
   };
   return (
     <ul className="space-y-2">
       {(question.matchItems ?? []).map((item) => {
         const picked = pairs[item.id];
         const right = picked === item.correctOptionId;
+        const pickedKey = right ? "review.matchedRight" : "review.matchedTo";
         return (
           <li
             key={item.id}
@@ -71,7 +73,7 @@ export function MatchingReview({
                     {t("review.notMatched")}
                   </span>
                 ) : (
-                  t("review.matchedTo", { choice: label(picked) })
+                  t(pickedKey, { choice: label(picked) })
                 )}
               </p>
               {!right && (
@@ -110,7 +112,7 @@ export function EssayMarksReview({
         {t("review.essayBand", { band: formatBand(answer.band, locale) })}
       </p>
       {(question.rubric ?? []).length > 0 && (
-        <dl className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1">
+        <dl className="grid max-w-sm grid-cols-[1fr_auto] gap-x-4 gap-y-1">
           {(question.rubric ?? []).map((criterion) => {
             const band = given.get(criterion.id);
             return (

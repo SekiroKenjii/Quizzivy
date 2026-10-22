@@ -3967,10 +3967,11 @@ export interface paths {
         get?: never;
         put?: never;
         /**
-         * Suggest a score for a short answer
+         * Suggest a score for a short answer or a band for an essay
          * @description Reads the question's prompt, type, points and accepted or sample
-         *     answers and the student's answer text, and proposes a score and a
-         *     comment. The student's name, email, id and class, the attempt's id and
+         *     answers (an essay's rubric criterion labels instead of accepted
+         *     answers) and the student's answer text, and proposes a score, or an
+         *     essay's band, and a comment. The student's name, email, id and class, the attempt's id and
          *     the student's other answers are never sent. The caller must hold
          *     `teaching.grading` as well as `ai.use`, the attempt must be one they
          *     reach as the grading reads do, and their `ai.readStudentAnswers`
@@ -8926,9 +8927,12 @@ export interface components {
         };
         /**
          * @description The question types the assistant writes, a subset of `QuestionType`.
+         *     `tfng` is written only from a passage, since "Not given" means the
+         *     text does not say: a standalone request that names it is refused
+         *     with `VALIDATION_FAILED` on `types`.
          * @enum {string}
          */
-        AiQuestionType: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer";
+        AiQuestionType: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer" | "tfng";
         /**
          * @description One of four shapes. From a passage: `source` (text the teacher pasted,
          *     40 characters or more), or `testId` with `stimulusId` (a shared-content
@@ -8960,7 +8964,8 @@ export interface components {
         /**
          * @description A draft question. For a choice type `options` holds the options in order
          *     and `answerKey` the text of each correct one, exactly as written in
-         *     `options`; a true/false question has the options `True` and `False`. For
+         *     `options`; a true/false question has the options `True` and `False`,
+         *     and a `tfng` question `True`, `False` and `Not given` in that order. For
          *     `fill_blank` the prompt holds `___` for the gap and `answerKey` the
          *     accepted answers; for `short_answer` it holds the sample answer.
          */
@@ -8989,21 +8994,28 @@ export interface components {
          * @description What a one-click fix writes, through `updateQuestion`, into the question
          *     it names: `text` replaces the option `optionId` (`option_text`), is added
          *     as an accepted answer of the blank `blankId` (`accepted_answer`), or
-         *     becomes the explanation (`explanation`).
+         *     becomes the explanation (`explanation`). For `tfng_answer` the option
+         *     `optionId` of a `tfng` question becomes its one correct option, and
+         *     `text` is that option's text (`Not given` for "Change to Not given").
+         *     For `word_limit` `maxWords` becomes a short answer's `maxWords`, and
+         *     `text` is the rule the student reads, such as "Write NO MORE THAN
+         *     THREE WORDS.".
          */
         AiFixPayload: {
             optionId?: components["schemas"]["Uuid"];
             blankId?: components["schemas"]["Uuid"];
+            /** @description `word_limit` only. */
+            maxWords?: number;
             text: string;
         };
         /**
          * @description `kind` is `none` when the fix is advice only; `payload` is then absent.
          *     Otherwise `payload` is present, and names an option or a blank of the
-         *     question when the kind needs one.
+         *     question, or carries a word limit, when the kind needs one.
          */
         AiFix: {
             /** @enum {string} */
-            kind: "option_text" | "accepted_answer" | "explanation" | "none";
+            kind: "option_text" | "accepted_answer" | "explanation" | "none" | "tfng_answer" | "word_limit";
             /** @description The fix in a sentence. */
             description: string;
             /** @description The one-click button's label. Absent when `kind` is `none`. */
@@ -9084,12 +9096,21 @@ export interface components {
             usage: components["schemas"]["AiUsage"];
         };
         /**
-         * @description `score` is one of the multiples of 0.5 from 0 to the question's points:
-         *     what the model proposed is moved to the nearest one. Nothing is saved;
-         *     a teacher marks the answer with `gradeAttempt`.
+         * @description For a short answer `score` is one of the multiples of 0.5 from 0 to
+         *     the question's points: what the model proposed is moved to the nearest
+         *     one. For an essay `band` is present and `score` is what the band gives,
+         *     `round(band × points ÷ 9, 2)`, as `gradeAttempt` derives it. An essay
+         *     with rubric criteria also has `criteria`, one band for each criterion
+         *     in the rubric's order, `band` is their mean rounded half up to 0.5,
+         *     and `reasons` holds one line for each criterion, in the same order.
+         *     Nothing is saved; a teacher marks the answer with `gradeAttempt`.
          */
         AiScoreSuggestion: {
             score: components["schemas"]["Points"];
+            /** @description An essay's suggested band. Absent for a short answer. */
+            band?: components["schemas"]["Band"];
+            /** @description The band suggested for each rubric criterion, in the rubric's order. Present only for an essay with criteria. */
+            criteria?: components["schemas"]["CriterionBand"][];
             /** @enum {string} */
             confidence: "high" | "medium" | "low";
             reasons: string[];
@@ -16718,7 +16739,7 @@ export interface operations {
                     "application/json": components["schemas"]["ErrorResponse"];
                 };
             };
-            /** @description The question is not a short answer waiting for a mark by hand (the grader marked this answer itself), or the student left it unanswered. */
+            /** @description The question is not a short answer or an essay waiting for a mark by hand (the grader marked this answer itself), or the student left it unanswered. */
             422: {
                 headers: {
                     [name: string]: unknown;

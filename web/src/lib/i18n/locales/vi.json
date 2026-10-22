@@ -269,6 +269,9 @@
       "idle": "So sánh câu trả lời với các đáp án được chấp nhận. Bạn quyết định điểm.",
       "run": "Gợi ý điểm",
       "running": "Đang đọc câu trả lời…",
+      "idleEssay": "Đọc bài viết và gợi ý một band. Bạn quyết định band.",
+      "idleRubric": "Đọc bài viết và gợi ý band cho từng tiêu chí. Bạn quyết định các band.",
+      "runningEssay": "Đang đọc bài viết…",
       "confidence": {
         "high": "Độ tin cậy cao",
         "medium": "Độ tin cậy trung bình",
@@ -278,6 +281,7 @@
       "comment": "Nhận xét cho học viên:",
       "use": "Dùng điểm và nhận xét",
       "filled": "Đã điền điểm và nhận xét. Hãy kiểm tra lại, rồi bấm Lưu & câu tiếp theo.",
+      "filledBand": "Đã điền band và nhận xét. Hãy kiểm tra lại, rồi bấm Lưu & câu tiếp theo.",
       "off": "Gợi ý của AI đang tắt trong <settings>Cài đặt › Trợ lý AI</settings>."
     },
     "needsVersion": "Hãy phát hành đề trước khi tạo biến thể.",
@@ -4326,7 +4330,8 @@
     "pendingNote_one": "{{count}} câu cần bạn chấm.",
     "pendingNote_other": "{{count}} câu cần bạn chấm.",
     "noQuestions": "Đề này không có câu hỏi nào.",
-    "questionMeta": "Câu {{n}} · {{type}} · {{points}} điểm",
+    "questionMeta_one": "Câu {{n}} · {{type}} · {{count}} điểm",
+    "questionMeta_other": "Câu {{n}} · {{type}} · {{count}} điểm",
     "sampleAnswer": "Đáp án mẫu — chỉ bạn nhìn thấy",
     "attemptOf": "lượt {{n}}/{{total}}",
     "submittedAt": "nộp {{time}}",
@@ -4345,7 +4350,8 @@
       "partial": "Đúng một phần",
       "pending": "Chờ chấm",
       "unanswered": "Chưa trả lời",
-      "removed": "Đã xoá"
+      "removed": "Đã xoá",
+      "banded": "Chấm theo band"
     },
     "studentAnswer": "Bài làm của học viên",
     "unanswered": "Học viên không trả lời câu này.",
@@ -4373,7 +4379,8 @@
     "overLimit": "Vượt giới hạn từ ({{words}}/{{max}} từ)",
     "notMatched": "Chưa nối",
     "matchedTo": "Nối với {{choice}}",
-    "matchKey": "Đáp án: {{choice}}",
+    "matchKey": "Đáp án đúng: {{choice}}",
+    "matchedRight": "Nối với {{choice}} · đúng",
     "essayBand": "Band {{band}}",
     "chooseCount": "Chọn {{n}} · đúng {{correct}}/{{n}} lựa chọn",
     "chooseOver": "Chọn {{n}} · đã chọn {{picked}}, quá {{n}} nên không lựa chọn nào được tính",
@@ -4529,7 +4536,8 @@
     "verdict": {
       "correct": "Đúng",
       "wrong": "Sai",
-      "partial": "Đúng một phần"
+      "partial": "Đúng một phần",
+      "banded": "Chấm theo band"
     },
     "points": "{{earned}} / {{total}}",
     "waiting": "Chờ chấm",
@@ -5337,9 +5345,9 @@
           "title": "Lựa chọn nhắc đến lựa chọn khác",
           "help": "Lựa chọn này nhắc đến chữ cái của lựa chọn khác, ví dụ “Cả A và B”; nếu thứ tự lựa chọn bị trộn, câu sẽ sai. Hãy sửa nội dung lựa chọn, hoặc xác nhận nếu bạn sẽ không trộn thứ tự lựa chọn của câu này."
         },
-        "LONG_INSTRUCTION": {
-          "title": "Phần hướng dẫn này khá dài",
-          "help": "Nếu trong đó có đoạn là bài đọc, hãy chuyển đoạn đó vào Bài đọc của phần này."
+        "PASSAGE_IN_INSTRUCTION": {
+          "title": "Phần hướng dẫn này có thể chứa bài đọc",
+          "help": "Nếu một đoạn trong hướng dẫn này là bài đọc, hãy chuyển đoạn đó vào Bài đọc của phần này."
         },
         "COLORED_TEXT_IN_CONTENT": {
           "title": "Có chữ màu trong nội dung câu",

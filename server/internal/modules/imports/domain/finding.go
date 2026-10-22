@@ -30,7 +30,7 @@ const (
 	CodeColoredText            = "COLORED_TEXT_IN_CONTENT"
 	CodeOptionReference        = "OPTION_LABEL_REFERENCE"
 	CodeNoQuestions            = "NO_QUESTIONS"
-	CodeLongInstruction        = "LONG_INSTRUCTION"
+	CodePassageInInstruction   = "PASSAGE_IN_INSTRUCTION"
 )
 
 // Finding is one actionable observation; Count aggregates repeats so one cause yields one finding.
