@@ -7,7 +7,9 @@ import { ContentImage } from "@/components/shared/content/ContentImage";
 // reader announces nothing, while a described image keeps its alt.
 describe("ContentImage alt text", () => {
   it("draws an empty alt as a decorative image with nothing announced", () => {
-    const { container } = render(<ContentImage src="https://media.test/a.png" alt="" />);
+    const { container } = render(
+      <ContentImage src="https://media.test/a.png" alt="" />,
+    );
     const img = container.querySelector("img");
     expect(img).not.toBeNull();
     expect(img?.getAttribute("alt")).toBe("");
