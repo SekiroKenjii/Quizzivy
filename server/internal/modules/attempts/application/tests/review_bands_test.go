@@ -194,61 +194,124 @@ func TestAMixedPaperHasNoBand(t *testing.T) {
 	}
 }
 
-func TestAGradeIsAuditedWithItsScoresBandsAndCriteria(t *testing.T) {
-	pool := newPool(t)
-	p := seedEssayPaper(t, pool)
-	store := repositories.NewReviews(db.NewContext(pool))
-	ctx := context.Background()
-	grader := domain.Request{ActorID: p.admin, IP: "203.0.113.9", UserAgent: "grader-test"}
-	if _, err := store.Grade(ctx, everyone, p.attempt, grader, []domain.GradeItem{{QuestionID: p.rubric, Criteria: p.bands(6, 6, 6, 6)}}); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := store.Grade(ctx, everyone, p.attempt, grader, []domain.GradeItem{
-		{QuestionID: p.rubric, Criteria: p.bands(7, 7, 7, 8), Comment: comment("RIENG-TU")},
-		{QuestionID: p.plain, Band: pts(6.5)},
-	}); err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), `DELETE FROM app.audit_log WHERE entity_id = $1::uuid`, p.attempt)
-	})
+type auditChange[T any] struct{ Old, New T }
 
-	var raw []byte
-	var actor, ip, agent string
-	if err := pool.QueryRow(ctx, `
-		SELECT diff, actor_user_id::text, host(ip), user_agent FROM app.audit_log
-		 WHERE action = 'attempt.graded' AND entity = 'attempt' AND entity_id = $1::uuid
-		 ORDER BY id DESC LIMIT 1`, p.attempt).Scan(&raw, &actor, &ip, &agent); err != nil {
+type auditedMark struct {
+	ManualScore *auditChange[*float64]           `json:"manualScore"`
+	Band        *auditChange[*float64]           `json:"band"`
+	Criteria    *auditChange[map[string]float64] `json:"criteria"`
+}
+
+func gradeEntries(t *testing.T, pool *pgxpool.Pool, attempt string) []map[string]auditedMark {
+	t.Helper()
+	rows, err := pool.Query(context.Background(), `
+		SELECT diff FROM app.audit_log WHERE action = 'attempt.graded' AND entity = 'attempt' AND entity_id = $1::uuid ORDER BY id`, attempt)
+	if err != nil {
 		t.Fatal(err)
 	}
-	if n := count(t, pool, `SELECT count(*) FROM app.audit_log WHERE action = 'attempt.graded' AND entity_id = $1::uuid`, p.attempt); n != 2 {
-		t.Errorf("%d grade entries, want one per grade", n)
+	defer rows.Close()
+	var out []map[string]auditedMark
+	for rows.Next() {
+		var raw []byte
+		if err := rows.Scan(&raw); err != nil {
+			t.Fatal(err)
+		}
+		if strings.Contains(string(raw), "RIENG-TU") || strings.Contains(string(raw), "manual_score") {
+			t.Errorf("entry %s holds the comment or a snake_case key", raw)
+		}
+		var diff struct {
+			Questions map[string]auditedMark `json:"questions"`
+		}
+		if err := json.Unmarshal(raw, &diff); err != nil {
+			t.Fatal(err)
+		}
+		out = append(out, diff.Questions)
 	}
-	if actor != p.admin || ip != "203.0.113.9" || agent != "grader-test" {
-		t.Errorf("entry by %s from %s %s", actor, ip, agent)
-	}
-	type change[T any] struct{ Old, New T }
-	var diff struct {
-		Questions map[string]struct {
-			ManualScore change[*float64]            `json:"manual_score"`
-			Band        *change[*float64]           `json:"band"`
-			Criteria    *change[map[string]float64] `json:"criteria"`
-		} `json:"questions"`
-	}
-	if err := json.Unmarshal(raw, &diff); err != nil {
-		t.Fatal(err)
-	}
-	rubric, plain := diff.Questions[p.rubric], diff.Questions[p.plain]
-	if !is(rubric.ManualScore.Old, 2) || !is(rubric.ManualScore.New, 2.5) || !is(rubric.Band.Old, 6) || !is(rubric.Band.New, 7.5) {
-		t.Errorf("rubric essay %+v, want 2 → 2.5 and band 6 → 7.5", rubric)
-	}
-	if rubric.Criteria.Old[p.criteria[3]] != 6 || rubric.Criteria.New[p.criteria[3]] != 8 || len(rubric.Criteria.New) != 4 {
-		t.Errorf("rubric criteria %+v", rubric.Criteria)
-	}
-	if plain.ManualScore.Old != nil || !is(plain.ManualScore.New, 4.33) || plain.Band.Old != nil || !is(plain.Band.New, 6.5) || len(plain.Criteria.New) != 0 {
-		t.Errorf("plain essay %+v, want nothing → 4.33 at band 6.5", plain)
-	}
-	if strings.Contains(string(raw), "RIENG-TU") {
-		t.Error("the comment reached the audit diff")
-	}
+	return out
+}
+
+func TestAGradeIsAuditedWithWhatItChanged(t *testing.T) {
+	pool := newPool(t)
+	ctx := context.Background()
+	store := repositories.NewReviews(db.NewContext(pool))
+	t.Run("points", func(t *testing.T) {
+		p := seedPaper(t, pool, "submitted")
+		t.Cleanup(func() {
+			_, _ = pool.Exec(context.Background(), `DELETE FROM app.audit_log WHERE entity_id = $1::uuid`, p.attempt)
+		})
+		grader := domain.Request{ActorID: p.admin, IP: "203.0.113.9", UserAgent: "grader-test"}
+		if _, err := store.Grade(ctx, everyone, p.attempt, grader, []domain.GradeItem{{QuestionID: p.essay, Points: pts(4), Comment: comment("RIENG-TU")}}); err != nil {
+			t.Fatal(err)
+		}
+		var actor, ip, agent string
+		if err := pool.QueryRow(ctx, `SELECT actor_user_id::text, host(ip), user_agent FROM app.audit_log WHERE action = 'attempt.graded' AND entity_id = $1::uuid`,
+			p.attempt).Scan(&actor, &ip, &agent); err != nil {
+			t.Fatal(err)
+		}
+		if actor != p.admin || ip != "203.0.113.9" || agent != "grader-test" {
+			t.Errorf("entry by %s from %s %s", actor, ip, agent)
+		}
+		entries := gradeEntries(t, pool, p.attempt)
+		if mark := entries[0][p.essay]; len(entries[0]) != 1 || mark.ManualScore.Old != nil || !is(mark.ManualScore.New, 4) || mark.Band != nil || mark.Criteria != nil {
+			t.Errorf("points entry %+v, want only the short answer's score nothing → 4", entries[0])
+		}
+		for name, items := range map[string][]domain.GradeItem{
+			"the same mark again":      {{QuestionID: p.essay, Points: pts(4)}},
+			"only the comment changes": {{QuestionID: p.essay, Points: pts(4), Comment: comment("RIENG-TU, sửa lại")}},
+		} {
+			if _, err := store.Grade(ctx, everyone, p.attempt, grader, items); err != nil {
+				t.Fatal(err)
+			}
+			if n := len(gradeEntries(t, pool, p.attempt)); n != 1 {
+				t.Errorf("%s wrote an entry: %d entries", name, n)
+			}
+		}
+		if _, err := store.Grade(ctx, everyone, p.attempt, grader, []domain.GradeItem{{QuestionID: p.essay, Points: pts(4)}, {QuestionID: p.choice, Points: pts(3)}}); err != nil {
+			t.Fatal(err)
+		}
+		entries = gradeEntries(t, pool, p.attempt)
+		if last := entries[len(entries)-1]; len(last) != 1 || last[p.choice].ManualScore.Old != nil || !is(last[p.choice].ManualScore.New, 3) {
+			t.Errorf("the entry names %+v, want only the choice it changed", last)
+		}
+	})
+	t.Run("bands and criteria", func(t *testing.T) {
+		p := seedEssayPaper(t, pool)
+		t.Cleanup(func() {
+			_, _ = pool.Exec(context.Background(), `DELETE FROM app.audit_log WHERE entity_id = $1::uuid`, p.attempt)
+		})
+		grader := domain.Request{ActorID: p.admin}
+		if _, err := store.Grade(ctx, everyone, p.attempt, grader, []domain.GradeItem{
+			{QuestionID: p.rubric, Criteria: p.bands(6, 6, 6, 6)},
+			{QuestionID: p.plain, Band: pts(6.5)},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := store.Grade(ctx, everyone, p.attempt, grader, []domain.GradeItem{
+			{QuestionID: p.rubric, Criteria: p.bands(7, 7, 7, 8), Comment: comment("RIENG-TU")},
+			{QuestionID: p.plain, Band: pts(6.5)},
+		}); err != nil {
+			t.Fatal(err)
+		}
+		entries := gradeEntries(t, pool, p.attempt)
+		if len(entries) != 2 {
+			t.Fatalf("%d entries, want one per grade that changed a mark", len(entries))
+		}
+		first, regrade := entries[0], entries[1]
+		if plain := first[p.plain]; plain.ManualScore.Old != nil || !is(plain.ManualScore.New, 4.33) || plain.Band.Old != nil || !is(plain.Band.New, 6.5) || plain.Criteria != nil {
+			t.Errorf("plain essay %+v, want nothing → 4.33 at band 6.5 and no criteria", plain)
+		}
+		if rubric := first[p.rubric]; rubric.Criteria == nil || len(rubric.Criteria.Old) != 0 || rubric.Criteria.New[p.criteria[0]] != 6 || !is(rubric.Band.New, 6) {
+			t.Errorf("first rubric grade %+v", rubric)
+		}
+		if _, present := regrade[p.plain]; present || len(regrade) != 1 {
+			t.Errorf("the regrade names %+v; the plain essay did not change", regrade)
+		}
+		rubric := regrade[p.rubric]
+		if !is(rubric.ManualScore.Old, 2) || !is(rubric.ManualScore.New, 2.5) || !is(rubric.Band.Old, 6) || !is(rubric.Band.New, 7.5) {
+			t.Errorf("rubric regrade %+v, want 2 → 2.5 and band 6 → 7.5", rubric)
+		}
+		if rubric.Criteria.Old[p.criteria[3]] != 6 || rubric.Criteria.New[p.criteria[3]] != 8 || len(rubric.Criteria.New) != 4 {
+			t.Errorf("rubric criteria %+v", rubric.Criteria)
+		}
+	})
 }

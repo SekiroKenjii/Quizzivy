@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"maps"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/retention"
 
@@ -138,26 +139,40 @@ type change[T any] struct {
 }
 
 type markChange struct {
+	ManualScore *change[*float64]           `json:"manualScore,omitempty"`
 	Band        *change[*float64]           `json:"band,omitempty"`
 	Criteria    *change[map[string]float64] `json:"criteria,omitempty"`
-	ManualScore change[*float64]            `json:"manual_score"`
 }
 
+func changed[T any](old, new T, same func(T, T) bool) *change[T] {
+	if same(old, new) {
+		return nil
+	}
+	return &change[T]{Old: old, New: new}
+}
+
+func sameMark(a, b *float64) bool { return a == nil && b == nil || a != nil && b != nil && *a == *b }
+
 func (p gradingPaper) diff(items []domain.GradeItem, marked map[string]float64) []byte {
-	questions := make(map[string]markChange, len(items))
+	questions := map[string]markChange{}
 	for _, it := range items {
 		sl := p[it.QuestionID]
 		score := marked[it.QuestionID]
-		mc := markChange{ManualScore: change[*float64]{Old: sl.manual, New: &score}}
+		mc := markChange{ManualScore: changed(sl.manual, &score, sameMark)}
 		if sl.kind == domain.Essay {
-			mc.Band = &change[*float64]{Old: sl.band, New: domain.Grading.BandOf(it)}
 			given := map[string]float64{}
 			for _, c := range it.Criteria {
 				given[c.CriterionID] = c.Band
 			}
-			mc.Criteria = &change[map[string]float64]{Old: sl.criteria, New: given}
+			mc.Band = changed(sl.band, domain.Grading.BandOf(it), sameMark)
+			mc.Criteria = changed(sl.criteria, given, maps.Equal[map[string]float64])
 		}
-		questions[it.QuestionID] = mc
+		if mc != (markChange{}) {
+			questions[it.QuestionID] = mc
+		}
+	}
+	if len(questions) == 0 {
+		return nil
 	}
 	out, _ := json.Marshal(map[string]any{"questions": questions})
 	return out

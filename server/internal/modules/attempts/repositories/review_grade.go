@@ -24,9 +24,10 @@ import (
 // It refuses, saving nothing, in this order: an answer removed under the
 // retention policy; a mark that does not fit its question's type, which is
 // known only once the attempt is found (R6C-5); a question off the paper,
-// unanswered, or marked above its points. The audit diff holds, per
-// question, the manual score before and after and an essay's band and
-// criteria, never the comment: that is the teacher's words, not a mark.
+// unanswered, or marked above its points. The audit entry (D-069) holds, per
+// question it changed, the manual score, band and criteria that changed, as
+// {old, new}, never the comment: that is the teacher's words, not a mark. A
+// grade that changes no mark writes no entry.
 func (s *Reviews) Grade(ctx context.Context, scope access.Scope, attemptID string, grader domain.Request, items []domain.GradeItem) (domain.Score, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
@@ -53,12 +54,13 @@ func (s *Reviews) Grade(ctx context.Context, scope access.Scope, attemptID strin
 	if err := replaceCriteria(ctx, tx, attemptID, items); err != nil {
 		return domain.Score{}, err
 	}
-	if err := audit.Write(ctx, tx, audit.Entry{
-		ActorUserID: opt.String(grader.ActorID), Action: "attempt.graded", Entity: "attempt", EntityID: &attemptID,
-		OccurredAt: s.now(), IP: opt.String(grader.IP), UserAgent: opt.String(grader.UserAgent),
-		Diff: paper.diff(items, marked),
-	}); err != nil {
-		return domain.Score{}, fmt.Errorf("review: %w", err)
+	if diff := paper.diff(items, marked); diff != nil {
+		if err := audit.Write(ctx, tx, audit.Entry{
+			ActorUserID: opt.String(grader.ActorID), Action: "attempt.graded", Entity: "attempt", EntityID: &attemptID,
+			OccurredAt: s.now(), IP: opt.String(grader.IP), UserAgent: opt.String(grader.UserAgent), Diff: diff,
+		}); err != nil {
+			return domain.Score{}, fmt.Errorf("review: %w", err)
+		}
 	}
 
 	score, err := recomputeScore(ctx, tx, attemptID)
