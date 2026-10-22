@@ -24,6 +24,8 @@ import (
 	"time"
 )
 
+func pts(n float64) *float64 { return &n }
+
 func TestGradingQueueFrozenRichKeysMediaAndSharedContext(t *testing.T) {
 	f := newQueueFixture(t)
 	p := f.paper(f.teacher, "Published", "short_answer", "multiple_choice", "fill_blank")
@@ -175,7 +177,7 @@ func TestGradingQueueConcurrentGradeAndFreshRefetch(t *testing.T) {
 	writerApp := application.New(nil, repositories.NewReviews(db.NewContext(writer)), nil)
 	started = true
 	go func() {
-		_, err := writerApp.Commands.Grade.Handle(ctx, command.Grade{Scope: f.own(), AttemptID: at, GraderID: f.teacher, Items: []domain.GradeItem{{QuestionID: p.questions[0], Points: 0}}})
+		_, err := writerApp.Commands.Grade.Handle(ctx, command.Grade{Scope: f.own(), AttemptID: at, GraderID: f.teacher, Items: []domain.GradeItem{{QuestionID: p.questions[0], Points: pts(0)}}})
 		done <- err
 	}()
 	waitQueueBlock(t, f, writer.Conn().PgConn().PID(), blockerPID)
@@ -253,7 +255,7 @@ func TestGradingQueueConcurrentGradeAndFreshRefetch(t *testing.T) {
 	case <-f.ctx.Done():
 		t.Fatal("public queue statement was not captured")
 	}
-	if _, err := app.Commands.Grade.Handle(f.ctx, command.Grade{Scope: f.own(), AttemptID: at, GraderID: f.teacher, Items: []domain.GradeItem{{QuestionID: p.questions[1], Points: 1}}}); err != nil {
+	if _, err := app.Commands.Grade.Handle(f.ctx, command.Grade{Scope: f.own(), AttemptID: at, GraderID: f.teacher, Items: []domain.GradeItem{{QuestionID: p.questions[1], Points: pts(1)}}}); err != nil {
 		t.Fatal(err)
 	}
 	close(resume)

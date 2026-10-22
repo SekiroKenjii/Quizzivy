@@ -7,16 +7,27 @@ import (
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/answered"
+	"quizzivy/internal/shared/audit"
+	"quizzivy/internal/shared/bands"
 	"quizzivy/internal/shared/opt"
-	"quizzivy/internal/shared/retention"
 	"quizzivy/internal/shared/visibility"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 )
 
 // Grade writes manual marks for a closed attempt on an assignment the scope
-// reaches and returns the live score.
-func (s *Reviews) Grade(ctx context.Context, scope access.Scope, attemptID, graderID string, items []domain.GradeItem) (domain.Score, error) {
+// reaches, audits them as grader, and returns the live score. An essay's band
+// is converted to manual_score = round(band × points ÷ 9, 2) here, and its
+// criteria's bands replace the ones a previous grade wrote.
+//
+// It refuses, saving nothing, in this order: an answer removed under the
+// retention policy; a mark that does not fit its question's type, which is
+// known only once the attempt is found (R6C-5); a question off the paper,
+// unanswered, or marked above its points. The audit diff holds, per
+// question, the manual score before and after and an essay's band and
+// criteria, never the comment: that is the teacher's words, not a mark.
+func (s *Reviews) Grade(ctx context.Context, scope access.Scope, attemptID string, grader domain.Request, items []domain.GradeItem) (domain.Score, error) {
 	tx, err := s.Begin(ctx)
 	if err != nil {
 		return domain.Score{}, fmt.Errorf("review: begin grade: %w", err)
@@ -27,26 +38,27 @@ func (s *Reviews) Grade(ctx context.Context, scope access.Scope, attemptID, grad
 	if err != nil {
 		return domain.Score{}, err
 	}
-	if err := validateGrades(ctx, tx, attemptID, versionID, items); err != nil {
+	paper, err := readGradingPaper(ctx, tx, attemptID, versionID)
+	if err != nil {
+		return domain.Score{}, err
+	}
+	if err := paper.check(items); err != nil {
 		return domain.Score{}, err
 	}
 
-	ids := make([]string, len(items))
-	points := make([]float64, len(items))
-	comments := make([]*string, len(items))
-	for i, it := range items {
-		ids[i] = it.QuestionID
-		points[i] = it.Points
-		comments[i] = it.Comment
+	marked, err := writeMarks(ctx, tx, attemptID, grader.ActorID, s.now(), items)
+	if err != nil {
+		return domain.Score{}, err
 	}
-	if _, err := tx.Exec(ctx, `
-		UPDATE app.attempt_answers a
-		   SET manual_score = marked.points, grader_comment = marked.comment,
-		       graded_by = $2::uuid, graded_at = $3
-		  FROM unnest($4::uuid[], $5::numeric[], $6::text[]) AS marked(question_id, points, comment)
-		 WHERE a.attempt_id = $1::uuid AND a.question_id = marked.question_id`,
-		attemptID, graderID, s.now(), ids, points, comments); err != nil {
-		return domain.Score{}, fmt.Errorf("review: write marks: %w", err)
+	if err := replaceCriteria(ctx, tx, attemptID, items); err != nil {
+		return domain.Score{}, err
+	}
+	if err := audit.Write(ctx, tx, audit.Entry{
+		ActorUserID: opt.String(grader.ActorID), Action: "attempt.graded", Entity: "attempt", EntityID: &attemptID,
+		OccurredAt: s.now(), IP: opt.String(grader.IP), UserAgent: opt.String(grader.UserAgent),
+		Diff: paper.diff(items, marked),
+	}); err != nil {
+		return domain.Score{}, fmt.Errorf("review: %w", err)
 	}
 
 	score, err := recomputeScore(ctx, tx, attemptID)
@@ -57,6 +69,74 @@ func (s *Reviews) Grade(ctx context.Context, scope access.Scope, attemptID, grad
 		return domain.Score{}, fmt.Errorf("review: commit grade: %w", err)
 	}
 	return score, nil
+}
+
+func writeMarks(ctx context.Context, tx pgx.Tx, attemptID, graderID string, now time.Time, items []domain.GradeItem) (map[string]float64, error) {
+	ids := make([]string, len(items))
+	points := make([]*float64, len(items))
+	bands := make([]*float64, len(items))
+	comments := make([]*string, len(items))
+	for i, it := range items {
+		ids[i] = it.QuestionID
+		points[i] = it.Points
+		bands[i] = domain.Grading.BandOf(it)
+		comments[i] = it.Comment
+	}
+	rows, err := tx.Query(ctx, `
+		UPDATE app.attempt_answers a
+		   SET manual_score = coalesce(round(marked.band * q.points / 9, 2), marked.points),
+		       band = marked.band, grader_comment = marked.comment,
+		       graded_by = $2::uuid, graded_at = $3
+		  FROM unnest($4::uuid[], $5::numeric[], $6::numeric[], $7::text[]) AS marked(question_id, points, band, comment)
+		  JOIN app.test_version_questions q ON q.id = marked.question_id
+		 WHERE a.attempt_id = $1::uuid AND a.question_id = marked.question_id
+		RETURNING a.question_id::text, a.manual_score`,
+		attemptID, graderID, now, ids, points, bands, comments)
+	if err != nil {
+		return nil, fmt.Errorf("review: write marks: %w", err)
+	}
+	marked := map[string]float64{}
+	for rows.Next() {
+		var id string
+		var score float64
+		if err := rows.Scan(&id, &score); err != nil {
+			return nil, fmt.Errorf("review: scan marks: %w", err)
+		}
+		marked[id] = score
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("review: write marks: %w", err)
+	}
+	return marked, nil
+}
+
+func replaceCriteria(ctx context.Context, tx pgx.Tx, attemptID string, items []domain.GradeItem) error {
+	var questions, banded, criteria []string
+	var bands []float64
+	for _, it := range items {
+		questions = append(questions, it.QuestionID)
+		for _, c := range it.Criteria {
+			banded = append(banded, it.QuestionID)
+			criteria = append(criteria, c.CriterionID)
+			bands = append(bands, c.Band)
+		}
+	}
+	if _, err := tx.Exec(ctx, `
+		DELETE FROM app.attempt_answer_criteria
+		 WHERE attempt_id = $1::uuid AND question_id = ANY($2::uuid[])`, attemptID, questions); err != nil {
+		return fmt.Errorf("review: clear criteria: %w", err)
+	}
+	if len(criteria) == 0 {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+		SELECT $1::uuid, c.question_id, c.criterion_id, c.band
+		  FROM unnest($2::uuid[], $3::uuid[], $4::numeric[]) AS c(question_id, criterion_id, band)`,
+		attemptID, banded, criteria, bands); err != nil {
+		return fmt.Errorf("review: write criteria: %w", err)
+	}
+	return nil
 }
 
 // Finish declares a paper of an assignment the scope reaches graded.
@@ -121,64 +201,6 @@ func lockGradable(ctx context.Context, tx pgx.Tx, scope access.Scope, attemptID 
 	return versionID, nil
 }
 
-func validateGrades(ctx context.Context, tx pgx.Tx, attemptID, versionID string, items []domain.GradeItem) error {
-	rows, err := tx.Query(ctx, `
-		SELECT q.id::text, q.points, (aa.attempt_id IS NOT NULL), coalesce(aa.payload = '`+retention.RemovedAnswer+`'::jsonb, false)
-		  FROM app.test_version_questions q
-		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
-		  LEFT JOIN app.attempt_answers aa
-		    ON aa.attempt_id = $2::uuid AND aa.question_id = q.id
-		 WHERE s.test_version_id = $1::uuid`, versionID, attemptID)
-	if err != nil {
-		return fmt.Errorf("review: read paper for grading: %w", err)
-	}
-	defer rows.Close()
-
-	type slot struct {
-		ceiling  float64
-		answered bool
-		removed  bool
-	}
-	paper := map[string]slot{}
-	for rows.Next() {
-		var id string
-		var sl slot
-		if err := rows.Scan(&id, &sl.ceiling, &sl.answered, &sl.removed); err != nil {
-			return fmt.Errorf("review: scan paper: %w", err)
-		}
-		paper[id] = sl
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("review: read paper for grading: %w", err)
-	}
-
-	var removed []string
-	for _, it := range items {
-		if sl, ok := paper[it.QuestionID]; ok && sl.removed {
-			removed = append(removed, it.QuestionID)
-		}
-	}
-	if len(removed) > 0 {
-		return &domain.AnswerRemovedError{QuestionIDs: removed}
-	}
-	var invalid []domain.GradeItemError
-	for _, it := range items {
-		sl, ok := paper[it.QuestionID]
-		switch {
-		case !ok:
-			invalid = append(invalid, domain.GradeItemError{QuestionID: it.QuestionID, Reason: "not_on_paper"})
-		case !sl.answered:
-			invalid = append(invalid, domain.GradeItemError{QuestionID: it.QuestionID, Reason: "unanswered"})
-		case it.Points > sl.ceiling:
-			invalid = append(invalid, domain.GradeItemError{QuestionID: it.QuestionID, Reason: "above_ceiling"})
-		}
-	}
-	if len(invalid) > 0 {
-		return &domain.GradeValidationError{Items: invalid}
-	}
-	return nil
-}
-
 func recomputeScore(ctx context.Context, tx pgx.Tx, attemptID string) (domain.Score, error) {
 	var out domain.Score
 	var total *float64
@@ -189,8 +211,9 @@ func recomputeScore(ctx context.Context, tx pgx.Tx, attemptID string) (domain.Sc
 		 WHERE at.id = $1::uuid
 		RETURNING at.score_earned, at.score_total,
 		          (SELECT count(*) FROM app.attempt_answers aa
-		            WHERE aa.attempt_id = at.id AND `+answered.AwaitsGrade("aa")+`)`,
-		attemptID).Scan(&out.Earned, &total, &out.PendingManual)
+		            WHERE aa.attempt_id = at.id AND `+answered.AwaitsGrade("aa")+`),
+		          `+bands.OfPaper("at"),
+		attemptID).Scan(&out.Earned, &total, &out.PendingManual, &out.Band)
 	if err != nil {
 		return domain.Score{}, fmt.Errorf("review: recompute score: %w", err)
 	}

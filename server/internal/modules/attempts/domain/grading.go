@@ -10,7 +10,7 @@ import (
 
 // Grade scores one answer.
 func (GradingManager) Grade(q GradableQuestion, payload []byte) GradeResult {
-	if q.Type == "short_answer" || q.Type == "essay" {
+	if q.Type == "short_answer" || q.Type == Essay {
 		return GradeResult{RequiresManual: true}
 	}
 	if len(payload) == 0 {

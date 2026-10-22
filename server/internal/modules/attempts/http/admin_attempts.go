@@ -74,7 +74,7 @@ func (h Attempts) GetAssignmentMonitor(ctx context.Context, request openapi.GetA
 }
 
 func toAPIScore(sc domain.Score) *openapi.AttemptScore {
-	return &openapi.AttemptScore{Earned: sc.Earned, Total: sc.Total, PendingManual: sc.PendingManual}
+	return &openapi.AttemptScore{Earned: sc.Earned, Total: sc.Total, PendingManual: sc.PendingManual, Band: sc.Band}
 }
 
 type reviewAnswer = struct {
@@ -505,17 +505,17 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
-	if code, refused := gradeShapeRefusal(request.Body); len(refused) > 0 {
-		return openapi.GradeAttempt422JSONResponse(gradeRefusal(ctx, code, refused)), nil
-	}
-	items := make([]domain.GradeItem, len(request.Body.Items))
-	for i, it := range request.Body.Items {
-		items[i] = domain.GradeItem{QuestionID: it.QuestionId.String(), Points: *it.Points, Comment: it.Comment}
-	}
-	score, err := h.app.Commands.Grade.Handle(ctx, command.Grade{AttemptID: request.Id.String(), GraderID: principal.UserID, Items: items, Scope: httpapi.ScopeFromContext(ctx)})
+	req, _ := attemptRequest(ctx)
+	score, err := h.app.Commands.Grade.Handle(ctx, command.Grade{
+		AttemptID: request.Id.String(), GraderID: principal.UserID, IP: req.IP, UserAgent: req.UserAgent,
+		Items: toGradeItems(request.Body), Scope: httpapi.ScopeFromContext(ctx),
+	})
 	var invalid *domain.GradeValidationError
 	var removed *domain.AnswerRemovedError
+	var shaped *domain.GradeShapeError
 	switch {
+	case errors.As(err, &shaped):
+		return openapi.GradeAttempt422JSONResponse(gradeRefusal(ctx, shaped)), nil
 	case errors.As(err, &removed):
 		resp := httpapi.Error(ctx, openapi.ANSWERREMOVED, httpx.Text(ctx,
 			"Câu trả lời đã được xoá theo chính sách lưu trữ của trung tâm, nên không thể chấm.",
@@ -537,35 +537,41 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 	return openapi.GradeAttempt200JSONResponse(*toAPIScore(score)), nil
 }
 
-func gradeShapeRefusal(body *openapi.GradeAttemptJSONRequestBody) (openapi.ErrorCode, []string) {
-	var banded, pointless []string
-	for _, it := range body.Items {
-		switch {
-		case it.Band != nil || it.Criteria != nil:
-			banded = append(banded, it.QuestionId.String())
-		case it.Points == nil:
-			pointless = append(pointless, it.QuestionId.String())
+func toGradeItems(body *openapi.GradeAttemptJSONRequestBody) []domain.GradeItem {
+	items := make([]domain.GradeItem, len(body.Items))
+	for i, it := range body.Items {
+		items[i] = domain.GradeItem{QuestionID: it.QuestionId.String(), Points: it.Points, Band: it.Band, Comment: it.Comment}
+		if it.Criteria != nil {
+			items[i].Criteria = make([]domain.CriterionBand, len(*it.Criteria))
+			for j, c := range *it.Criteria {
+				items[i].Criteria[j] = domain.CriterionBand{CriterionID: c.CriterionId.String(), Band: c.Band}
+			}
 		}
 	}
-	if len(banded) > 0 {
-		return openapi.GRADEBANDNOTALLOWED, banded
-	}
-	return openapi.GRADENEEDSPOINTS, pointless
+	return items
 }
 
-func gradeRefusal(ctx context.Context, code openapi.ErrorCode, questionIDs []string) openapi.ErrorResponse {
+func gradeRefusal(ctx context.Context, refused *domain.GradeShapeError) openapi.ErrorResponse {
 	var resp openapi.ErrorResponse
-	switch code {
-	case openapi.GRADEBANDNOTALLOWED:
-		resp = httpapi.Error(ctx, code, httpx.Text(ctx,
+	switch refused.Shape {
+	case domain.BandNotAllowed:
+		resp = httpapi.Error(ctx, openapi.GRADEBANDNOTALLOWED, httpx.Text(ctx,
 			"Chỉ bài luận mới được chấm theo band.",
 			"Only an essay is graded on a band."))
+	case domain.NeedsBand:
+		resp = httpapi.Error(ctx, openapi.GRADENEEDSBAND, httpx.Text(ctx,
+			"Bài luận này được chấm bằng một band, không phải điểm số.",
+			"This essay is graded on a band, not in points."))
+	case domain.CriteriaIncomplete:
+		resp = httpapi.Error(ctx, openapi.GRADECRITERIAINCOMPLETE, httpx.Text(ctx,
+			"Hãy chấm band cho từng tiêu chí của bài luận này, mỗi tiêu chí một lần.",
+			"Give a band for each of this essay's criteria, once each."))
 	default:
-		resp = httpapi.Error(ctx, code, httpx.Text(ctx,
+		resp = httpapi.Error(ctx, openapi.GRADENEEDSPOINTS, httpx.Text(ctx,
 			"Câu này cần được chấm bằng điểm số.",
 			"This question needs a score in points."))
 	}
-	details := map[string]interface{}{"questionIds": questionIDs}
+	details := map[string]interface{}{"questionIds": refused.QuestionIDs}
 	resp.Error.Details = &details
 	return resp
 }
