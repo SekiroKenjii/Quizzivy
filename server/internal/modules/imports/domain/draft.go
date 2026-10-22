@@ -75,19 +75,23 @@ type GapLink struct {
 	BlankGapID string `json:"blankGapId,omitempty"`
 }
 
+// DraftQuestion is one reviewable question. SelectCount is a multiple choice's "Choose N" and MaxWords a short
+// answer's word limit; both are read from the instruction and absent when it names none.
 type DraftQuestion struct {
-	ID       string          `json:"id"`
-	Label    string          `json:"label"`
-	Task     string          `json:"task,omitempty"`
-	Type     string          `json:"type"`
-	Prompt   json.RawMessage `json:"prompt"`
-	Options  []DraftOption   `json:"options"`
-	Blanks   []DraftBlank    `json:"blanks"`
-	Answer   DraftAnswer     `json:"answer"`
-	Points   string          `json:"points"`
-	Excluded *Exclusion      `json:"excluded,omitempty"`
-	Origins  Origins         `json:"origins"`
-	Source   []SourceRef     `json:"source"`
+	ID          string          `json:"id"`
+	Label       string          `json:"label"`
+	Task        string          `json:"task,omitempty"`
+	Type        string          `json:"type"`
+	Prompt      json.RawMessage `json:"prompt"`
+	SelectCount *int            `json:"selectCount,omitempty"`
+	MaxWords    *int            `json:"maxWords,omitempty"`
+	Options     []DraftOption   `json:"options"`
+	Blanks      []DraftBlank    `json:"blanks"`
+	Answer      DraftAnswer     `json:"answer"`
+	Points      string          `json:"points"`
+	Excluded    *Exclusion      `json:"excluded,omitempty"`
+	Origins     Origins         `json:"origins"`
+	Source      []SourceRef     `json:"source"`
 }
 
 type DraftOption struct {
