@@ -289,6 +289,7 @@ export function useProseMedia({
       <FileInput
         inputRef={fileInput}
         kind={pickKind}
+        label={t("contentEditor.media.chooseFile")}
         onFile={(file) => {
           const to = target.current;
           if (to) send([file], to);

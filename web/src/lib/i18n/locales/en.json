@@ -4756,6 +4756,7 @@
       "removeAudio": "Remove audio",
       "alt": "Alt text",
       "altPlaceholder": "Alt text: describe the image for screen readers",
+      "chooseFile": "Choose a file for the text",
       "altNudge": "Without alt text, screen readers skip this image. Leave it empty only if the image is decorative.",
       "questionAudio": "Question audio",
       "questionAudioHint": "{{name}} · plays here with the question's play limit",

@@ -114,4 +114,19 @@ describe("a page's prose media host", () => {
           ),
       ).toBe(false);
   });
+
+  it("names its file input apart from the question media field's", async () => {
+    render(
+      <QueryClientProvider client={new QueryClient()}>
+        <Page onChange={() => undefined} />
+      </QueryClientProvider>,
+    );
+    await screen.findByRole("textbox", { name: "Đề bài" });
+
+    expect(screen.getByLabelText("Chọn tệp cho phần nội dung")).toHaveAttribute(
+      "type",
+      "file",
+    );
+    expect(screen.queryByLabelText("Chọn tệp từ máy")).toBeNull();
+  });
 });

@@ -8,15 +8,18 @@ import type { MediaKind } from "../api";
  * FileInput is the hidden file input a media control opens: named "Chọn tệp
  * từ máy", taking the `accept` of `kind` (either kind when it is "any"), and
  * cleared after each choice, so choosing the same file again is a new choice.
- * Its host clicks it through `inputRef`, or through openFilePicker.
+ * Its host clicks it through `inputRef`, or through openFilePicker. `label`
+ * renames it for a host whose page already has the media field's input.
  */
 export function FileInput({
   inputRef,
   kind = "any",
+  label,
   onFile,
 }: Readonly<{
   inputRef: RefObject<HTMLInputElement | null>;
   kind?: MediaKind | "any";
+  label?: string;
   onFile: (file: File) => void;
 }>) {
   const { t } = useTranslation();
@@ -27,7 +30,7 @@ export function FileInput({
       accept={kind === "any" ? ANY_MEDIA_ACCEPT : acceptAttribute(kind)}
       className="sr-only"
       tabIndex={-1}
-      aria-label={t("media.chooseFile")}
+      aria-label={label ?? t("media.chooseFile")}
       onChange={(event) => {
         const file = event.target.files?.[0];
         event.target.value = "";

@@ -4756,6 +4756,7 @@
       "removeAudio": "Gỡ âm thanh",
       "alt": "Văn bản thay thế",
       "altPlaceholder": "Văn bản thay thế: mô tả hình ảnh cho trình đọc màn hình",
+      "chooseFile": "Chọn tệp cho phần nội dung",
       "altNudge": "Không có văn bản thay thế, trình đọc màn hình sẽ bỏ qua hình này. Chỉ để trống nếu hình chỉ để trang trí.",
       "questionAudio": "Âm thanh của câu hỏi",
       "questionAudioHint": "{{name}} · phát tại đây theo giới hạn số lần nghe của câu hỏi",
