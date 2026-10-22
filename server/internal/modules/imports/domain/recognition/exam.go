@@ -11,8 +11,9 @@ import (
 )
 
 const (
-	maxTitle = 200
-	maxSkip  = 20
+	maxTitle      = 200
+	maxSkip       = 20
+	minProseWords = 5
 )
 
 type optionPart struct {
@@ -60,6 +61,9 @@ type groupBuilder struct {
 	questions   []*questionBuilder
 	accepting   bool
 	source      []domain.SourceRef
+	// prose holds the lines the heading's instruction took after its first line that read like a passage's sentence
+	// (proseLine): QC-R6GRM-2, D-073.
+	prose []segment
 }
 
 func (g *groupBuilder) instructionText() string {
@@ -306,6 +310,14 @@ func (e *exam) carriesOnHeading(text string) bool {
 		return true
 	}
 	return !e.bareHeading() && !answerFormat(last) && answerFormat(last+" "+text)
+}
+
+// proseLine reports whether text, a line the heading's instruction takes after its first line, reads like a
+// sentence of a passage rather than more of the instruction: a sentence of five words or more that names no answer
+// format, is no line of the IELTS legend and carries on no broken line. The grammar cannot tell "Choose your words
+// carefully, the old saying goes…" from an instruction (D-073), so the draft points the teacher at it instead.
+func (e *exam) proseLine(text string) bool {
+	return !e.bareHeading() && len(strings.Fields(text)) >= minProseWords && !answerFormat(text) && !headingLegend.MatchString(text) && !e.carriesOnHeading(text)
 }
 
 // bareHeading reports whether the open group is a range heading, or a run of them, with nothing under it yet.
@@ -555,6 +567,9 @@ func (e *exam) textLine(l *line) {
 		e.question.stem = append(e.question.stem, whole)
 		e.question.source = append(e.question.source, whole.refs()...)
 	case e.extendsHeading(text):
+		if e.proseLine(text) {
+			e.group.prose = append(e.group.prose, whole)
+		}
 		e.group.instruction = append(e.group.instruction, whole)
 		e.group.source = append(e.group.source, whole.refs()...)
 	case isInstruction(text) && !e.continuesStimulus(text) && !e.headingPassage(text):

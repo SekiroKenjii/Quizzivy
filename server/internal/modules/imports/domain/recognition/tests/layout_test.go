@@ -469,3 +469,42 @@ func TestAnInstructionBrokenOverHardLinesStaysWhole(t *testing.T) {
 		t.Fatalf("a lower-case passage stays the stimulus: %q %+v", d.Sections[0].Title, d.Sections)
 	}
 }
+
+// QC-R6GRM-2, D-073: no grammar tells "Choose your words carefully, the old saying goes…" from an instruction, so a
+// heading's instruction that took a sentence after its first line, with questions straight after it and no passage,
+// carries one informational finding on its section. An instruction whose later lines name the answer format, or a
+// section with a passage, carries none.
+func TestALongInstructionPointsAtAPossiblePassage(t *testing.T) {
+	for _, c := range []struct{ heading, instruction, passage string }{
+		{"Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Choose your words carefully, the old saying goes, because they cannot be taken back."},
+		{"Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Complete silence filled the hall when the museum opened in 1990."},
+		{"Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Decide for yourself whether the museum succeeded."},
+		{"Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Look: the museum opened in 1990."},
+		{"Câu 1-2", "Chọn Đúng, Sai hoặc Không có thông tin.", "Viết văn không dễ chút nào với học sinh lớp sáu."},
+		{"Câu 1-2", "Chọn Đúng, Sai hoặc Không có thông tin.", "Tìm việc làm ở thành phố ngày nay rất khó."},
+	} {
+		t.Run(c.passage, func(t *testing.T) {
+			d := recognize(t, exam(lines(c.heading, c.instruction, c.passage, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
+			got := notices(d, domain.CodeLongInstruction)
+			if len(got) != 1 || got[0].Severity != domain.Informational || got[0].Target != d.Sections[0].ID {
+				t.Fatalf("one informational finding on the section: %+v", got)
+			}
+		})
+	}
+	passage := "The museum opened in 1990 after a long campaign by local residents, who raised money for more than a decade."
+	for name, doc := range map[string]domain.EvidenceDocument{
+		"a limit on the later line":  exam(lines("Questions 1-2", "Answer the questions below.", "Write NO MORE THAN THREE WORDS AND/OR A NUMBER for each answer.", "1. Where does the guide live?", "2. Who made the rule?")),
+		"the IELTS legend":           exam(lines(append([]string{"Questions 1-4", "Do the following statements agree with the information given in the passage?", "In boxes 1-4 on your answer sheet, write", "TRUE if the statement agrees with the information", "FALSE if the statement contradicts the information", "NOT GIVEN if there is no information on this"}, statements...)...)),
+		"a passage of its own":       exam(lines("Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Decide for yourself whether the museum succeeded.", passage, "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a one-line instruction":     exam(lines("Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", passage, "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a first line of any length": exam(lines("Questions 1-2", "Choose the best answer for each question.", "1. When did it open?", "A. 1980\tB. 1990", "2. Who paid?", "A. city\tB. residents")),
+		"a broken line carried on":   exam(lines("Questions 1-2", "Complete the sentences below.", "Write NO MORE THAN TWO WORDS", "from the passage for each answer.", "1. When did it open?", "2. Who paid?")),
+		"a short later line":         exam(lines("Questions 1-2", "Answer the questions below.", "Read carefully.", "1. When did it open?", "2. Who paid?")),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := notices(recognize(t, doc), domain.CodeLongInstruction); len(got) != 0 {
+				t.Fatalf("no finding: %+v", got)
+			}
+		})
+	}
+}
