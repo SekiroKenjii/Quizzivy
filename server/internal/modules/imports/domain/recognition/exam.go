@@ -125,7 +125,7 @@ type sectionBuilder struct {
 	// complete it (completesInstruction).
 	heading string
 	// instructs reports whether that heading is an instruction ("I. Choose the best answer."), not a title
-	// ("I. GRAMMAR").
+	// ("I. GRAMMAR", "I. ĐỌC HIỂU"): commandHeading.
 	instructs bool
 }
 
@@ -464,6 +464,26 @@ func (e *exam) headingRest(l *line, end int) bool {
 	return !isOption
 }
 
+// headingLabel matches what may stand before the command of a Roman heading: a score in brackets ("(2 points)") or a
+// label ended by a colon or a dash ("READING:", "Phonetics -").
+var headingLabel = regexp.MustCompile(`^\s*(?:\([^)]*\)\s*)?(?:[^:–-]{1,40}(?::|\s[-–])\s*)?`)
+
+// commandHeading reports whether rest, the text after a Roman numeral, is a command that ends its sentence ("Read the
+// passage below carefully.", "READING: Read the passage and decide…", "(2 points) Read the passage…"). A heading that
+// only opens with a command word and ends no sentence is a title ("ĐỌC HIỂU (3,0 điểm)", "USE OF ENGLISH", "Đọc hiểu"),
+// and the line under it is the instruction's first (QC-R6GRM-17, QC-R6GRM-19).
+func commandHeading(rest string) bool {
+	rest = strings.TrimSpace(rest)
+	if rest == "" || !strings.ContainsRune(".:!", []rune(rest)[len([]rune(rest))-1]) {
+		return false
+	}
+	if isInstruction(rest) {
+		return true
+	}
+	after := strings.TrimSpace(rest[len(headingLabel.FindString(rest)):])
+	return after != rest && isInstruction(after)
+}
+
 func (e *exam) openSection(l *line, ordinal int) {
 	e.closeQuestion()
 	var heading []segment
@@ -481,7 +501,7 @@ func (e *exam) openSection(l *line, ordinal int) {
 	s.title, s.instructions = sectionTitle(text)
 	if _, end, ok := e.rules.roman(l.text); ok && visible(l.text[end:]) {
 		s.heading = text
-		s.instructs = isInstruction(matchable(l.text[end:])) || answerFormat(text)
+		s.instructs = answerFormat(text) || commandHeading(matchable(l.text[end:]))
 	}
 	e.sections = append(e.sections, s)
 	e.section = s

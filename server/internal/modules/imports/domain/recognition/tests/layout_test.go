@@ -475,7 +475,7 @@ func TestAnInstructionBrokenOverHardLinesStaysWhole(t *testing.T) {
 // heading's instruction that took a sentence after its first line, with questions straight after it and no passage,
 // carries one informational finding on its section. An instruction whose later lines name the answer format, or a
 // section with a passage, carries none.
-func TestALongInstructionPointsAtAPossiblePassage(t *testing.T) {
+func TestAPassageLikeLineInAHeadingInstructionIsPointedAt(t *testing.T) {
 	for _, c := range []struct{ heading, instruction, passage string }{
 		{"Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Choose your words carefully, the old saying goes, because they cannot be taken back."},
 		{"Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Complete silence filled the hall when the museum opened in 1990."},
@@ -703,4 +703,62 @@ func stimulusText(g *domain.DraftGroup) string {
 		}
 	}
 	return b.String()
+}
+
+// QC-R6GRM-17, QC-R6GRM-19: a Roman heading is an instruction when it is a command that ends its sentence, after a
+// label or a score if it has one; one that only opens with a command word is a title, and the line under it is the
+// instruction's first, which is never pointed at.
+func TestARomanHeadingIsAnInstructionOnlyWhenItIsACommand(t *testing.T) {
+	line := "Choose your words carefully, the old saying goes, because they cannot be taken back."
+	for _, heading := range []string{
+		"I. READING: Read the passage and decide if the statements are true.",
+		"I. (2 points) Read the passage and answer the questions.",
+		"I. Phonetics - Choose the word whose underlined part is pronounced differently.",
+	} {
+		d := recognize(t, exam(lines(heading, line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. FALSE")))
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 {
+			t.Fatalf("%s: the line is pointed at: %+v", heading, got)
+		}
+	}
+	for _, title := range []string{"I. ĐỌC HIỂU (3,0 điểm)", "I. ĐỌC HIỂU", "I. Đọc hiểu", "I. USE OF ENGLISH", "I. READ AND WRITE"} {
+		d := recognize(t, exam(lines(title, "Chọn đáp án đúng nhất cho mỗi câu sau.", "1. When did it open?", "A. 1980\tB. 1990", "2. Who paid?", "A. city\tB. residents")), key(lines("1. B\t2. B")))
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
+			t.Fatalf("%s: the first instruction line is not pointed at: %+v", title, got)
+		}
+	}
+}
+
+// QC-R6GRM-20, QC-R6GRM-21: a Vietnamese line that names an answer format, or whose "và … là" lies past its first
+// sentence, is no ambiguous line (D-075) and carries no pointer.
+func TestAnInstructionNamingItsFormatIsNotAmbiguous(t *testing.T) {
+	passage := "Bảo tàng mở cửa năm 1990 sau nhiều năm vận động của người dân."
+	for _, line := range []string{
+		"Đọc đoạn văn sau và cho biết các câu sau là Đúng (T) hay Sai (F).",
+		"Đọc đoạn văn và chọn đáp án đúng là A, B, C hoặc D.",
+		"Đọc đoạn văn. Viết và đọc là hai kỹ năng em cần luyện.",
+	} {
+		d := recognize(t, exam(lines("Câu 1-2", "Đọc đoạn văn sau.", line, passage, "1. Bảo tàng mở cửa năm nào?", "A. 1980\tB. 1990\tC. 2000\tD. 2010", "2. Ai góp tiền?", "A. a\tB. b\tC. c\tD. d")), key(lines("1. B\t2. B")))
+		if !strings.Contains(d.Sections[0].Title, line) {
+			t.Fatalf("%s stays the instruction: %q", line, d.Sections[0].Title)
+		}
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
+			t.Fatalf("%s is not pointed at: %+v", line, got)
+		}
+	}
+}
+
+// QC-R6GRM-18, D-075: under a Roman title, a compound-subject passage after the real instruction reads as a second
+// instruction. The first is left unassigned (review_required) and, without it, the questions lose the true / false /
+// not given format: a NOT GIVEN item becomes a short answer. The draft is not ready until the teacher looks.
+func TestACompoundSubjectPassageAfterARomanTitleInstructionIsFlagged(t *testing.T) {
+	d := recognize(t, exam(lines("I. ĐỌC HIỂU", "Chọn Đúng, Sai hoặc Không có thông tin.", "Viết nhật ký và đọc sách là hai thói quen tốt của học sinh.", "1. Học sinh nên viết nhật ký.", "2. Thói quen đọc sách tốn nhiều thời gian.")), key(lines("1. Đúng\t2. Không có thông tin")))
+	if got := notices(d, domain.CodeUnassignedText); len(got) != 1 || got[0].Severity != domain.ReviewRequired {
+		t.Fatalf("the real instruction is flagged: %+v", d.Notices)
+	}
+	if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 {
+		t.Fatalf("the passage line is pointed at: %+v", got)
+	}
+	if q := question(t, d, "2"); q.Type != "short_answer" {
+		t.Fatalf("the known cost: NOT GIVEN becomes a short answer: %+v", q)
+	}
 }
