@@ -249,8 +249,8 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 		cleanUp(t, pool, `DELETE FROM app.tests WHERE id = $1::uuid`, w.testID)
 		cleanUp(t, pool, `DELETE FROM app.class_members WHERE class_id = $1::uuid`, w.class)
 		cleanUp(t, pool, `DELETE FROM app.classes WHERE id = $1::uuid`, w.class)
-		cleanUp(t, pool, `DELETE FROM app.users WHERE id IN ($1::uuid,$2::uuid,$3::uuid)`,
-			w.admin, w.student, w.outsider)
+		cleanUp(t, pool, `DELETE FROM app.users WHERE id IN ($1::uuid,$2::uuid)`, w.student, w.outsider)
+		removeAdmin(t, pool, w.admin)
 	})
 	return w
 }
@@ -258,6 +258,20 @@ func seedWorld(t *testing.T, pool *pgxpool.Pool, o worldOpts) world {
 func newService(t *testing.T, pool *pgxpool.Pool) *application.Application {
 	t.Helper()
 	return application.New(nil, nil, repositories.NewPostgres(db.NewContext(pool), adapters.AttemptStartGuard{}))
+}
+
+// removeAdmin deletes a world's Admin, unless it is the database's only
+// active Admin: on a fresh database the users_last_admin guard never lets that
+// one go, so it is kept and logged rather than failing the test it served.
+func removeAdmin(t *testing.T, pool *pgxpool.Pool, id string) {
+	t.Helper()
+	_, err := pool.Exec(context.Background(), `DELETE FROM app.users WHERE id = $1::uuid`, id)
+	switch {
+	case db.IsCheckViolation(err, "users_last_admin"):
+		t.Logf("kept the Admin %s: it is the only active Admin, which the users_last_admin guard never lets go", id)
+	case err != nil:
+		t.Errorf("clean up: %v", err)
+	}
 }
 
 // cleanUp runs one statement of a test's cleanup and reports, without

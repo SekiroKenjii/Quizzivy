@@ -316,6 +316,10 @@ type gradedAnswer struct {
 	requiresManual bool
 }
 
+// gradedAnswers reads the attempt's answers. Under a withheld score it leaves
+// band and criteria out in SQL, as a second layer: the gate the tests pin is
+// resultQuestion's showScore check, which hides them whatever this returns
+// (QC-785-4).
 func (s *Postgres) gradedAnswers(ctx context.Context, attemptID string, showScore bool) (map[string]gradedAnswer, error) {
 	rows, err := s.Query(ctx, `
 		SELECT question_id::text, payload, final_score, manual_score, requires_manual, grader_comment,

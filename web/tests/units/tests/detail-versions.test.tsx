@@ -333,6 +333,39 @@ describe("changes from the previous version", () => {
     expect(detail.diffs).toEqual(["2:1"]);
   });
 
+  it("names a TFNG answer by its value and a matching one by the editor's keys", async () => {
+    twoVersions();
+    detail.changes = [
+      {
+        kind: "answer",
+        questionNumber: 1,
+        questionId: FIRST_QUESTION,
+        params: { answerFrom: ["true"], answerTo: ["not_given"] },
+      },
+      {
+        kind: "answer",
+        questionNumber: 2,
+        questionId: SECOND_QUESTION,
+        params: { answerFrom: ["A → i", "B → ii"], answerTo: ["A → ii", "B → –"] },
+      },
+    ];
+    renderDetail(`/teacher/tests/${TEST_ID}?compare=1`);
+
+    const changes = await screen.findByRole("region", {
+      name: "Thay đổi so với phiên bản 1",
+    });
+    expect(
+      await within(changes).findByText(
+        "Câu 1 · đáp án đúng đổi từ Đúng sang Không có thông tin",
+      ),
+    ).toBeVisible();
+    expect(
+      within(changes).getByText(
+        "Câu 2 · đáp án đúng đổi từ A → i, B → ii sang A → ii, B → –",
+      ),
+    ).toBeVisible();
+  });
+
   it("is not offered for the first version", async () => {
     renderDetail(`/teacher/tests/${TEST_ID}?compare=1`);
     await screen.findByText(PUBLISHED_SENTENCE);

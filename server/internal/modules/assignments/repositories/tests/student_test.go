@@ -7,6 +7,7 @@ import (
 	"errors"
 	"quizzivy/internal/platform/db"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -736,6 +737,14 @@ func liveCount(t *testing.T, store *repositories.Postgres, w world, assignmentID
 	return only(t, all, assignmentID).LiveAnsweredCount
 }
 
+// countOf prints a live count for a failure message: its value, or "none".
+func countOf(n *int) string {
+	if n == nil {
+		return "none"
+	}
+	return strconv.Itoa(*n)
+}
+
 func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
@@ -776,7 +785,7 @@ func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
 
 	got := liveCount(t, store, w, a.ID)
 	if got == nil || *got != 0 {
-		t.Fatalf("with only an empty choice saved the count is %v, want 0", got)
+		t.Fatalf("with only an empty choice saved the count is %s, want 0", countOf(got))
 	}
 	want := 0
 	for _, c := range cases {
@@ -795,7 +804,7 @@ func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
 		}
 		got := liveCount(t, store, w, a.ID)
 		if got == nil || *got != want {
-			t.Fatalf("%s: the count is %v, want %d", c.name, got, want)
+			t.Fatalf("%s: the count is %s, want %d", c.name, countOf(got), want)
 		}
 	}
 }
@@ -819,7 +828,7 @@ func TestTheLiveCountIsAbsentWithoutALiveAttempt(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := liveCount(t, store, w, fresh.ID); got == nil || *got != 1 {
-		t.Fatalf("a live attempt with one answer counts %v, want 1", got)
+		t.Fatalf("a live attempt with one answer counts %s, want 1", countOf(got))
 	}
 
 	if _, err := pool.Exec(ctx,
@@ -920,7 +929,7 @@ func TestTheLiveCountFollowsTheNavigatorsRuleForTheNewTypes(t *testing.T) {
 			want++
 		}
 		if got := liveCount(t, store, w, a.ID); got == nil || *got != want {
-			t.Fatalf("%s: the count is %v, want %d", c.name, got, want)
+			t.Fatalf("%s: the count is %s, want %d", c.name, countOf(got), want)
 		}
 	}
 }
