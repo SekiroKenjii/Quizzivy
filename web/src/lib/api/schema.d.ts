@@ -7071,7 +7071,7 @@ export interface components {
          *     `AudioPolicy` and play count) in the text, at most once, and projects
          *     to nothing. A media block that projects to nothing adds no separator.
          *     Until the bank's media task (R6-13) every write refuses a media block
-         *     with 422.
+         *     with the bank's field error (400 VALIDATION_FAILED naming promptContent).
          */
         QuestionPromptContent: {
             /** @constant */
@@ -7134,7 +7134,8 @@ export interface components {
          *     a policy or a count. Explanation media is reachable by a student only
          *     through the result, under the gate that shows explanations; no student
          *     operation signs it before then. Until the bank's media task (R6-13)
-         *     every write refuses a media block with 422. The companion string, the
+         *     every write refuses a media block with the bank's field error (400
+         *     VALIDATION_FAILED naming explanationContent). The companion string, the
          *     update rules and the budgets are `QuestionContent`'s.
          */
         QuestionExplanationContent: {
