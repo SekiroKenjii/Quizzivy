@@ -5371,6 +5371,7 @@
       "selectCountAny": "Any number, marked all or nothing",
       "selectCountValue": "Choose {{count}}",
       "selectCountMismatch": "Mark exactly {{count}} options correct, the number to choose.",
+      "selectCountReset": "Choose {{count}} was reset to \"Any number\": {{options}} options are too few for it.",
       "selectCountTooFew": "Choose {{count}} needs at least {{options}} options. Add an option or pick \"Any number\".",
       "maxWordsHint": "Leave empty for no limit. Students see the limit, and a longer answer is flagged, never cut.",
       "maxWordsInvalid": "Enter a whole number from 1 to 100, or leave it empty.",

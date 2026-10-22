@@ -547,6 +547,9 @@ describe("TFNG, Choose N and word limits", () => {
       state: "known",
       optionIds: [back.options[1]!.id],
     });
+    expect(dropsAnswerData(keyed("t-f"), toTrueFalse)).toBe(false);
+    expect(dropsAnswerData(toTrueFalse, back)).toBe(false);
+    expect(dropsAnswerData(tfng, changeType(tfng, "true_false"))).toBe(true);
     const notGiven = changeType(keyed("t-ng"), "true_false");
     expect(notGiven.answer).toMatchObject({ state: "unknown", optionIds: [] });
     expect(dropsAnswerData(keyed("t-ng"), notGiven)).toBe(true);

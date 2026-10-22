@@ -640,11 +640,17 @@ function dropsTypeFields(
   );
 }
 
-/** dropsAnswerData reports whether moving from one version of a question to the next discards options, key data, a "Choose N" count or a word limit. */
+function isFixedType(type: QuestionType): boolean {
+  return type === "true_false" || type === "tfng";
+}
+
+/** dropsAnswerData reports whether moving from one version of a question to the next discards options, key data, a "Choose N" count or a word limit. Between true/false and tfng the options are the fixed ones on both sides, so only a key or a conflict that does not carry is lost. */
 export function dropsAnswerData(
   before: ImportDraftQuestion,
   after: ImportDraftQuestion,
 ): boolean {
+  if (isFixedType(before.type) && isFixedType(after.type) && before.type !== after.type)
+    return before.answer.state !== "unknown" && after.answer.state !== "known";
   const kept = new Set(after.options.map((option) => option.id));
   if (before.options.some((option) => !kept.has(option.id))) return true;
   const keys = new Set(after.answer.optionIds);

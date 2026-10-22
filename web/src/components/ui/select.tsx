@@ -57,6 +57,7 @@ function SelectContent({
   children,
   position = "popper",
   align = "center",
+  onKeyDown,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
@@ -73,6 +74,13 @@ function SelectContent({
         position={position}
         align={align}
         {...props}
+        onKeyDown={(event) => {
+          onKeyDown?.(event);
+          // The item has already taken the Enter that picks it. Cancelling the
+          // key's default stops the browser from also activating whatever the
+          // pick moved focus to, such as a confirm dialog's first button.
+          if (event.key === "Enter") event.preventDefault();
+        }}
       >
         <SelectScrollUpButton />
         <SelectPrimitive.Viewport
