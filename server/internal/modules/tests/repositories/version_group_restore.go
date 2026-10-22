@@ -17,6 +17,8 @@ func (s *Postgres) lockVersionAssets(ctx context.Context, tx pgx.Tx, versionID s
 		WHERE sec.test_version_id=$1 AND q.media_asset_id IS NOT NULL
 		UNION SELECT a.media_asset_id FROM app.test_version_group_assets a JOIN app.test_version_groups g ON g.id=a.group_id
 		JOIN app.test_version_sections sec ON sec.id=g.test_version_section_id WHERE sec.test_version_id=$1
+		UNION SELECT r.media_asset_id FROM app.test_version_question_media_references r JOIN app.test_version_questions q ON q.id=r.test_version_question_id
+		JOIN app.test_version_sections sec ON sec.id=q.test_version_section_id WHERE sec.test_version_id=$1
 	) SELECT id::text FROM assets ORDER BY id`, versionID)
 	if err != nil {
 		return err

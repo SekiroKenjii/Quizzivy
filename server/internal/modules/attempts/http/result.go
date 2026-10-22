@@ -85,7 +85,7 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 	}
 	out := openapi.ResultQuestion{
 		Id: base.Id, SectionId: base.SectionId, Type: base.Type, Prompt: base.Prompt, PromptContent: base.PromptContent, Points: base.Points,
-		Media: base.Media, MediaAlt: base.MediaAlt, Options: base.Options, Blanks: base.Blanks, MatchItems: base.MatchItems,
+		Media: base.Media, MediaAlt: base.MediaAlt, PromptAssets: base.PromptAssets, Options: base.Options, Blanks: base.Blanks, MatchItems: base.MatchItems,
 		SelectCount:        base.SelectCount,
 		Band:               q.Band,
 		Earned:             q.Earned,
@@ -95,6 +95,13 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 		ExplanationContent: q.ExplanationContent,
 		Transcript:         q.Transcript,
 		AudioPlaysUsed:     q.AudioPlaysUsed,
+	}
+	if len(q.ExplanationAssets) > 0 {
+		assets, err := h.signedAssets(ctx, q.ExplanationAssets, h.adminGroupAsset)
+		if err != nil {
+			return openapi.ResultQuestion{}, fmt.Errorf("sign explanation media: %w", err)
+		}
+		out.ExplanationAssets = &assets
 	}
 	if domain.AnswerRemoved(q.Answer) {
 		out.AnswerRemoved = httpapi.Ptr(true)

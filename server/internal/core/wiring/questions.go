@@ -10,7 +10,7 @@ import (
 )
 
 func questions(dbx db.Context, media *mediaapp.Application) (*questionsapp.Application, *questionsrepo.Postgres) {
-	repo := questionsrepo.NewPostgres(dbx)
+	repo := questionsrepo.NewPostgres(dbx).WithMedia(adapters.QuestionMedia{})
 	return questionsapp.New(repo, adapters.MediaKinds{Media: media}), repo
 }
 
