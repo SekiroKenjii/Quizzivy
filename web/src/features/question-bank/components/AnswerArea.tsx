@@ -4,6 +4,7 @@ import { GradingNote } from "./GradingNote";
 import { OptionsEditor } from "./OptionsEditor";
 import { SampleAnswerField } from "./SampleAnswerField";
 import { TrueFalseField } from "./TrueFalseField";
+import { WordLimitField } from "./WordLimitField";
 import type { QuestionAi } from "../questionAi";
 import type { QuestionValues } from "../questionSchema";
 
@@ -35,7 +36,7 @@ export function AnswerArea({
         onChange={onChange}
         onInsertGap={onInsertGap}
       />
-      <GradingNote type={value.type} />
+      <GradingNote type={value.type} selectCount={value.selectCount} />
     </div>
   );
 }
@@ -61,15 +62,18 @@ function AnswerBlock({
           multiple={value.type === "multiple_choice"}
           suggest={ai === undefined ? undefined : { ai, question: value }}
           onChange={(options) => onChange({ ...value, options })}
+          {...(value.type === "multiple_choice"
+            ? {
+                selectCount: value.selectCount ?? null,
+                onSelectCountChange: (selectCount: number | null) =>
+                  onChange({ ...value, selectCount }),
+              }
+            : {})}
         />
       );
     case "true_false":
-      return (
-        <TrueFalseField
-          options={value.options}
-          onChange={(options) => onChange({ ...value, options })}
-        />
-      );
+    case "tfng":
+      return <TrueFalseField value={value} onChange={onChange} />;
     case "fill_blank":
       return value.promptContent != null || onInsertGap ? (
         <GapAnswers
@@ -87,10 +91,16 @@ function AnswerBlock({
       );
     case "short_answer":
       return (
-        <SampleAnswerField
-          value={value.sampleAnswer}
-          onChange={(sampleAnswer) => onChange({ ...value, sampleAnswer })}
-        />
+        <div className="flex flex-col gap-4">
+          <SampleAnswerField
+            value={value.sampleAnswer}
+            onChange={(sampleAnswer) => onChange({ ...value, sampleAnswer })}
+          />
+          <WordLimitField
+            value={value.maxWords ?? null}
+            onChange={(maxWords) => onChange({ ...value, maxWords })}
+          />
+        </div>
       );
   }
 }
