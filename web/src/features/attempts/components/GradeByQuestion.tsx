@@ -43,6 +43,10 @@ import type { GradeMarks } from "./GradingCard";
  * hidden until the question is graded. Same grading write as G-03, one paper
  * per call; what changes is the order the teacher walks in. An answer the
  * retention policy removed shows the notice that says so and no points box.
+ * The answers are read again when the window regains focus, since another
+ * tab or teacher may grade these papers meanwhile. Next question, Grade per
+ * paper, and a save and next that would leave another row's unsaved marks
+ * ask before they drop them.
  */
 export function GradeByQuestion({
   assignmentId,
@@ -66,13 +70,11 @@ export function GradeByQuestion({
     message: string;
   } | null>(null);
   const inputs = useRef(new Map<string, HTMLElement>());
-  // Next question and Grade per paper drop unsaved marks, so they ask first.
   const confirmMove = useConfirmMove();
 
   const answers = useQuery({
     queryKey: answersKey(assignmentId, questionId),
     queryFn: ({ signal }) => listAnswersForQuestion(assignmentId, questionId, signal),
-    // Another tab or teacher may grade these papers meanwhile.
     refetchOnWindowFocus: "always",
   });
 
@@ -120,7 +122,6 @@ export function GradeByQuestion({
     const row = items[index];
     if (row) inputs.current.get(row.attemptId)?.focus();
   };
-  // Save and next moves on only if no other row holds unsaved marks.
   const nextAfterSave = (row: QuestionAnswerRow) =>
     confirmMove(goNext, (section) => section.startsWith(`g04:${row.attemptId}`));
   const saveRow =
