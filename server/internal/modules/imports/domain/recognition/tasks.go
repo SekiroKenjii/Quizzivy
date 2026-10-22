@@ -128,11 +128,7 @@ var imperative = regexp.MustCompile(`(?i)^[^\pL]*(?:choose|circle|find|read|comp
 
 // headingLegend matches the lines of the IELTS answer legend that follow a question-range heading without an
 // imperative: "Do the following statements agree…", "In boxes 1-4 on your answer sheet, write", "TRUE if…".
-var headingLegend = regexp.MustCompile(`(?i)^[^\pL]*(?:do the (?:following )?statements\b|in boxes\b|on your answer sheet\b|(?:true|false|not given|yes|no)\s+if\b|write\s*:?\s*$)`)
-
-// instructionCue matches what an instruction is about (answers, letters, words, the passage…), so a short imperative
-// paragraph under a heading can be told from a passage that happens to open with "Look", "Use" or "Mark".
-var instructionCue = regexp.MustCompile(`(?i)\b(?:answers?|questions?|statements?|letters?|words?|boxes|sentences?|blanks?|gaps?|spaces?|options?|true|false|not given|below|following|correct|best|passage|text|paragraphs?|information|summary|notes?|table|diagram|map|list|headings?|endings?|names?|numbers?)\b|câu|đáp án|đoạn|từ|thông tin|bài`)
+var headingLegend = regexp.MustCompile(`(?i)^[^\pL]*(?:do the (?:following )?statements\b|in boxes\b|on your answer sheet\b|(?:true|false|not given|yes|no)\s+if\b)`)
 
 func isInstruction(text string) bool {
 	text = strings.TrimSpace(text)

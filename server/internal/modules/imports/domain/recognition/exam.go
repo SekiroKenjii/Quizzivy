@@ -258,23 +258,14 @@ func (e *exam) rangeLine(l *line) bool {
 }
 
 // extendsHeading reports whether text belongs to the instruction under the open group's range heading: the group
-// has no questions yet, and text is a short imperative that says what to do with the questions, or a line of the
-// IELTS answer legend before any passage. Any other paragraph, a passage among them, ends the instruction, whatever
-// punctuation the line before it lacks and whatever word it opens with.
+// has neither questions nor stimulus yet, and text is an instruction or a line of the IELTS answer legend. Any other
+// paragraph, a passage among them, ends the instruction, whatever punctuation the line before it lacks.
 func (e *exam) extendsHeading(text string) bool {
-	if !e.underHeading() {
+	g := e.group
+	if g == nil || !g.heading || !g.accepting || len(g.questions) > 0 || len(g.stimulus) > 0 {
 		return false
 	}
-	if headingLegend.MatchString(text) {
-		return len(e.group.stimulus) == 0
-	}
-	return isInstruction(text) && utf8.RuneCountInString(strings.TrimSpace(text)) <= maxTitle && instructionCue.MatchString(text)
-}
-
-// underHeading reports whether the open group is a range heading that has no questions yet.
-func (e *exam) underHeading() bool {
-	g := e.group
-	return g != nil && g.heading && g.accepting && len(g.questions) == 0
+	return isInstruction(text) || headingLegend.MatchString(text)
 }
 
 // bareHeading reports whether the open group is a range heading with nothing under it yet.
@@ -519,11 +510,6 @@ func (e *exam) textLine(l *line) {
 		e.question.source = append(e.question.source, whole.refs()...)
 	case e.extendsHeading(text):
 		e.group.instruction = append(e.group.instruction, whole)
-		e.group.source = append(e.group.source, whole.refs()...)
-	case e.underHeading():
-		// Under a heading, a paragraph that does not extend the instruction is the passage, even when it opens with
-		// a word an instruction could open with ("Look", "Use", "Mark").
-		e.group.stimulus = append(e.group.stimulus, whole)
 		e.group.source = append(e.group.source, whole.refs()...)
 	case isInstruction(text) && !e.continuesStimulus(text):
 		e.closeQuestion()
