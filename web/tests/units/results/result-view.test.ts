@@ -202,6 +202,22 @@ describe("resultView: answers waiting for the teacher", () => {
     expect(view.summary).toEqual({ kind: "partly", marked: 2, waiting: 1 });
   });
 
+  it("keeps a graded essay out of what was marked automatically", () => {
+    const body = scored([
+      choice(1, AB, [1], { earned: 1 }),
+      essay(2, "Write.", "Done.", {
+        type: "essay",
+        points: 9,
+        pendingManual: false,
+        earned: 6,
+      }),
+      essay(3, "Write more.", "Waiting.", { type: "essay", points: 9 }),
+    ]);
+    const view = resultView(body);
+    expect(view.tiles[0]).toEqual({ kind: "auto", earned: 1, total: 1, share: 1 });
+    expect(view.summary).toEqual({ kind: "partly", marked: 1, waiting: 1 });
+  });
+
   it("only says grading when nothing was marked automatically", () => {
     const view = resultView(grading());
     expect(view.ring).toEqual({ kind: "grading" });
@@ -269,6 +285,20 @@ describe("resultView: a score the policy hides", () => {
     expect(view.tiles).toEqual([]);
     expect(view.filters).toEqual(["all", "waiting"]);
     expect(view.lock).toBe("all");
+  });
+
+  it("counts a choose N as answered only with N different picks", () => {
+    const ABC = ["A", "B", "C"];
+    const chooseTwo = { type: "multiple_choice", selectCount: 2 } as const;
+    const body = paper({
+      review: CLOSED,
+      questions: [
+        choice(1, ABC, [0], chooseTwo),
+        choice(2, ABC, [0, 2], chooseTwo),
+        choice(3, ABC, [1, 1], chooseTwo),
+      ],
+    });
+    expect(resultView(body).summary).toMatchObject({ kind: "withheld", answered: 1 });
   });
 
   it("ignores a score the server sent against the policy", () => {

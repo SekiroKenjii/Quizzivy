@@ -185,19 +185,39 @@ func TestTheDiffNamesEachNewFieldAsAChange(t *testing.T) {
 	}
 }
 
+func answerOf(t *testing.T, changes []domain.Change) domain.Change {
+	t.Helper()
+	for _, c := range changes {
+		if c.Kind == domain.ChangeAnswer {
+			return c
+		}
+	}
+	t.Fatalf("no answer change in %+v", changes)
+	return domain.Change{}
+}
+
 func TestAMatchingItemKeyedToAnotherChoiceIsAnAnswer(t *testing.T) {
 	changes := onlyChange(t, matchingQuestion(0, 1, 2), matchingQuestion(0, 2, 1))
 	wantFields(t, "rekeyed", changes)
-	if !hasAnswer(changes) {
-		t.Fatalf("rekeying an item is not an answer change: %+v", changes)
+	answer := answerOf(t, changes)
+	if !slices.Equal(answer.AnswerFrom, []string{"1→A", "2→B", "3→C"}) || !slices.Equal(answer.AnswerTo, []string{"1→A", "2→C", "3→B"}) {
+		t.Errorf("answer = %v to %v, want each item with its choice", answer.AnswerFrom, answer.AnswerTo)
+	}
+}
+
+func TestAMatchingItemKeyedToNoChoiceIsLabelledWithADash(t *testing.T) {
+	answer := answerOf(t, onlyChange(t, matchingQuestion(0, 1), matchingQuestion(0, -1)))
+	if !slices.Equal(answer.AnswerTo, []string{"1→A", "2→–"}) {
+		t.Errorf("answerTo = %v, want the unkeyed item with a dash", answer.AnswerTo)
 	}
 }
 
 func TestATFNGAnswerIsAnAnswerChange(t *testing.T) {
 	changes := onlyChange(t, tfngQuestion(true, false, false), tfngQuestion(false, false, true))
 	wantFields(t, "tfng", changes)
-	if !hasAnswer(changes) {
-		t.Fatalf("a new tfng answer is not an answer change: %+v", changes)
+	answer := answerOf(t, changes)
+	if !slices.Equal(answer.AnswerFrom, []string{"A"}) || !slices.Equal(answer.AnswerTo, []string{"C"}) {
+		t.Errorf("answer = %v to %v, want A to C", answer.AnswerFrom, answer.AnswerTo)
 	}
 }
 

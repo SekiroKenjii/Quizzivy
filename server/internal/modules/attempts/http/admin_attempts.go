@@ -616,7 +616,9 @@ func gradeValidationError(ctx context.Context, invalid *domain.GradeValidationEr
 	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Điểm không hợp lệ.", "The score is not valid."))
 	details := map[string]interface{}{}
 	for _, it := range invalid.Items {
-		details[it.QuestionID] = gradeItemMessage(ctx, it.Reason)
+		if _, named := details[it.QuestionID]; !named {
+			details[it.QuestionID] = gradeItemMessage(ctx, it.Reason)
+		}
 	}
 	resp.Error.Details = &details
 	return resp

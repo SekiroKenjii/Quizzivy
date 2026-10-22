@@ -7,6 +7,7 @@ import (
 	"maps"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/retention"
+	"slices"
 
 	"github.com/jackc/pgx/v5"
 )
@@ -93,7 +94,7 @@ func (p gradingPaper) check(items []domain.GradeItem) error {
 func (p gradingPaper) removed(items []domain.GradeItem) []string {
 	var removed []string
 	for _, it := range items {
-		if sl, ok := p[it.QuestionID]; ok && sl.removed {
+		if sl, ok := p[it.QuestionID]; ok && sl.removed && !slices.Contains(removed, it.QuestionID) {
 			removed = append(removed, it.QuestionID)
 		}
 	}
@@ -104,7 +105,7 @@ func (p gradingPaper) misshapen(items []domain.GradeItem) error {
 	shaped := map[domain.GradeShape][]string{}
 	for _, it := range items {
 		if sl, ok := p[it.QuestionID]; ok {
-			if shape := domain.Grading.ShapeOf(sl.kind, sl.rubric, it); shape != "" {
+			if shape := domain.Grading.ShapeOf(sl.kind, sl.rubric, it); shape != "" && !slices.Contains(shaped[shape], it.QuestionID) {
 				shaped[shape] = append(shaped[shape], it.QuestionID)
 			}
 		}

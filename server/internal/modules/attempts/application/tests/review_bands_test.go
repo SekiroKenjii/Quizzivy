@@ -195,17 +195,17 @@ func TestARetentionRefusalComesBeforeAShapeRefusalAndAShapeRefusalBeforeABadItem
 	misshapen := domain.GradeItem{QuestionID: p.plain, Points: pts(1)}
 	repeated := []domain.GradeItem{{QuestionID: p.rubric, Criteria: p.bands(6, 6, 6, 6)}, {QuestionID: p.rubric, Criteria: p.bands(6, 6, 6, 6)}}
 
-	_, err := store.Grade(ctx, everyone, p.attempt, grader, append([]domain.GradeItem{misshapen}, repeated...))
+	_, err := store.Grade(ctx, everyone, p.attempt, grader, append([]domain.GradeItem{misshapen, misshapen}, repeated...))
 	var shaped *domain.GradeShapeError
-	if !errors.As(err, &shaped) || shaped.Shape != domain.NeedsBand {
-		t.Errorf("a misshapen item beside a repeat: %v, want the shape refused first", err)
+	if !errors.As(err, &shaped) || shaped.Shape != domain.NeedsBand || !slices.Equal(shaped.QuestionIDs, []string{p.plain}) {
+		t.Errorf("a misshapen item twice beside a repeat: %v, want the shape refused first, naming the question once", err)
 	}
 
 	if _, err := pool.Exec(ctx, `UPDATE app.attempt_answers SET payload = $3::jsonb WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
 		p.attempt, p.plain, retention.RemovedAnswer); err != nil {
 		t.Fatal(err)
 	}
-	_, err = store.Grade(ctx, everyone, p.attempt, grader, append([]domain.GradeItem{misshapen}, repeated...))
+	_, err = store.Grade(ctx, everyone, p.attempt, grader, append([]domain.GradeItem{misshapen, misshapen}, repeated...))
 	var removed *domain.AnswerRemovedError
 	if !errors.As(err, &removed) || !slices.Equal(removed.QuestionIDs, []string{p.plain}) {
 		t.Errorf("a removed answer beside a misshapen item and a repeat: %v, want the removal refused first", err)

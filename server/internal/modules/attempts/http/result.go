@@ -86,6 +86,7 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 	out := openapi.ResultQuestion{
 		Id: base.Id, SectionId: base.SectionId, Type: base.Type, Prompt: base.Prompt, PromptContent: base.PromptContent, Points: base.Points,
 		Media: base.Media, MediaAlt: base.MediaAlt, Options: base.Options, Blanks: base.Blanks, MatchItems: base.MatchItems,
+		SelectCount:        base.SelectCount,
 		Band:               q.Band,
 		Earned:             q.Earned,
 		PendingManual:      httpapi.Ptr(q.PendingManual),
