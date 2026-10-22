@@ -338,3 +338,104 @@ export function grading(): AttemptResult {
     },
   );
 }
+
+export const CRITERIA = [
+  { id: uuid("f", 1), label: "Task achievement", band: 6.5 },
+  { id: uuid("f", 2), label: "Coherence", band: 6 },
+  { id: uuid("f", 3), label: "Vocabulary", band: 6 },
+  { id: uuid("f", 4), label: "Grammar", band: 5.5 },
+];
+
+/** banded is an essay graded on a band, as the server sends it under showScore. */
+export function banded(
+  n: number,
+  band: number,
+  over: Partial<ResultQuestion> = {},
+): ResultQuestion {
+  return {
+    id: uuid("a", n),
+    sectionId: PART_ONE,
+    type: "essay",
+    prompt: `Bài viết ${n}`,
+    points: 9,
+    answer: { type: "text", value: "The chart shows three cities." },
+    pendingManual: false,
+    earned: band,
+    band,
+    ...over,
+  };
+}
+
+/** writingTask is the deck's "Writing Task 1 Practice": one essay, banded 6.0. */
+export function writingTask(over: Partial<ResultQuestion> = {}): AttemptResult {
+  const body = scored(
+    [
+      banded(1, 6, {
+        prompt: "Summarise the chart.",
+        criteria: CRITERIA,
+        graderComment:
+          "Good overview sentence. Next time compare the two highest values directly.",
+        ...over,
+      }),
+    ],
+    { testTitle: "Writing Task 1 Practice", review: SCORE_ONLY },
+  );
+  return {
+    ...body,
+    attempt: { ...body.attempt, score: { ...body.attempt.score!, band: 6 } },
+  };
+}
+
+/**
+ * matching is a three-item matching question whose student matched item 1
+ * right, item 2 wrong and left item 3; the key is sent only when asked.
+ */
+export function matching(
+  n: number,
+  over: Partial<ResultQuestion> = {},
+): ResultQuestion {
+  const option = (i: number, key: string, text: string) => ({
+    id: uuid("c", n * 10 + i),
+    key,
+    text,
+  });
+  const options = [
+    option(1, "A", "a bridge"),
+    option(2, "B", "a tower"),
+    option(3, "C", "a market"),
+  ];
+  const item = (i: number, text: string) => ({
+    id: uuid("d", n * 10 + i),
+    key: String(i),
+    text,
+  });
+  const items = [
+    item(1, "Paragraph one"),
+    item(2, "Paragraph two"),
+    item(3, "Paragraph three"),
+  ];
+  return {
+    id: uuid("a", n),
+    sectionId: PART_ONE,
+    type: "matching",
+    prompt: `Nối ${n}`,
+    points: 3,
+    options,
+    matchItems: items,
+    answer: {
+      type: "matching",
+      pairs: { [items[0]!.id]: options[0]!.id, [items[1]!.id]: options[2]!.id },
+    },
+    pendingManual: false,
+    earned: 1,
+    ...over,
+  };
+}
+
+/** MATCH_KEY is `matching`'s key: item i to option i. */
+export function matchKey(n: number) {
+  return [1, 2, 3].map((i) => ({
+    itemId: uuid("d", n * 10 + i),
+    optionId: uuid("c", n * 10 + i),
+  }));
+}
