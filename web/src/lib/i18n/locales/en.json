@@ -4034,7 +4034,8 @@
       "options": "Options",
       "usedBy": "matched to",
       "item": "{{key}} {{text}}",
-      "chipUsed": "{{key}}, matched to {{by}}"
+      "chipUsed": "{{key}}, matched to {{by}}",
+      "moved": "{{key}} moved from {{from}}"
     },
     "viewSubmitted": "View submitted paper",
     "unknownType": "Question {{n}} is a new kind of question that this page cannot show yet. Reload the page to answer it; your answers are kept.",

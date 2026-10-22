@@ -106,10 +106,11 @@ describe("matching", () => {
       pairs: { m1: "o1" },
     });
     const held = within(card("B")).getByRole("radio", { name: "i, đã nối với A" });
-    expect(held).toHaveClass("text-fg/50", "border-border/50");
+    expect(held).toHaveClass("text-muted-fg", "border-border/50");
     expect(held).not.toHaveClass("opacity-50");
     await userEvent.click(held);
     expect(onAnswer).toHaveBeenCalledWith({ type: "matching", pairs: { m2: "o1" } });
+    expect(screen.getByText("i đã chuyển từ A")).toHaveAttribute("aria-live", "polite");
   });
 
   it("with reuse, lets two items hold one chip and fades nothing", async () => {
@@ -119,7 +120,7 @@ describe("matching", () => {
     });
     const same = chip("B", "i");
     expect(same).toHaveAccessibleName("i");
-    expect(same).not.toHaveClass("text-fg/50");
+    expect(same).not.toHaveClass("text-muted-fg");
     await userEvent.click(same);
     expect(onAnswer).toHaveBeenCalledWith({
       type: "matching",
@@ -173,7 +174,7 @@ describe("matching", () => {
     expect(chip("A", "i")).toHaveClass("h-9.5", "min-w-9.5");
   });
 
-  it("lists the options once, with the items that use them, from 1000 wide", () => {
+  it("lists the options once under a title, with the items that use them, beside the items from 1000 wide", () => {
     viewport(1280);
     renderMatching(matching(), { type: "matching", pairs: { m1: "o2" } });
     const list = screen.getByRole("list", { name: "Các lựa chọn" });
@@ -183,20 +184,19 @@ describe("matching", () => {
       "iiPost officeđược nối với A",
       "iiiPharmacy",
     ]);
-    expect(list.parentElement).toHaveClass("grid-cols-[220px_minmax(0,1fr)]");
+    expect(screen.getByText("Các lựa chọn").tagName).toBe("P");
+    expect(list.parentElement?.parentElement).toHaveClass(
+      "grid-cols-[220px_minmax(0,1fr)]",
+    );
   });
 
-  it("draws no options card below 1000, when the options have no text, or beside shared content", () => {
+  it("stacks the options card above the items below 1000 and beside shared content", () => {
     viewport(768);
     renderMatching(matching());
-    expect(screen.queryByRole("list")).toBeNull();
+    const list = screen.getByRole("list", { name: "Các lựa chọn" });
+    expect(list.parentElement?.parentElement).toHaveClass("grid-cols-1");
     cleanup();
     viewport(1280);
-    renderMatching(
-      matching({ options: places.map((place) => ({ ...place, text: "" })) }),
-    );
-    expect(screen.queryByRole("list")).toBeNull();
-    cleanup();
     const source = {
       groups: [{ id: "g1", questionIds: ["q1"], stimuli: [{ id: "st" }] }],
     } as unknown as PaperSource;
@@ -204,6 +204,15 @@ describe("matching", () => {
       <PaperSourceContext value={source}>
         <QuestionBody question={matching()} answer={undefined} onAnswer={vi.fn()} />
       </PaperSourceContext>,
+    );
+    const beside = screen.getByRole("list", { name: "Các lựa chọn" });
+    expect(beside.parentElement?.parentElement).toHaveClass("grid-cols-1");
+  });
+
+  it("draws no options card when the options have no text", () => {
+    viewport(1280);
+    renderMatching(
+      matching({ options: places.map((place) => ({ ...place, text: "" })) }),
     );
     expect(screen.queryByRole("list")).toBeNull();
   });

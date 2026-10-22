@@ -4034,7 +4034,8 @@
       "options": "Các lựa chọn",
       "usedBy": "được nối với",
       "item": "{{key}} {{text}}",
-      "chipUsed": "{{key}}, đã nối với {{by}}"
+      "chipUsed": "{{key}}, đã nối với {{by}}",
+      "moved": "{{key}} đã chuyển từ {{from}}"
     },
     "viewSubmitted": "Xem bài đã nộp",
     "unknownType": "Câu {{n}} thuộc dạng câu hỏi mới mà trang này chưa hiển thị được. Hãy tải lại trang để làm câu này; các câu trả lời của bạn vẫn được giữ.",

@@ -1,4 +1,4 @@
-import { useContext, useRef, type KeyboardEvent } from "react";
+import { useContext, useRef, useState, type KeyboardEvent } from "react";
 import { useTranslation } from "react-i18next";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { nfc } from "@/lib/nfc";
@@ -17,12 +17,13 @@ type Item = NonNullable<StudentQuestion["matchItems"]>[number];
  * text and a radiogroup of chips, one per option key. A matched card takes
  * the primary border. Tapping a chip pairs it, tapping the chosen chip clears
  * it. Without reuse, a chip another item holds is drawn faded, says which
- * item holds it, and choosing it moves it here. When the options carry text,
- * the question has no shared content beside it and the engine is at least
- * 1000 wide, a 220px card lists the options once, each with the items that
- * use it. Keys are shown as authored (DG-194). The arrows move between a
- * card's chips and Space or Enter chooses, so moving through a row never
- * takes a chip from another item.
+ * item holds it, and choosing it moves it here (and says so to a screen
+ * reader). When the options carry text, a card titled "Options" lists them
+ * once, each with the items that use it: a 220px column beside the items when
+ * the question has no shared content and the engine is at least 1000 wide,
+ * otherwise stacked above them, as deck s9 q31 does on a phone. Keys are shown
+ * as authored (DG-194). The arrows move between a card's chips and Space or
+ * Enter chooses, so moving through a row never takes a chip from another item.
  */
 export function MatchingBody({
   question,
@@ -42,24 +43,24 @@ export function MatchingBody({
   const beside = useBesideShared(question.id);
   const wide = useEngineWidthAtLeast(1000);
   const roomy = useEngineWidthAtLeast(1024);
-  const withCard =
-    wide && !beside && options.some((option) => option.text.trim() !== "");
+  const withCard = options.some((option) => option.text.trim() !== "");
+  const sideBySide = withCard && wide && !beside;
+  const [moved, setMoved] = useState("");
 
   const holders = (optionId: string) =>
     items.filter((item) => pairs[item.id] === optionId).map((item) => item.key);
 
   const choose = (itemId: string, optionId: string) => {
-    const next = { ...pairs };
-    if (next[itemId] === optionId) {
-      delete next[itemId];
-    } else {
-      if (!reuse) {
-        for (const [other, held] of Object.entries(next)) {
-          if (held === optionId) delete next[other];
-        }
-      }
-      next[itemId] = optionId;
-    }
+    const { next, from } = pair(pairs, itemId, optionId, reuse);
+    const key = options.find((option) => option.id === optionId)?.key ?? "";
+    const fromKeys = items
+      .filter((item) => from.includes(item.id))
+      .map((item) => item.key);
+    setMoved(
+      fromKeys.length > 0
+        ? t("takeTest.matching.moved", { key, from: fromKeys.join(", ") })
+        : "",
+    );
     onAnswer({ type: "matching", pairs: next });
   };
 
@@ -73,42 +74,22 @@ export function MatchingBody({
       <div
         className={cn(
           "grid items-start gap-4",
-          withCard ? "grid-cols-[220px_minmax(0,1fr)]" : "grid-cols-1",
+          sideBySide ? "grid-cols-[220px_minmax(0,1fr)]" : "grid-cols-1",
         )}
       >
         {withCard && (
-          <ul
-            aria-label={t("takeTest.matching.options")}
-            className="bg-card overflow-hidden rounded-xl border"
-          >
-            {options.map((option, index) => {
-              const by = holders(option.id);
-              return (
-                <li
-                  key={option.id}
-                  className={cn(
-                    "flex items-center gap-2.5 px-3.5 py-[9px] text-sm",
-                    index > 0 && "border-t",
-                  )}
-                >
-                  <span className="bg-muted grid h-5.5 min-w-5.5 flex-none place-items-center rounded-md px-1 text-xs font-bold">
-                    {option.key}
-                  </span>
-                  <span className="min-w-0 flex-1 break-words">{nfc(option.text)}</span>
-                  {by.length > 0 && (
-                    <span className="text-success-ink text-xs font-semibold whitespace-nowrap">
-                      <span className="sr-only">{t("takeTest.matching.usedBy")} </span>
-                      {by.join(", ")}
-                    </span>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
+          <OptionsCard
+            id={`${question.id}-options`}
+            options={options}
+            holders={holders}
+          />
         )}
         <div className="flex min-w-0 flex-col gap-2.5">
           <p className={cn(CAPTION, "tabular-nums")} aria-live="polite">
             {t("takeTest.matching.done", { k: matched, n: items.length })}
+          </p>
+          <p className="sr-only" aria-live="polite">
+            {moved}
           </p>
           {items.map((item) => (
             <ItemCard
@@ -127,6 +108,76 @@ export function MatchingBody({
           ))}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * pair chooses optionId for itemId, or clears it when it is already chosen.
+ * Without reuse it takes the option from any other item, and from names them.
+ */
+function pair(
+  pairs: Record<string, string>,
+  itemId: string,
+  optionId: string,
+  reuse: boolean,
+): { next: Record<string, string>; from: string[] } {
+  const next = { ...pairs };
+  if (next[itemId] === optionId) {
+    delete next[itemId];
+    return { next, from: [] };
+  }
+  const from = reuse
+    ? []
+    : Object.keys(next).filter((other) => next[other] === optionId);
+  for (const other of from) delete next[other];
+  next[itemId] = optionId;
+  return { next, from };
+}
+
+function OptionsCard({
+  id,
+  options,
+  holders,
+}: Readonly<{
+  id: string;
+  options: Option[];
+  holders: (optionId: string) => string[];
+}>) {
+  const { t } = useTranslation();
+  return (
+    <div className="bg-card overflow-hidden rounded-xl border">
+      <p
+        id={id}
+        className="bg-sidebar text-muted-fg border-b px-3.5 py-2 text-xs font-semibold"
+      >
+        {t("takeTest.matching.options")}
+      </p>
+      <ul aria-labelledby={id}>
+        {options.map((option, index) => {
+          const by = holders(option.id);
+          return (
+            <li
+              key={option.id}
+              className={cn(
+                "flex items-center gap-2.5 px-3.5 py-[9px] text-base",
+                index > 0 && "border-t",
+              )}
+            >
+              <span className="bg-muted grid h-5.5 min-w-5.5 flex-none place-items-center rounded-md px-1 text-xs font-bold">
+                {option.key}
+              </span>
+              <span className="min-w-0 flex-1 break-words">{nfc(option.text)}</span>
+              {by.length > 0 && (
+                <span className="text-success-ink text-[11.5px] font-semibold whitespace-nowrap">
+                  <span className="sr-only">{t("takeTest.matching.usedBy")} </span>
+                  {by.join(", ")}
+                </span>
+              )}
+            </li>
+          );
+        })}
+      </ul>
     </div>
   );
 }
@@ -230,11 +281,11 @@ function ItemCard({
               onClick={() => onChoose(option.id)}
               onKeyDown={(event) => move(event, index)}
               className={cn(
-                "grid place-items-center rounded-[9px] border-[1.5px] px-1.5 py-0 text-sm font-semibold",
+                "grid place-items-center rounded-[9px] border-[1.5px] px-1.5 py-0 text-base font-semibold",
                 roomy ? "h-9.5 min-w-9.5" : "h-11 min-w-11",
                 on && "border-primary bg-primary text-primary-fg",
                 !on && elsewhere.length === 0 && "border-border bg-card text-fg",
-                !on && elsewhere.length > 0 && "border-border/50 bg-card text-fg/50",
+                !on && elsewhere.length > 0 && "border-border/50 bg-card text-muted-fg",
                 disabled ? "cursor-default" : "cursor-pointer",
                 !disabled && !on && "hover:border-ring",
               )}
