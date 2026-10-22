@@ -186,20 +186,33 @@ func toAPIAttempt(a domain.Attempt) openapi.Attempt {
 
 func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q domain.Question) (openapi.StudentQuestion, error) {
 	out := openapi.StudentQuestion{
-		Id:            httpapi.ParseUUID(q.ID),
-		SectionId:     httpapi.ParseUUID(q.SectionID),
-		Type:          openapi.QuestionType(q.Type),
-		Prompt:        q.Prompt,
-		PromptContent: q.PromptContent,
-		MediaAlt:      q.MediaAlt,
-		Points:        q.Points,
+		Id:              httpapi.ParseUUID(q.ID),
+		SectionId:       httpapi.ParseUUID(q.SectionID),
+		Type:            openapi.QuestionType(q.Type),
+		Prompt:          q.Prompt,
+		PromptContent:   q.PromptContent,
+		MediaAlt:        q.MediaAlt,
+		Points:          q.Points,
+		SelectCount:     q.SelectCount,
+		MaxWords:        q.MaxWords,
+		MatchAllowReuse: q.MatchAllowReuse,
 	}
 	if len(q.Options) > 0 {
 		options := make([]openapi.StudentOption, len(q.Options))
 		for i, o := range q.Options {
 			options[i] = openapi.StudentOption{Id: httpapi.ParseUUID(o.ID), Text: o.Text, Content: o.Content}
+			if o.Key != "" {
+				options[i].Key = &o.Key
+			}
 		}
 		out.Options = &options
+	}
+	if len(q.MatchItems) > 0 {
+		items := make([]openapi.StudentMatchItem, len(q.MatchItems))
+		for i, item := range q.MatchItems {
+			items[i] = openapi.StudentMatchItem{Id: httpapi.ParseUUID(item.ID), Key: item.Key, Text: item.Text}
+		}
+		out.MatchItems = &items
 	}
 	if len(q.Blanks) > 0 {
 		blanks := make([]openapi.StudentBlank, len(q.Blanks))
