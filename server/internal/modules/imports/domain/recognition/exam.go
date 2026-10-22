@@ -277,7 +277,7 @@ func (e *exam) headingRest(l *line, end int) bool {
 	if !visible(l.text[end:]) {
 		return false
 	}
-	_, isOption := optionStart(l.text[end:])
+	isOption := optionStart(l.text[end:])
 	return !isOption
 }
 

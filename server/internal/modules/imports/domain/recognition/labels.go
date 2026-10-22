@@ -197,14 +197,14 @@ func optionLabelAtWith(text []rune, i, from int, letter rune, lowerCase bool) bo
 	return i+2 >= len(text) || !unicode.IsDigit(text[i+2])
 }
 
-func optionStart(text []rune) (rune, bool) {
+func optionStart(text []rune) bool {
 	i := skipSpace(text, 0)
 	for _, first := range []rune{'A', 'a'} {
 		if i < len(text) && optionLabelAt(text, i, i, first) {
-			return first, true
+			return true
 		}
 	}
-	return 0, false
+	return false
 }
 
 func skipSpace(text []rune, i int) int {

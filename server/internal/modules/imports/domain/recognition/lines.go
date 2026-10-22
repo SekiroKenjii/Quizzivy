@@ -192,7 +192,7 @@ func opensStructure(text []rune) bool {
 	if _, ok := questionLabel(text); ok {
 		return true
 	}
-	if _, ok := optionStart(text); ok {
+	if optionStart(text) {
 		return true
 	}
 	if _, _, ok := roman(text); ok {
