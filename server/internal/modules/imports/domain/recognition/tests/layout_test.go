@@ -718,18 +718,81 @@ func TestARomanHeadingIsAnInstructionOnlyWhenItIsACommand(t *testing.T) {
 		"I. READING: Read the passage and decide if the statements are true.",
 		"I. (2 points) Read the passage and answer the questions.",
 		"I. Phonetics - Choose the word whose underlined part is pronounced differently.",
+		// QC-R6GRM-22: a trailing score, a colon or no stop at all.
+		"I. Choose the word whose underlined part is pronounced differently. (1.0 point)",
+		"I. Read the passage and answer the questions (2 points)",
+		"I. Đọc đoạn văn sau và trả lời câu hỏi (3,0 điểm)",
+		"I. Read the passage below and answer the questions:",
+		"I. Choose the best answer to complete each sentence",
+		"I. Read the passage carefully",
+		"I. PHONETICS: CHOOSE THE WORD WHOSE UNDERLINED PART IS PRONOUNCED DIFFERENTLY.",
 	} {
 		d := recognize(t, exam(lines(heading, line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. FALSE")))
 		if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 {
 			t.Fatalf("%s: the line is pointed at: %+v", heading, got)
 		}
 	}
-	for _, title := range []string{"I. ĐỌC HIỂU (3,0 điểm)", "I. ĐỌC HIỂU", "I. Đọc hiểu", "I. USE OF ENGLISH", "I. READ AND WRITE"} {
+	for _, title := range []string{
+		"I. ĐỌC HIỂU (3,0 điểm)", "I. ĐỌC HIỂU", "I. Đọc hiểu", "I. USE OF ENGLISH", "I. READ AND WRITE",
+		// QC-R6GRM-23: a stop or a colon after a title.
+		"I. ĐỌC HIỂU:", "I. ĐỌC HIỂU.", "I. ĐỌC HIỂU (3,0 điểm):", "I. Đọc hiểu.", "I. USE OF ENGLISH.", "I. USE OF ENGLISH:",
+		"I. Use of English (2,0 điểm).", "I. VIẾT:", "I. Use of English and Grammar", "I. Read and write.",
+		"I. ĐỌC HIỂU VĂN BẢN (3,0 điểm)",
+	} {
 		d := recognize(t, exam(lines(title, "Chọn đáp án đúng nhất cho mỗi câu sau.", "1. When did it open?", "A. 1980\tB. 1990", "2. Who paid?", "A. city\tB. residents")), key(lines("1. B\t2. B")))
 		if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
 			t.Fatalf("%s: the first instruction line is not pointed at: %+v", title, got)
 		}
 	}
+}
+
+// QC-R6GRM-24: "Đ" and "S" key a true / false question, so a Vietnamese paper keyed the usual way is ready.
+func TestAVietnameseTrueFalseKeyReadsDAndS(t *testing.T) {
+	for _, instruction := range []string{
+		"Đọc đoạn văn sau và cho biết các câu sau là Đúng (Đ) hay Sai (S).",
+		"Đọc đoạn văn sau và cho biết các câu sau Đúng hay Sai.",
+	} {
+		d := recognize(t, exam(lines("I. ĐỌC HIỂU", instruction, "Bảo tàng thành phố mở cửa năm 1990 và do người dân góp tiền xây.", "1. Bảo tàng mở cửa năm 1990.", "2. Bảo tàng do nhà nước xây.")), key(lines("1. Đ\t2. S")))
+		for label, want := range map[string]string{"1": "T", "2": "F"} {
+			if q := question(t, d, label); q.Type != "true_false" || q.Answer.State != domain.AnswerKnown || !slices.Equal(answerLabels(q), []string{want}) {
+				t.Fatalf("%s: question %s is true / false keyed %s: %+v", instruction, label, want, q)
+			}
+		}
+		if got := notices(d, domain.CodeUnusableKey); len(got) != 0 {
+			t.Fatalf("%s: the key is usable: %+v", instruction, got)
+		}
+	}
+	// Outside a true / false question "S" is no truth value.
+	d := recognize(t, exam(lines("Câu 1", "Viết từ còn thiếu.", "1. Ba mẹ con ___ đi chợ.")), key(lines("1. S")))
+	if q := question(t, d, "1"); q.Type == "true_false" {
+		t.Fatalf("a lone S keys no true / false question: %+v", q)
+	}
+	d = recognize(t, exam(lines("Chọn cỡ áo phù hợp.", "1. Áo của em cỡ nào?", "A. S\tB. M\tC. L", "2. Áo của anh cỡ nào?", "A. S\tB. M\tC. L")), key(lines("1. S\t2. M")))
+	if q := question(t, d, "1"); q.Answer.State != domain.AnswerKnown || !slices.Equal(answerLabels(q), []string{"A"}) {
+		t.Fatalf("S keys the option S: %+v", q)
+	}
+}
+
+// QC-R6GRM-25, D-076: an ambiguous line after a group's questions opens a new group; it joins only an instruction
+// with no questions yet.
+func TestAnAmbiguousLineAfterQuestionsDoesNotJoinTheirInstruction(t *testing.T) {
+	instruction := "Chọn đáp án đúng nhất cho mỗi câu sau."
+	line := "Viết nhật ký và đọc sách là hai thói quen tốt của học sinh."
+	d := recognize(t, exam(lines(instruction, "1. When did it open?", "A. 1980\tB. 1990", "2. Who paid?", "A. city\tB. residents", line, "3. Học sinh nên viết nhật ký.", "4. Thói quen đọc sách tốn nhiều thời gian.")), key(lines("1. B\t2. B\t3. Đúng\t4. Sai")))
+	if len(d.Sections) != 2 || d.Sections[0].Title != instruction || d.Sections[1].Title != line {
+		t.Fatalf("the line opens its own section: %q", sectionTitles(d))
+	}
+	if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || got[0].Target != d.Sections[1].ID {
+		t.Fatalf("the pointer is on the line: %+v", got)
+	}
+}
+
+func sectionTitles(d domain.Draft) []string {
+	var out []string
+	for _, s := range d.Sections {
+		out = append(out, s.Title)
+	}
+	return out
 }
 
 // QC-R6GRM-20, QC-R6GRM-21: a Vietnamese line that names an answer format, or whose "và … là" lies past its first

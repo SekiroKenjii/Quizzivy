@@ -475,20 +475,45 @@ func (e *exam) headingRest(l *line, end int) bool {
 // label ended by a colon or a dash ("READING:", "Phonetics -").
 var headingLabel = regexp.MustCompile(`^\s*(?:\([^)]*\)\s*)?(?:[^:–-]{1,40}(?::|\s[-–])\s*)?`)
 
-// commandHeading reports whether rest, the text after a Roman numeral, is a command that ends its sentence ("Read the
-// passage below carefully.", "READING: Read the passage and decide…", "(2 points) Read the passage…"). A heading that
-// only opens with a command word and ends no sentence is a title ("ĐỌC HIỂU (3,0 điểm)", "USE OF ENGLISH", "Đọc hiểu"),
-// and the line under it is the instruction's first (QC-R6GRM-17, QC-R6GRM-19).
+// headingScore matches a score in brackets that ends a Roman heading: "(1.0 point)", "(3,0 điểm)", "(2 points).".
+var headingScore = regexp.MustCompile(`(?i)\s*\(\s*\d+(?:[.,]\d+)?\s*(?:points?|pts?\.?|marks?|điểm|đ)?\s*\)\s*[.:]?\s*$`)
+
+// minCommandWords is the fewest words a Roman heading's command has when it reads as a sentence: "Read the passage
+// carefully", "Đọc đoạn văn sau". "Use of English" and "Đọc hiểu" have fewer. A heading all in capitals needs twice
+// as many, since a title in capitals runs to a few words ("ĐỌC HIỂU VĂN BẢN") and a command in capitals to a sentence
+// ("CHOOSE THE WORD WHOSE UNDERLINED PART IS PRONOUNCED DIFFERENTLY").
+const minCommandWords = 4
+
+// commandHeading reports whether rest, the text after a Roman numeral, is a command that reads as a sentence ("Read
+// the passage below carefully.", "READING: Read the passage and decide…", "(2 points) Read the passage…", "Choose the
+// best answer to complete each sentence (1.0 point)"). A score in brackets at either end and a label before a colon
+// or a dash are set aside; what is left is a command when it opens with an imperative, is a statement of no other
+// kind, and has at least minCommandWords words. A heading that only opens with a command word is
+// a title ("ĐỌC HIỂU (3,0 điểm):", "USE OF ENGLISH.", "Đọc hiểu.", "Use of English (2,0 điểm)."), and the line under
+// it is the instruction's first (QC-R6GRM-17, QC-R6GRM-19, QC-R6GRM-22, QC-R6GRM-23). A heading that names its
+// answer format is an instruction whatever its shape: answerFormat.
 func commandHeading(rest string) bool {
-	rest = strings.TrimSpace(rest)
-	if rest == "" || !strings.ContainsRune(".:!", []rune(rest)[len([]rune(rest))-1]) {
-		return false
-	}
-	if isInstruction(rest) {
+	rest = strings.TrimSpace(headingScore.ReplaceAllString(rest, ""))
+	if sentenceCommand(rest) {
 		return true
 	}
 	after := strings.TrimSpace(rest[len(headingLabel.FindString(rest)):])
-	return after != rest && isInstruction(after)
+	return after != rest && sentenceCommand(after)
+}
+
+// sentenceCommand reports whether text is a command of commandHeading's shape.
+func sentenceCommand(text string) bool {
+	if !isInstruction(text) || readsAsStatement(text) {
+		return false
+	}
+	words, lower := 0, false
+	for _, w := range strings.Fields(text) {
+		if strings.IndexFunc(w, unicode.IsLetter) >= 0 {
+			words++
+		}
+		lower = lower || strings.IndexFunc(w, unicode.IsLower) >= 0
+	}
+	return words >= minCommandWords && (lower || words >= 2*minCommandWords)
 }
 
 func (e *exam) openSection(l *line, ordinal int) {
