@@ -309,6 +309,23 @@ describe("tfng", () => {
     );
   });
 
+  it("decides its columns from the labels the reader sees", () => {
+    viewport(360);
+    renderQuestion(tfng);
+    expect(screen.getByRole("radiogroup")).toHaveClass("grid-cols-1");
+  });
+
+  it("lays the short English labels in columns", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      viewport(1280);
+      renderQuestion(tfng);
+      expect(screen.getByRole("radiogroup")).toHaveClass("grid-cols-3");
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
   it("labels by position whatever text the options carry", async () => {
     await i18n.changeLanguage("en");
     try {
@@ -841,6 +858,44 @@ describe("short_answer with a word limit", () => {
     }
   });
 
+  it("states the limit as the deck's rule line under the prompt", async () => {
+    renderQuestion(limited);
+    expect(screen.getByText("Viết KHÔNG QUÁ BA TỪ.")).toHaveClass(
+      "text-muted-fg",
+      "text-sm",
+    );
+    cleanup();
+    await i18n.changeLanguage("en");
+    try {
+      renderQuestion(limited);
+      expect(screen.getByText("Write NO MORE THAN THREE WORDS.")).toBeInTheDocument();
+      cleanup();
+      renderQuestion(question({ type: "short_answer", maxWords: 1 }));
+      expect(screen.getByText("Write ONE WORD.")).toBeInTheDocument();
+      cleanup();
+      renderQuestion(question({ type: "short_answer", maxWords: 40 }));
+      expect(screen.getByText("Write NO MORE THAN 40 WORDS.")).toBeInTheDocument();
+      cleanup();
+      renderQuestion(question({ type: "short_answer" }));
+      expect(screen.queryByText(/^Write /)).toBeNull();
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
+  it("fades a locked field's colours, never the element", () => {
+    render(
+      <QuestionBody
+        question={limited}
+        answer={{ type: "text", value: "kept" }}
+        onAnswer={vi.fn()}
+        disabled
+      />,
+    );
+    expect(screen.getByRole("textbox")).toHaveClass("disabled:text-fg/60");
+    expect(screen.getByRole("textbox").className).not.toMatch(/opacity/);
+  });
+
   it("counts a dash standing alone as no word", () => {
     renderQuestion(question({ type: "short_answer" }), {
       type: "text",
@@ -1275,7 +1330,7 @@ describe("a type this page has no renderer for", () => {
       "short_answer",
       "essay",
     ]);
-    expect(questionKind({ type: "matching" })).toBe("unknown");
+    expect(questionKind({ type: "matching" })).toBe("matching");
     expect(questionKind({ type: "toString" as StudentQuestion["type"] })).toBe(
       "unknown",
     );

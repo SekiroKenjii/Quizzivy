@@ -2,6 +2,7 @@ import { useDeferredValue, useMemo } from "react";
 import { useEditorState, type Editor } from "@tiptap/react";
 import type { Node as ProseNode } from "@tiptap/pm/model";
 import { useTranslation } from "react-i18next";
+import { countWords } from "@/lib/words";
 import { editorShortcut } from "./shortcuts";
 
 const FILLED = new Set(["table", "gap", "contentImage", "contentAudio"]);
@@ -18,11 +19,6 @@ function isBlank(doc: ProseNode): boolean {
     return blank;
   });
   return blank;
-}
-
-function countWords(text: string): number {
-  const trimmed = text.trim();
-  return trimmed ? trimmed.split(/\s+/u).length : 0;
 }
 
 function sameNode(a: ProseNode, b: ProseNode | null): boolean {

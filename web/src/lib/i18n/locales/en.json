@@ -3926,6 +3926,8 @@
     "wordLimit_other": "{{words}} of {{count}} words",
     "wordLimitOver_one": "{{words}} of {{count}} word · too many",
     "wordLimitOver_other": "{{words}} of {{count}} words · too many",
+    "wordLimitHintOne": "Write ONE WORD.",
+    "wordLimitHint": "Write NO MORE THAN {{words}} WORDS.",
     "yourEssay": "Your essay",
     "essayPlaceholder": "Write your essay",
     "leave": "Leave test",
@@ -4038,6 +4040,14 @@
       "9": "nine",
       "10": "ten",
       "11": "eleven"
+    },
+    "matching": {
+      "done": "{{k}} of {{n}} matched",
+      "options": "Options",
+      "usedBy": "matched to",
+      "item": "{{key}} {{text}}",
+      "chipUsed": "{{key}}, matched to {{by}}",
+      "moved": "{{key}} moved from {{from}}"
     },
     "viewSubmitted": "View submitted paper",
     "unknownType": "Question {{n}} is a new kind of question that this page cannot show yet. Reload the page to answer it; your answers are kept.",
