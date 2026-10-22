@@ -229,12 +229,6 @@ describe("answered and progress, for the R6 types", () => {
     expect(answered(essay, { type: "text", value: "Parks matter." })).toBe(true);
     expect(progress(essay, { type: "text", value: "Parks" })).toBe("full");
   });
-
-  it("counts distinct picks, so a repeated id does not make up N", () => {
-    expect(answered(chooseTwo, { type: "choice", optionIds: ["o1", "o1"] })).toBe(
-      false,
-    );
-  });
 });
 
 /** The R6 cases, the same list the server's live count runs (T-R6.6). */

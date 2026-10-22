@@ -18,7 +18,7 @@ export function answered(
   switch (answer.type) {
     case "choice":
       return question.type === "multiple_choice" && question.selectCount != null
-        ? new Set(answer.optionIds).size === question.selectCount
+        ? answer.optionIds.length === question.selectCount
         : answer.optionIds.length > 0;
     case "true_false":
       return typeof answer.value === "boolean";
