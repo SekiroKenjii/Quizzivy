@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/content"
 	"quizzivy/internal/shared/matchkey"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/schedule"
@@ -406,6 +407,7 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 		}
 		q.Media = r.media()
 		q.Audio = r.audio()
+		q.PromptAssets = shownAssets(q.PromptContent, nil)
 		byID[q.ID] = len(out)
 		out = append(out, q)
 	}
@@ -588,4 +590,21 @@ func (s *Postgres) Rebeacon(ctx context.Context, attemptID string, hash []byte) 
 		return fmt.Errorf("attempts: reissue beacon token: %w", err)
 	}
 	return nil
+}
+
+// shownAssets lists the assets a frozen prompt or explanation shows (DG-109),
+// once each in document order. The paper passes only the prompt and the
+// result only an explanation its policy released, so neither reaches the
+// other's media (D-064 ruling 6). A document the media rules refuse, such as a
+// legacy one, shows none.
+func shownAssets(prompt, explanation []byte) []string {
+	shown, err := content.QuestionMedia(prompt, explanation)
+	if err != nil || len(shown) == 0 {
+		return nil
+	}
+	ids := make([]string, len(shown))
+	for i, asset := range shown {
+		ids[i] = asset.ID
+	}
+	return ids
 }

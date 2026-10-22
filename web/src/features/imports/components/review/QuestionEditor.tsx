@@ -53,6 +53,7 @@ import {
   restore,
   selectCountChoices,
   selectCountMismatch,
+  selectCountOutOfRange,
   setBlanks,
   setMaxWords,
   setSelectCount,
@@ -329,7 +330,7 @@ function FieldLabel({
   htmlFor?: string;
   id?: string;
   label: string;
-  origin: ImportDraftQuestion["origins"]["type"];
+  origin?: ImportDraftQuestion["origins"]["type"];
 }>) {
   return (
     <span className="text-meta flex flex-wrap items-center gap-1.5 font-medium">
@@ -340,7 +341,7 @@ function FieldLabel({
           {label}
         </Label>
       )}
-      <Provenance origin={origin} />
+      {origin === undefined ? null : <Provenance origin={origin} />}
     </span>
   );
 }
@@ -561,14 +562,12 @@ function SelectCountField({
   const choices = selectCountChoices(question);
   const current = question.selectCount ?? null;
   if (current !== null && !choices.includes(current)) choices.push(current);
-  const mismatch = selectCountMismatch(question);
+  const tooFew = selectCountOutOfRange(question);
+  const mismatch = !tooFew && selectCountMismatch(question);
+  const alert = tooFew || mismatch;
   return (
     <div className="flex flex-col gap-1.5">
-      <FieldLabel
-        htmlFor={id}
-        label={t("imports.field.selectCount")}
-        origin={question.origins.type}
-      />
+      <FieldLabel htmlFor={id} label={t("imports.field.selectCount")} />
       <Select
         value={current === null ? ANY_COUNT : String(current)}
         onValueChange={(value) =>
@@ -578,8 +577,8 @@ function SelectCountField({
         <SelectTrigger
           id={id}
           className="w-full sm:w-64"
-          aria-describedby={mismatch ? hintId : undefined}
-          aria-invalid={mismatch || undefined}
+          aria-describedby={alert ? hintId : undefined}
+          aria-invalid={alert || undefined}
         >
           <SelectValue />
         </SelectTrigger>
@@ -596,9 +595,14 @@ function SelectCountField({
           </SelectGroup>
         </SelectContent>
       </Select>
-      {mismatch ? (
+      {alert ? (
         <p id={hintId} role="alert" className="text-danger-ink m-0 text-xs">
-          {t("imports.review.selectCountMismatch", { count: current ?? 0 })}
+          {tooFew
+            ? t("imports.review.selectCountTooFew", {
+                count: current ?? 0,
+                options: (current ?? 0) + 1,
+              })
+            : t("imports.review.selectCountMismatch", { count: current ?? 0 })}
         </p>
       ) : null}
     </div>
@@ -620,11 +624,7 @@ function MaxWordsField({
   const invalid = !validMaxWords(text);
   return (
     <div className="flex flex-col gap-1.5">
-      <FieldLabel
-        htmlFor={id}
-        label={t("imports.field.maxWords")}
-        origin={question.origins.type}
-      />
+      <FieldLabel htmlFor={id} label={t("imports.field.maxWords")} />
       <Input
         id={id}
         inputMode="numeric"
@@ -710,9 +710,10 @@ function OptionsField({
         )}
       </div>
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-        {question.options.map((option) => {
+        {question.options.map((option, index) => {
           const opened = open === option.id;
           const editable = question.type !== "tfng" && isOptionContent(option.content);
+          const key = displayKey(question.type, option, index);
           const correct = keys.has(option.id);
           return (
             <li
@@ -728,12 +729,12 @@ function OptionsField({
                   name={`correct-${question.id}`}
                   checked={correct}
                   onChange={(event) => toggle(option.id, event.target.checked)}
-                  aria-label={t("imports.review.markCorrect", { label: option.label })}
+                  aria-label={t("imports.review.markCorrect", { label: key })}
                   className="accent-success size-4"
                 />
               </span>
               <span className="text-muted-fg text-meta mt-1.5 w-3.5 flex-none font-semibold">
-                {option.label}
+                {key}
               </span>
               <div className="min-w-0 flex-1 py-0.5">
                 {opened && option.content.format === "semantic_v1" && editable ? (
@@ -759,23 +760,25 @@ function OptionsField({
                   {t("imports.review.correct")}
                 </span>
               ) : null}
-              <Button
-                type="button"
-                variant="ghost"
-                className={cn(SMALL_BUTTON, "mt-0.5")}
-                aria-expanded={opened}
-                aria-label={
-                  opened
-                    ? t("imports.review.doneOptionNamed", { label: option.label })
-                    : t("imports.review.editOptionNamed", { label: option.label })
-                }
-                disabled={!editable}
-                onClick={() => setEditing(opened ? null : option.id)}
-              >
-                {opened
-                  ? t("imports.review.doneEditing")
-                  : t("imports.review.editOption")}
-              </Button>
+              {question.type === "tfng" ? null : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className={cn(SMALL_BUTTON, "mt-0.5")}
+                  aria-expanded={opened}
+                  aria-label={
+                    opened
+                      ? t("imports.review.doneOptionNamed", { label: option.label })
+                      : t("imports.review.editOptionNamed", { label: option.label })
+                  }
+                  disabled={!editable}
+                  onClick={() => setEditing(opened ? null : option.id)}
+                >
+                  {opened
+                    ? t("imports.review.doneEditing")
+                    : t("imports.review.editOption")}
+                </Button>
+              )}
               {fixed ? null : (
                 <Button
                   type="button"
@@ -809,6 +812,15 @@ function OptionsField({
       )}
     </fieldset>
   );
+}
+
+/** displayKey is the letter an option row shows: tfng rows are keyed A, B, C by position, as the deck draws them, and keep T/F/NG as their stored labels. */
+function displayKey(
+  type: QuestionType,
+  option: ImportDraftOption,
+  index: number,
+): string {
+  return type === "tfng" ? String.fromCodePoint(65 + index) : option.label;
 }
 
 function tfngLabelKey(

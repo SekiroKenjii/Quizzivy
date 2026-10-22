@@ -137,6 +137,10 @@ type ResultQuestion struct {
 	Band           *float64
 	CorrectMatches []MatchPair
 	Criteria       []ResultCriterion
+	// ExplanationAssets are the media the released explanation shows
+	// (DG-109), once each in document order; empty whenever the explanation
+	// is withheld, because they are read from it.
+	ExplanationAssets []string
 }
 
 // MatchPair is one matching item and the choice that answers it.

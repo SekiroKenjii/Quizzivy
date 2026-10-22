@@ -4,24 +4,26 @@ package application_test
 
 import (
 	"context"
+	"quizzivy/internal/core/adapters"
+	"quizzivy/internal/modules/attempts/application"
 	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/modules/attempts/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/retention"
 	"testing"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// gradedEssayPaper is an essay paper with both essays graded by its Admin,
-// read back as the student under showScore.
-func gradedEssayPaper(t *testing.T) (essayPaper, func() *domain.Score) {
+// essayResult is an essay paper whose two essays both wait for a grader, and
+// the student's score on it under showScore.
+func essayResult(t *testing.T) (essayPaper, func() *domain.Score) {
 	t.Helper()
 	pool := newPool(t)
 	p := seedEssayPaper(t, pool)
 	ctx := context.Background()
-	if _, err := repositories.NewReviews(db.NewContext(pool)).Grade(ctx, everyone, p.attempt, domain.Request{ActorID: p.admin}, []domain.GradeItem{
-		{QuestionID: p.plain, Band: pts(7)},
-		{QuestionID: p.rubric, Criteria: p.bands(6, 6.5, 6.5, 6)},
-	}); err != nil {
+	if _, err := pool.Exec(ctx, `UPDATE app.attempt_answers SET requires_manual = true, auto_score = NULL WHERE attempt_id = $1::uuid`, p.attempt); err != nil {
 		t.Fatal(err)
 	}
 	var assignment string
@@ -37,6 +39,72 @@ func gradedEssayPaper(t *testing.T) (essayPaper, func() *domain.Score) {
 			t.Fatal(err)
 		}
 		return result.Score
+	}
+}
+
+func grade(t *testing.T, attempt, grader string, items ...domain.GradeItem) {
+	t.Helper()
+	if _, err := repositories.NewReviews(db.NewContext(newPool(t))).Grade(context.Background(), everyone, attempt, domain.Request{ActorID: grader}, items); err != nil {
+		t.Fatal(err)
+	}
+}
+
+// gradedEssayPaper is essayResult with both essays graded by its Admin.
+func gradedEssayPaper(t *testing.T) (essayPaper, func() *domain.Score) {
+	t.Helper()
+	p, score := essayResult(t)
+	grade(t, p.attempt, p.admin, domain.GradeItem{QuestionID: p.plain, Band: pts(7)}, domain.GradeItem{QuestionID: p.rubric, Criteria: p.bands(6, 6.5, 6.5, 6)})
+	return p, score
+}
+
+func TestTheGraderIsNamedOnlyOnceNothingWaits(t *testing.T) {
+	p, score := essayResult(t)
+	grade(t, p.attempt, p.admin, domain.GradeItem{QuestionID: p.plain, Band: pts(7)})
+	if got := score(); got == nil || got.PendingManual != 1 || got.GradedBy != nil {
+		t.Fatalf("one essay still waiting: score %+v, want one pending and no grader", got)
+	}
+	grade(t, p.attempt, p.admin, domain.GradeItem{QuestionID: p.rubric, Criteria: p.bands(6, 6.5, 6.5, 6)})
+	if got := score(); got == nil || got.GradedBy == nil || *got.GradedBy != "Giáo viên" {
+		t.Fatalf("both essays graded: score %+v, want it graded by Giáo viên", got)
+	}
+}
+
+// overriddenPaper is seedPaper's choice question with its auto mark
+// overridden by the Admin, read back as the student under showScore. With
+// essay false the paper has no answer that waits for a grader.
+func overriddenPaper(t *testing.T, essay bool) *domain.Score {
+	t.Helper()
+	pool := newPool(t)
+	p := seedPaper(t, pool, "submitted")
+	ctx := context.Background()
+	items := []domain.GradeItem{{QuestionID: p.choice, Points: pts(4)}}
+	if essay {
+		items = append(items, domain.GradeItem{QuestionID: p.essay, Points: pts(3)})
+	} else if _, err := pool.Exec(ctx, `DELETE FROM app.attempt_answers WHERE attempt_id = $1::uuid AND question_id = $2::uuid`, p.attempt, p.essay); err != nil {
+		t.Fatal(err)
+	}
+	grade(t, p.attempt, p.admin, items...)
+	var assignment string
+	if err := pool.QueryRow(ctx, `SELECT assignment_id::text FROM app.attempts WHERE id = $1::uuid`, p.attempt).Scan(&assignment); err != nil {
+		t.Fatal(err)
+	}
+	setReview(t, pool, world{assignment: assignment}, true, false, false)
+	result, err := newService(t, pool).Queries.Result.Handle(ctx, query.Result{AttemptID: p.attempt, StudentID: p.student})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return result.Score
+}
+
+func TestOverridingAnAutoMarkGradesNoPaper(t *testing.T) {
+	if got := overriddenPaper(t, false); got == nil || got.GradedBy != nil {
+		t.Fatalf("score %+v, want no grader on an auto-marked paper", got)
+	}
+}
+
+func TestAnOverrideBesideAHandGradedEssayNamesItsGrader(t *testing.T) {
+	if got := overriddenPaper(t, true); got == nil || got.GradedBy == nil || *got.GradedBy != "Giáo viên" {
+		t.Fatalf("score %+v, want it graded by Giáo viên", got)
 	}
 }
 
@@ -79,12 +147,64 @@ func TestTwoGradersNameNobody(t *testing.T) {
 
 func TestAGraderWhoseAccountIsGoneNamesNobody(t *testing.T) {
 	p, score := gradedEssayPaper(t)
-	if _, err := newPool(t).Exec(context.Background(), `UPDATE app.attempt_answers SET graded_by = NULL WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
-		p.attempt, p.plain); err != nil {
+	pool := newPool(t)
+	ctx := context.Background()
+	var gone string
+	if err := pool.QueryRow(ctx, `INSERT INTO app.users (email, full_name, role_id)
+		VALUES ('gone-'||gen_random_uuid()||'@example.com', 'Thầy Cũ', (SELECT id FROM app.roles WHERE builtin_key = 'student'))
+		RETURNING id::text`).Scan(&gone); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE app.attempt_answers SET graded_by = $2::uuid WHERE attempt_id = $1::uuid`, p.attempt, gone); err != nil {
+		t.Fatal(err)
+	}
+	if got := score(); got == nil || got.GradedBy == nil || *got.GradedBy != "Thầy Cũ" {
+		t.Fatalf("score %+v, want it graded by Thầy Cũ before the delete", got)
+	}
+	if _, err := pool.Exec(ctx, `DELETE FROM app.users WHERE id = $1::uuid`, gone); err != nil {
 		t.Fatal(err)
 	}
 	if got := score(); got == nil || got.GradedBy != nil {
-		t.Fatalf("score %+v, want no grader named", got)
+		t.Fatalf("score %+v, want no grader named once the only grader's account is deleted", got)
+	}
+}
+
+func TestStaffScoresNeverNameTheGrader(t *testing.T) {
+	p, score := gradedEssayPaper(t)
+	if got := score(); got == nil || got.GradedBy == nil {
+		t.Fatalf("score %+v, want the student's result to name the grader", got)
+	}
+	pool := newPool(t)
+	ctx := context.Background()
+	dbx := db.NewContext(pool)
+	svc := application.New(nil, repositories.NewReviews(dbx), repositories.NewPostgres(dbx, adapters.AttemptStartGuard{}))
+	review, err := svc.Queries.Review.Handle(ctx, query.Review{Scope: everyone, AttemptID: p.attempt})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if review.Score.GradedBy != nil {
+		t.Errorf("the review's score names %q", *review.Score.GradedBy)
+	}
+	graded, err := repositories.NewReviews(db.NewContext(pool)).Grade(ctx, everyone, p.attempt, domain.Request{ActorID: p.admin},
+		[]domain.GradeItem{{QuestionID: p.plain, Band: pts(7)}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if graded.GradedBy != nil {
+		t.Errorf("the grade response names %q", *graded.GradedBy)
+	}
+	var assignment string
+	if err := pool.QueryRow(ctx, `SELECT assignment_id::text FROM app.attempts WHERE id = $1::uuid`, p.attempt).Scan(&assignment); err != nil {
+		t.Fatal(err)
+	}
+	monitor, err := svc.Queries.Monitor.Handle(ctx, query.Monitor{Scope: everyone, AssignmentID: assignment})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, row := range monitor.Rows {
+		if row.Score != nil && row.Score.GradedBy != nil {
+			t.Errorf("the monitor row for %s names %q", row.StudentID, *row.Score.GradedBy)
+		}
 	}
 }
 
@@ -131,4 +251,79 @@ func TestAPaperNobodyGradedByHandNamesNobody(t *testing.T) {
 	if result.Score == nil || result.Score.GradedBy != nil {
 		t.Fatalf("score %+v, want a score and no grader", result.Score)
 	}
+}
+
+func TestAnUngradedAnswerRetentionRemovedDoesNotKeepTheGraderOut(t *testing.T) {
+	p, score := essayResult(t)
+	if _, err := newPool(t).Exec(context.Background(), `UPDATE app.attempt_answers SET payload = '`+retention.RemovedAnswer+`'::jsonb WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
+		p.attempt, p.rubric); err != nil {
+		t.Fatal(err)
+	}
+	grade(t, p.attempt, p.admin, domain.GradeItem{QuestionID: p.plain, Band: pts(7)})
+	if got := score(); got == nil || got.GradedBy == nil || *got.GradedBy != "Giáo viên" {
+		t.Fatalf("score %+v, want it graded by Giáo viên", got)
+	}
+}
+
+// The retention sweep replaces every answer of an attempt at once and keeps
+// their grades, so the paper is still the grader's (QC-R6GB-4).
+func TestAPaperTheSweepEmptiedKeepsItsGrader(t *testing.T) {
+	p, score := gradedEssayPaper(t)
+	if _, err := newPool(t).Exec(context.Background(), `UPDATE app.attempt_answers SET payload = '`+retention.RemovedAnswer+`'::jsonb WHERE attempt_id = $1::uuid`, p.attempt); err != nil {
+		t.Fatal(err)
+	}
+	if got := score(); got == nil || got.GradedBy == nil || *got.GradedBy != "Giáo viên" {
+		t.Fatalf("score %+v, want it still graded by Giáo viên", got)
+	}
+}
+
+func TestARemovedAnswerGradedBySomeoneElseStillCounts(t *testing.T) {
+	p, score := gradedEssayPaper(t)
+	pool := newPool(t)
+	ctx := context.Background()
+	other := teacherAccount(t, pool, "Thầy Hai")
+	if _, err := pool.Exec(ctx, `UPDATE app.attempt_answers SET payload = '`+retention.RemovedAnswer+`'::jsonb, graded_by = $3::uuid WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
+		p.attempt, p.rubric, other); err != nil {
+		t.Fatal(err)
+	}
+	if got := score(); got == nil || got.GradedBy != nil {
+		t.Fatalf("score %+v, want no grader: two accounts graded the paper", got)
+	}
+}
+
+// An override by one teacher beside essays another graded names the essays'
+// grader (GB-5).
+func TestAnOverrideByAnotherTeacherDoesNotHideTheEssaysGrader(t *testing.T) {
+	pool := newPool(t)
+	p := seedPaper(t, pool, "submitted")
+	ctx := context.Background()
+	other := teacherAccount(t, pool, "Thầy Hai")
+	grade(t, p.attempt, other, domain.GradeItem{QuestionID: p.choice, Points: pts(4)})
+	grade(t, p.attempt, p.admin, domain.GradeItem{QuestionID: p.essay, Points: pts(3)})
+	var assignment string
+	if err := pool.QueryRow(ctx, `SELECT assignment_id::text FROM app.attempts WHERE id = $1::uuid`, p.attempt).Scan(&assignment); err != nil {
+		t.Fatal(err)
+	}
+	setReview(t, pool, world{assignment: assignment}, true, false, false)
+	result, err := newService(t, pool).Queries.Result.Handle(ctx, query.Result{AttemptID: p.attempt, StudentID: p.student})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Score == nil || result.Score.GradedBy == nil || *result.Score.GradedBy != "Giáo viên" {
+		t.Fatalf("score %+v, want it graded by Giáo viên", result.Score)
+	}
+}
+
+// teacherAccount inserts a teacher's account named name, removed when the test
+// ends.
+func teacherAccount(t *testing.T, pool *pgxpool.Pool, name string) string {
+	t.Helper()
+	var id string
+	if err := pool.QueryRow(context.Background(), `INSERT INTO app.users (email, full_name, role_id)
+		VALUES ('grader-'||gen_random_uuid()||'@example.com', $1, (SELECT id FROM app.roles WHERE builtin_key = 'teacher'))
+		RETURNING id::text`, name).Scan(&id); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanUp(t, pool, `DELETE FROM app.users WHERE id = $1::uuid`, id) })
+	return id
 }

@@ -7,7 +7,7 @@ func (in *Input) RebindGaps(nextID func() string) error {
 	if !hasProse(in.PromptContent) {
 		return nil
 	}
-	document, err := content.ParseQuestionPrompt(in.PromptContent)
+	document, err := content.ParsePromptWithMedia(in.PromptContent)
 	if err != nil {
 		return err
 	}

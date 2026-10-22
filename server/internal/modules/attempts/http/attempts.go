@@ -234,25 +234,36 @@ func (h Attempts) toAPIStudentQuestion(ctx context.Context, studentID string, q 
 			AllowPause:                q.Audio.AllowPause,
 		}
 	}
-	if q.Media == nil {
-		return out, nil
+	var err error
+	if out.PromptAssets, err = h.promptAssets(ctx, studentID, q.PromptAssets); err != nil {
+		return openapi.StudentQuestion{}, err
 	}
-
-	signed, err := h.media.MintForStudent(ctx, studentID, q.Media.ID)
-	if err != nil {
-		return openapi.StudentQuestion{}, fmt.Errorf("sign attempt media: %w", err)
-	}
-	out.Media = &openapi.MediaAsset{
-		Id:               httpapi.ParseUUID(q.Media.ID),
-		Kind:             openapi.MediaKind(q.Media.Kind),
-		MimeType:         openapi.MediaAssetMimeType(q.Media.MimeType),
-		OriginalFilename: q.Media.Filename,
-		Bytes:            q.Media.Bytes,
-		DurationMs:       q.Media.DurationMs,
-		CreatedAt:        q.Media.CreatedAt,
-		Url:              signed.URL,
+	if out.Media, err = h.attachedMedia(ctx, studentID, q.Media); err != nil {
+		return openapi.StudentQuestion{}, err
 	}
 	return out, nil
+}
+
+// attachedMedia signs the question's own image or recording for the student
+// sitting it; nil without one.
+func (h Attempts) attachedMedia(ctx context.Context, studentID string, media *domain.Media) (*openapi.MediaAsset, error) {
+	if media == nil {
+		return nil, nil
+	}
+	signed, err := h.media.MintForStudent(ctx, studentID, media.ID)
+	if err != nil {
+		return nil, fmt.Errorf("sign attempt media: %w", err)
+	}
+	return &openapi.MediaAsset{
+		Id:               httpapi.ParseUUID(media.ID),
+		Kind:             openapi.MediaKind(media.Kind),
+		MimeType:         openapi.MediaAssetMimeType(media.MimeType),
+		OriginalFilename: media.Filename,
+		Bytes:            media.Bytes,
+		DurationMs:       media.DurationMs,
+		CreatedAt:        media.CreatedAt,
+		Url:              signed.URL,
+	}, nil
 }
 
 func toAPISections(in []domain.Section) []openapi.StudentSection {

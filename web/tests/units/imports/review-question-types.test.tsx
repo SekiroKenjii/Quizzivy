@@ -49,18 +49,23 @@ describe("a tfng question in the review", () => {
   it("names its type and reads its three fixed options in the teacher's language", async () => {
     await renderReview();
     expect(screen.getByRole("combobox", { name: "Dạng câu" })).toHaveTextContent(
-      "Đúng/Sai/Không có thông tin",
+      "Đúng / Sai / Không có thông tin",
     );
     for (const text of ["Đúng", "Sai", "Không có thông tin"])
       expect(screen.getByText(text)).toBeInTheDocument();
     expect(screen.queryByText("Not given")).toBeNull();
-    expect(screen.getByRole("radio", { name: /NG/ })).toBeChecked();
+    expect(screen.getByRole("radio", { name: /C/ })).toBeChecked();
+    expect(
+      screen.getAllByText("Đúng / Sai / Không có thông tin").length,
+    ).toBeGreaterThan(0);
+    for (const key of ["A", "B", "C"])
+      expect(screen.getByText(key)).toBeInTheDocument();
+    expect(screen.queryByText("NG")).toBeNull();
     expect(screen.queryByRole("button", { name: /Thêm lựa chọn/ })).toBeNull();
     expect(
       screen.queryByRole("button", { name: /Xoá lựa chọn|Xóa lựa chọn/ }),
     ).toBeNull();
-    for (const button of screen.getAllByRole("button", { name: /Sửa lựa chọn/ }))
-      expect(button).toBeDisabled();
+    expect(screen.queryByRole("button", { name: /Sửa lựa chọn/ })).toBeNull();
   });
 
   it("is offered in the type select", async () => {
@@ -68,7 +73,7 @@ describe("a tfng question in the review", () => {
     await user.click(screen.getByRole("combobox", { name: "Dạng câu" }));
     const types = await screen.findByRole("listbox");
     expect(
-      within(types).getByRole("option", { name: "Đúng/Sai/Không có thông tin" }),
+      within(types).getByRole("option", { name: "Đúng / Sai / Không có thông tin" }),
     ).toBeInTheDocument();
   });
 });
@@ -93,7 +98,7 @@ describe("a Choose N multiple choice in the review", () => {
     expect(screen.getByRole("alert")).toHaveTextContent(
       "Cần đánh dấu đúng 2 phương án",
     );
-    expect(screen.getByText("Chọn đúng 2 đáp án đúng")).toBeInTheDocument();
+    expect(screen.getByText("Đánh dấu đúng 2 đáp án")).toBeInTheDocument();
 
     await user.click(screen.getByRole("checkbox", { name: /B/ }));
     await waitFor(() =>
@@ -117,6 +122,48 @@ describe("a Choose N multiple choice in the review", () => {
     );
     await vi.advanceTimersByTimeAsync(1500);
     await waitFor(() => expect(saved()).not.toHaveProperty("selectCount"));
+  });
+});
+
+describe("a Choose N count the options cannot hold", () => {
+  it("says so at the field, and a removal that leaves too few options resets it", async () => {
+    serve(
+      question({
+        id: "q1",
+        label: "1",
+        type: "multiple_choice",
+        selectCount: 3,
+        answer: { state: "known", optionIds: ["q1-a", "q1-b", "q1-c"], evidence: [] },
+      }),
+    );
+    const { user } = await renderReview();
+    const count = screen.getByRole("combobox", { name: "Số đáp án cần chọn" });
+    expect(count).toHaveTextContent("Chọn 3");
+    expect(screen.queryByRole("alert")).toBeNull();
+
+    await user.click(
+      screen.getByRole("button", { name: /Xoá lựa chọn D|Xóa lựa chọn D/ }),
+    );
+    await waitFor(() => expect(count).toHaveTextContent("Không cố định"));
+    await settle();
+    await waitFor(() => expect(saved()).not.toHaveProperty("selectCount"));
+  });
+
+  it("explains an imported count that is too large instead of asking to mark every option", async () => {
+    serve(
+      question({
+        id: "q1",
+        label: "1",
+        type: "multiple_choice",
+        selectCount: 2,
+        options: [option("q1-a", "A", "Hanoi"), option("q1-b", "B", "Hue")],
+        answer: { state: "known", optionIds: ["q1-a"], evidence: [] },
+      }),
+    );
+    await renderReview();
+    const alert = screen.getByRole("alert");
+    expect(alert).toHaveTextContent("Chọn 2 cần ít nhất 3 phương án");
+    expect(alert).not.toHaveTextContent("Cần đánh dấu đúng");
   });
 });
 

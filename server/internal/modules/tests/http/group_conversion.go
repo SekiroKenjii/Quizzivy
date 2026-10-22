@@ -79,6 +79,13 @@ func groupAssetIDs(bundle domain.GroupBundle) ([]string, error) {
 		if q.Input.MediaAssetID != nil {
 			seen[strings.ToLower(*q.Input.MediaAssetID)] = true
 		}
+		shown, err := content.QuestionMedia(q.Input.PromptContent, q.Input.ExplanationContent)
+		if err != nil {
+			return nil, err
+		}
+		for _, asset := range shown {
+			seen[strings.ToLower(asset.ID)] = true
+		}
 	}
 	for _, material := range bundle.Group.Stimuli {
 		document, err := content.Parse(material.Content)

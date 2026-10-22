@@ -24,6 +24,10 @@ type Question struct {
 	Options          []Option
 	Blanks           []Blank
 	MatchItems       []MatchItem
+	// PromptAssets are the images the prompt shows (DG-109), once each in
+	// document order: what the paper may sign. An explanation's media is never
+	// here; only the result reads it, under its gate (D-064 ruling 6).
+	PromptAssets []string
 }
 
 // Section is one part of the paper in test order; Instructions is the

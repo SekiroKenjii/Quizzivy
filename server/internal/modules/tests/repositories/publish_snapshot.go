@@ -108,7 +108,34 @@ func freezeQuestion(ctx context.Context, tx pgx.Tx, sectionID string, q domain.D
 	if err := freezeRubric(ctx, tx, id, q.Rubric); err != nil {
 		return "", err
 	}
+	if err := freezeMediaReferences(ctx, tx, id, q); err != nil {
+		return "", err
+	}
 	return id, nil
+}
+
+// freezeMediaReferences writes the frozen question's reference rows beside its
+// content (DG-109, D-064 ruling 4): exactly the assets the frozen prompt and
+// explanation name, each already locked by lockMediaAssets, so a published
+// paper's image cannot be deleted while the version stands.
+func freezeMediaReferences(ctx context.Context, tx pgx.Tx, questionID string, q domain.DraftQuestion) error {
+	refs, err := content.QuestionMedia(q.PromptContent, q.ExplanationContent)
+	if err != nil {
+		return fmt.Errorf("publish: media references: %w", err)
+	}
+	if len(refs) == 0 {
+		return nil
+	}
+	fields, ids, kinds := make([]string, len(refs)), make([]string, len(refs)), make([]string, len(refs))
+	for i, ref := range refs {
+		fields[i], ids[i], kinds[i] = ref.Field, ref.ID, ref.Kind
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.test_version_question_media_references (test_version_question_id, field, media_asset_id, media_asset_kind)
+		SELECT $1, r.field, r.id, r.kind::app.media_kind FROM unnest($2::text[], $3::uuid[], $4::text[]) AS r(field, id, kind)`,
+		questionID, fields, ids, kinds); err != nil {
+		return fmt.Errorf("publish: freeze media references: %w", err)
+	}
+	return nil
 }
 
 func freezeOptions(ctx context.Context, tx pgx.Tx, questionID string, options []domain.DraftOption) ([]string, error) {
@@ -198,6 +225,13 @@ func snapshotMediaIDs(d domain.DraftContent) ([]string, error) {
 		for _, question := range section.Questions {
 			if question.MediaAssetID != nil {
 				seen[strings.ToLower(*question.MediaAssetID)] = true
+			}
+			shown, err := content.QuestionMedia(question.PromptContent, question.ExplanationContent)
+			if err != nil {
+				return nil, err
+			}
+			for _, asset := range shown {
+				seen[strings.ToLower(asset.ID)] = true
 			}
 		}
 		if err := collectGroupAssets(section.Groups, seen); err != nil {
