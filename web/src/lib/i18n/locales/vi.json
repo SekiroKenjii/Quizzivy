@@ -5269,7 +5269,7 @@
         },
         "LONG_INSTRUCTION": {
           "title": "Phần hướng dẫn này khá dài",
-          "help": "Nếu một phần trong đó là bài đọc, hãy chuyển phần đó vào bài đọc của phần."
+          "help": "Nếu trong đó có đoạn là bài đọc, hãy chuyển đoạn đó vào Bài đọc của phần này."
         },
         "COLORED_TEXT_IN_CONTENT": {
           "title": "Có chữ màu trong nội dung câu",

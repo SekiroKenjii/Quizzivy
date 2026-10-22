@@ -63,8 +63,8 @@ type groupBuilder struct {
 	questions   []*questionBuilder
 	accepting   bool
 	source      []domain.SourceRef
-	// prose holds the lines the heading's instruction took after its first line that read like a passage's sentence
-	// (proseLine): QC-R6GRM-2, D-073.
+	// prose holds the lines the instruction took after its first line, the heading's or the Roman section's, that
+	// read like a passage's sentence (proseLine, sectionProse): QC-R6GRM-2, QC-R6GRM-9, D-073.
 	prose []segment
 }
 
@@ -400,7 +400,21 @@ func (e *exam) proseLine(text string) bool {
 	if e.bareHeading() {
 		return readsAsStatement(text)
 	}
-	return len(strings.Fields(text)) >= minProseWords && !answerFormat(text) && !headingLegend.MatchString(text) && !e.carriesOnHeading(text)
+	return prose(text) && !e.carriesOnHeading(text)
+}
+
+// prose reports whether text reads like a sentence of a passage rather than an instruction line: five words or more
+// that name no answer format and are no line of the IELTS legend.
+func prose(text string) bool {
+	return len(strings.Fields(text)) >= minProseWords && !answerFormat(text) && !headingLegend.MatchString(text)
+}
+
+// sectionProse reports whether text, an imperative-led line that opens the first group of a Roman section whose
+// heading carries the instruction, reads like a passage's sentence (prose): the grammar cannot tell it from a second
+// instruction line, so the draft points at it as it does under a range heading (QC-R6GRM-9, D-073).
+func (e *exam) sectionProse(text string) bool {
+	_, ok := e.lastInstruction()
+	return e.group == nil && ok && prose(text)
 }
 
 // bareHeading reports whether the open group is a range heading, or a run of them, with nothing under it yet.
@@ -661,10 +675,14 @@ func (e *exam) textLine(l *line) {
 	case e.completesInstruction(text):
 		e.extendInstruction(whole)
 	case isInstruction(text) && !e.continuesStimulus(text) && !e.passageAfterInstruction(text):
+		pointed := e.sectionProse(text)
 		e.closeQuestion()
 		e.closeGroup()
 		e.ensureSection()
 		e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, accepting: true, source: whole.refs()}
+		if pointed {
+			e.group.prose = []segment{whole}
+		}
 		e.section.items = append(e.section.items, item{group: e.group})
 	case e.group != nil && e.group.accepting && len(e.group.questions) == 0:
 		e.group.stimulus = append(e.group.stimulus, whole)
