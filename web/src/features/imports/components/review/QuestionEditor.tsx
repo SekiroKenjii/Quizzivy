@@ -544,7 +544,7 @@ function AnswerFields({
     return (
       <>
         <OptionsField question={question} locked={locked} onEdit={onEdit} />
-        <SelectCountField question={question} onEdit={onEdit} />
+        <SelectCountField key={question.id} question={question} onEdit={onEdit} />
       </>
     );
   return <OptionsField question={question} locked={locked} onEdit={onEdit} />;
@@ -565,6 +565,7 @@ function SelectCountField({
   const tooFew = selectCountOutOfRange(question);
   const mismatch = !tooFew && selectCountMismatch(question);
   const alert = tooFew || mismatch;
+  const resetFrom = useCountReset(question);
   return (
     <div className="flex flex-col gap-1.5">
       <FieldLabel htmlFor={id} label={t("imports.field.selectCount")} />
@@ -595,6 +596,14 @@ function SelectCountField({
           </SelectGroup>
         </SelectContent>
       </Select>
+      <p role="status" className="text-muted-fg m-0 text-xs empty:hidden">
+        {resetFrom === null
+          ? null
+          : t("imports.review.selectCountReset", {
+              count: resetFrom,
+              options: question.options.length,
+            })}
+      </p>
       {alert ? (
         <p id={hintId} role="alert" className="text-danger-ink m-0 text-xs">
           {tooFew
@@ -607,6 +616,34 @@ function SelectCountField({
       ) : null}
     </div>
   );
+}
+
+/**
+ * useCountReset returns the "Choose N" count that removing an option has just
+ * reset, so the field can say why it now reads "Any number", or null once the
+ * teacher picks a count again or adds an option back.
+ */
+function useCountReset(question: ImportDraftQuestion): number | null {
+  const [seen, setSeen] = useState({
+    count: question.selectCount,
+    options: question.options.length,
+  });
+  const [resetFrom, setResetFrom] = useState<number | null>(null);
+  if (seen.count !== question.selectCount || seen.options !== question.options.length) {
+    setSeen({ count: question.selectCount, options: question.options.length });
+    if (
+      typeof seen.count === "number" &&
+      question.selectCount === undefined &&
+      question.options.length < seen.options
+    )
+      setResetFrom(seen.count);
+    else if (
+      question.selectCount !== undefined ||
+      question.options.length > seen.options
+    )
+      setResetFrom(null);
+  }
+  return resetFrom;
 }
 
 function MaxWordsField({

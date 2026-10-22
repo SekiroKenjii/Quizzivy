@@ -145,8 +145,15 @@ describe("a Choose N count the options cannot hold", () => {
       screen.getByRole("button", { name: /Xoá lựa chọn D|Xóa lựa chọn D/ }),
     );
     await waitFor(() => expect(count).toHaveTextContent("Không cố định"));
+    expect(
+      screen.getByText(/^Đã đặt lại Chọn 3/, { selector: '[role="status"]' }),
+    ).toHaveTextContent(
+      'Đã đặt lại Chọn 3 thành "Không cố định" vì chỉ còn 3 phương án.',
+    );
     await settle();
     await waitFor(() => expect(saved()).not.toHaveProperty("selectCount"));
+    await user.click(screen.getByRole("button", { name: "Thêm lựa chọn" }));
+    await waitFor(() => expect(screen.queryByText(/^Đã đặt lại Chọn 3/)).toBeNull());
   });
 
   it("explains an imported count that is too large instead of asking to mark every option", async () => {
@@ -165,6 +172,32 @@ describe("a Choose N count the options cannot hold", () => {
     expect(alert).toHaveTextContent("Chọn 2 cần ít nhất 3 phương án");
     expect(alert).not.toHaveTextContent("Cần đánh dấu đúng");
   });
+});
+
+describe("a type change that needs confirming, made from the keyboard", () => {
+  for (const [name, key] of [
+    ["Enter", "{Enter}"],
+    ["Space", " "],
+  ] as const)
+    it(`keeps the dialog open when the type is picked with ${name}`, async () => {
+      serve(
+        question({
+          id: "q1",
+          label: "1",
+          type: "multiple_choice",
+          selectCount: 2,
+          answer: { state: "known", optionIds: ["q1-a", "q1-b"], evidence: [] },
+        }),
+      );
+      const { user } = await renderReview();
+      screen.getByRole("combobox", { name: "Dạng câu" }).focus();
+      await user.keyboard("{ArrowDown}");
+      const types = await screen.findByRole("listbox");
+      within(types).getByRole("option", { name: "Một đáp án" }).focus();
+      await user.keyboard(key);
+      await vi.advanceTimersByTimeAsync(500);
+      expect(screen.getByRole("dialog")).toBeInTheDocument();
+    });
 });
 
 describe("a short answer's word limit in the review", () => {

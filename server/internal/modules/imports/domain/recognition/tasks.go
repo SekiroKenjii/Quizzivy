@@ -50,20 +50,25 @@ var taskNames = []struct {
 	{taskWriting, "writing"},
 }
 
+var (
+	trueFalseTask = regexp.MustCompile(`(?i)true\s*(?:or|/)\s*false|\bT\s*/\s*F\b|đúng\s*(?:hay|hoặc|/)\s*sai`)
+	tfngTask      = regexp.MustCompile(`(?is)\btrue\b.{0,80}?\bfalse\b.{0,80}?\bnot\s+given\b|\bT\s*[/,]\s*F\s*(?:[/,]|\bor\b)\s*NG\b|(?:đúng|dung).{0,40}?sai.{0,40}?(?:không|khong)\s+(?:có|co)\s+(?:thông|thong)\s+tin`)
+)
+
 var taskPatterns = []struct {
 	task    taskSet
 	pattern *regexp.Regexp
 }{
 	{taskPronunciation, regexp.MustCompile(`(?i)pronounc|\bsounds? differently`)},
 	{taskStress, regexp.MustCompile(`(?i)\bstress`)},
-	{taskTrueFalse, regexp.MustCompile(`(?i)true\s*(?:or|/)\s*false|\bT\s*/\s*F\b|đúng\s*(?:hay|hoặc|/)\s*sai`)},
+	{taskTrueFalse, trueFalseTask},
 	{taskErrorCorrection, regexp.MustCompile(`(?i)mistake|needs? correction|\berrors?\b|incorrect|sửa lỗi`)},
 	{taskTransformation, regexp.MustCompile(`(?i)means? the same|closest in meaning|rewrite|finish the (?:second )?sentence|viết lại`)},
 	{taskWriting, regexp.MustCompile(`(?i)write (?:complete|full)? ?sentences|given (?:words|clues|cues)|words given|from the (?:words|cues)|rearrange|reorder|in the correct order|meaningful sentences|make questions|sắp xếp`)},
 	{taskCloze, regexp.MustCompile(`(?i)fill (?:in )?(?:the|each)? ?(?:blank|gap|space)|numbered (?:blank|gap)`)},
 	{taskReading, regexp.MustCompile(`(?i)\bread\b.*\b(?:passage|text|paragraph)|đọc`)},
 	{taskWordForm, regexp.MustCompile(`(?i)form of the word|word in (?:capitals|brackets)|correct form of the word`)},
-	{taskTFNG, regexp.MustCompile(`(?is)\btrue\b.{0,80}?\bfalse\b.{0,80}?\bnot\s+given\b|\bT\s*[/,]\s*F\s*(?:[/,]|\bor\b)\s*NG\b|(?:đúng|dung).{0,40}?sai.{0,40}?(?:không|khong)\s+(?:có|co)\s+(?:thông|thong)\s+tin`)},
+	{taskTFNG, tfngTask},
 }
 
 func tasksOf(text string) taskSet {
@@ -191,9 +196,13 @@ func declarative(rest string) bool {
 }
 
 var (
-	promise         = regexp.MustCompile(`(?i)\band\s+you(?:'ll|\s+(?:will|would|can|could|may|might)\b)`)
-	taskPromise     = regexp.MustCompile(`(?i)\b(?:answers?|questions?)\b`)
-	vietnameseMarks = [][]string{{"là"}, {"giúp"}, {"khiến"}, {"ngày", "càng"}}
+	promise = regexp.MustCompile(`(?i)\band\s+you(?:'ll|\s+(?:will|would|can|could|may|might)\b)`)
+	// vietnameseClause ends a Vietnamese first clause at a comma or a semicolon: a predicate in a later clause ("Điền
+	// vào chỗ trống, mỗi chỗ trống là một từ") belongs to the instruction (QC-R6GRM-6). A "và" does not end it, since
+	// it often joins a compound subject ("Viết nhật ký và đọc sách là…", QC-R6GRM-10).
+	vietnameseClause = regexp.MustCompile(`[,;]`)
+	taskPromise      = regexp.MustCompile(`(?i)\b(?:answers?|questions?)\b`)
+	vietnameseMarks  = [][]string{{"là"}, {"giúp"}, {"khiến"}, {"ngày", "càng"}}
 	// vietnameseAsks holds the question words that make a sentence the task's question ("… là từ nào"), and the word
 	// that makes "là" a gloss ("có nghĩa là"), not a predicate.
 	vietnameseAsks = map[string]bool{"nào": true, "gì": true, "ai": true, "đâu": true, "nghĩa": true}
@@ -221,11 +230,15 @@ func startsLower(word string) bool {
 	return unicode.IsLower(r)
 }
 
-// vietnamesePredicate reports whether the first sentence of a Vietnamese line holds a predicate word, matched as
+// vietnamesePredicate reports whether the first clause of a Vietnamese line holds a predicate word, matched as
 // whole words (Go's \b only knows ASCII letters, so "là" inside "làm" must not count), and asks nothing: a sentence
 // with a question word or a gloss ("Tìm từ khác loại là từ nào", "Chọn từ có nghĩa là …") is the task.
 func vietnamesePredicate(sentence string) bool {
-	words := strings.Fields(norm.NFC.String(strings.ToLower(sentence)))
+	clause := " " + norm.NFC.String(strings.ToLower(sentence)) + " "
+	if loc := vietnameseClause.FindStringIndex(clause); loc != nil {
+		clause = clause[:loc[0]]
+	}
+	words := strings.Fields(clause)
 	if slices.ContainsFunc(words, func(w string) bool { return vietnameseAsks[w] }) {
 		return false
 	}
@@ -250,6 +263,9 @@ func answerFormat(text string) bool {
 }
 
 // vietnameseWordLimit matches "không quá hai từ", with a word boundary Go's ASCII-only \b cannot give.
+// formatPatterns are the answer formats answerFormat looks for, as patterns a broken line can complete.
+var formatPatterns = []*regexp.Regexp{trueFalseTask, tfngTask, chooseCount, wordLimit, vietnameseWordLimit, letterChoice}
+
 var vietnameseWordLimit = regexp.MustCompile(`(?i)(?:^|[^\pL])không\s+quá\s+(?:\pL+|\d+)\s+từ(?:[^\pL]|$)`)
 
 func normalizedInstruction(text string) string {

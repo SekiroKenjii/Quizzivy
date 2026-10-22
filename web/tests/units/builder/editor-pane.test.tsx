@@ -217,6 +217,8 @@ describe("the builder's editor pane", () => {
       "Đúng/Sai",
       "Điền từ",
       "Trả lời ngắnĐang dùng",
+      "Bài luận",
+      "Nối",
     ]);
     await user.click(within(menu).getByRole("menuitem", { name: /Một đáp án/ }));
 

@@ -17,6 +17,7 @@ import { RichBlankPrompt } from "@/components/shared/content/RichBlankPrompt";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import { blankInputs } from "@/features/take-test/components/blankInputs";
 import { QuestionImage } from "@/features/take-test/components/QuestionImage";
+import { formatBand } from "@/lib/bands";
 import type { Locale } from "@/lib/i18n";
 import { nfc } from "@/lib/nfc";
 import { cn } from "@/lib/utils";
@@ -27,6 +28,7 @@ import {
   verdict,
   type Given,
   type Key,
+  type Pair,
   type Verdict,
 } from "../resultView";
 
@@ -114,6 +116,46 @@ function Options({
   ));
 }
 
+/**
+ * Pairs lists matching items, one a line: the item's key and text, then the
+ * choice. Under a policy that shows correct answers, a choice the key marks
+ * wrong is struck through in danger, as a wrong answer is; an item left
+ * unmatched reads "no answer".
+ */
+function Pairs({
+  pairs,
+  tone,
+  keyed = false,
+}: Readonly<{ pairs: readonly Pair[]; tone?: string; keyed?: boolean }>) {
+  const { t } = useTranslation();
+  return (
+    <ul data-slot="pairs" className="flex flex-col gap-1">
+      {pairs.map(({ item, option, right }) => {
+        const stem = `${item.key}. ${nfc(item.text)}`;
+        return (
+          <li key={item.id} className="flex flex-wrap gap-x-1.5">
+            <span className="text-muted-fg">{stem}</span>
+            <span
+              className={cn(
+                "font-medium",
+                tone,
+                keyed &&
+                  right === false &&
+                  option !== null &&
+                  "text-danger-ink line-through",
+              )}
+            >
+              {option === null
+                ? t("result.noAnswer")
+                : `${option.key ?? ""} ${nfc(option.text)}`.trim()}
+            </span>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
 function GivenText({
   answer,
   type,
@@ -132,6 +174,8 @@ function GivenText({
       return (
         <>{answer.values.map((value) => value ?? EMPTY_BLANK).join(BETWEEN_BLANKS)}</>
       );
+    case "pairs":
+      return null;
   }
 }
 
@@ -143,6 +187,8 @@ function points(
 ): string | null {
   if (mark === "waiting") return t("result.waiting");
   if (mark === "unknown") return null;
+  if (question.band != null)
+    return t("result.band", { band: formatBand(question.band, locale) });
   const n = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
   return t("result.points", {
     earned: n.format(question.earned ?? 0),
@@ -158,7 +204,11 @@ function points(
  * a hidden score shows a dash and no points, and the answer is struck through
  * in danger only when it was marked and earned nothing. A question's own
  * recording, its transcript by the recording's own rule, and the grader's
- * comment follow. Nothing here is read from a field the policy removed. An
+ * comment follow; the comment is left out when the summary's callout holds
+ * it. A banded essay reads its band in place of its points and, unless the
+ * tiles hold them, the band of each criterion under the answer. A matching
+ * lists its pairs, and the right choice of each item it missed. Nothing here
+ * is read from a field the policy removed. An
  * answer the centre's retention policy removed is named in place of "You
  * answered", and its mark and comment stay.
  * A gap of a run whose shared prompt is printed above it is `compact`: its
@@ -170,12 +220,16 @@ export function ReviewItem({
   number,
   review,
   compact = false,
+  comment = true,
+  criteria = true,
   onRetry,
 }: Readonly<{
   question: ResultQuestion;
   number: number;
   review: AttemptResult["review"];
   compact?: boolean;
+  comment?: boolean;
+  criteria?: boolean;
   onRetry: () => void;
 }>) {
   const { t, i18n } = useTranslation();
@@ -183,10 +237,15 @@ export function ReviewItem({
   const { icon: Icon, tone, label } = MARK[mark];
   const answer = given(question);
   const key = correctKey(question, review);
-  const earned = points(mark, question, i18n.language as Locale, t);
   const numbered = `${number}. `;
+  const locale = i18n.language as Locale;
   const struck =
-    mark === "wrong" && answer.kind !== "none" && answer.kind !== "removed";
+    mark === "wrong" &&
+    answer.kind !== "none" &&
+    answer.kind !== "removed" &&
+    answer.kind !== "pairs";
+  const earned = points(mark, question, locale, t);
+  const bands = criteria && review.showScore ? (question.criteria ?? []) : [];
   const audio = question.media?.kind === "audio" ? question.media : null;
   const explanation = review.showExplanations ? (question.explanation ?? null) : null;
   const answered =
@@ -203,6 +262,9 @@ export function ReviewItem({
         >
           <GivenText answer={answer} type={question.type} />
         </span>
+        {answer.kind === "pairs" && (
+          <Pairs pairs={answer.pairs} keyed={review.showCorrectAnswers} />
+        )}
       </>
     );
   const score = earned !== null && (
@@ -248,20 +310,35 @@ export function ReviewItem({
               {score}
             </div>
             <QuestionImage question={question} onRetry={onRetry} />
-            <p className={LINE}>{answered}</p>
+            <div className={LINE}>{answered}</div>
           </>
         )}
         {key !== null && (
-          <p className={LINE}>
+          <div className={LINE}>
             <span className="text-muted-fg">{t("result.correctAnswer")} </span>
             <span className="text-success-ink font-medium">
-              {key.kind === "options" ? (
-                <Options options={key} type={question.type} />
-              ) : (
-                key.values.join(BETWEEN_BLANKS)
-              )}
+              {key.kind === "options" && <Options options={key} type={question.type} />}
+              {key.kind === "blanks" && key.values.join(BETWEEN_BLANKS)}
             </span>
-          </p>
+            {key.kind === "pairs" && (
+              <Pairs pairs={key.pairs} tone="text-success-ink" />
+            )}
+          </div>
+        )}
+        {bands.length > 0 && (
+          <dl
+            data-slot="criteria"
+            className="text-ui flex flex-wrap gap-x-4 gap-y-1 leading-normal"
+          >
+            {bands.map((criterion) => (
+              <div key={criterion.id} className="flex gap-1.5">
+                <dt className="text-muted-fg">{criterion.label}</dt>
+                <dd className="font-medium tabular-nums">
+                  {formatBand(criterion.band, locale)}
+                </dd>
+              </div>
+            ))}
+          </dl>
         )}
         {explanation !== null && (
           <div className="bg-muted text-muted-fg rounded-md px-2.5 py-2 text-sm">
@@ -302,12 +379,16 @@ export function ReviewItem({
             )}
           </>
         )}
-        {question.graderComment != null && question.graderComment.trim() !== "" && (
-          <div className="bg-brand-soft rounded-md px-2.5 py-2 text-sm">
-            <span className="block font-semibold">{t("result.teacherComment")}</span>
-            <span className="block whitespace-pre-wrap">{question.graderComment}</span>
-          </div>
-        )}
+        {comment &&
+          question.graderComment != null &&
+          question.graderComment.trim() !== "" && (
+            <div className="bg-brand-soft rounded-md px-2.5 py-2 text-sm">
+              <span className="block font-semibold">{t("result.teacherComment")}</span>
+              <span className="block whitespace-pre-wrap">
+                {question.graderComment}
+              </span>
+            </div>
+          )}
       </div>
     </article>
   );
