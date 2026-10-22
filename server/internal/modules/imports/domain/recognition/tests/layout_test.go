@@ -390,3 +390,82 @@ func TestConsecutiveHeadingsShareTheInstruction(t *testing.T) {
 		t.Fatalf("neither heading is left over: %+v", got)
 	}
 }
+
+// QC-R6GRM-1: the grammar that tells a passage from a second instruction line never takes a real instruction. It is
+// asked only under a heading that already has its instruction, and an instruction that asks, glosses or promises the
+// answers ("là từ nào", "có nghĩa là", "and you will find the answers") is not a statement.
+func TestTheGrammarNeverTakesARealInstruction(t *testing.T) {
+	passage := "The museum opened in 1990 after a long campaign by local residents, who raised money for more than a decade."
+	questions := []string{"1. When did it open?", "A. 1980\tB. 1990\tC. 2000", "2. Who raised money?", "A. residents\tB. the city\tC. a bank"}
+	for _, instruction := range []string{
+		"Chọn từ có nghĩa là 'vui vẻ'.",
+		"Tìm từ khác loại là từ nào trong mỗi câu sau.",
+		"Read the passage carefully and you will find the answers.",
+		"Look at the pictures and you can answer the questions.",
+		"Write Yes if the statement agrees with the writer.",
+		"Use of English: choose the correct answer.",
+		"Use no more than one letter in each box.",
+		"Use of a dictionary is not allowed. Choose the correct letter, A, B or C.",
+	} {
+		t.Run(instruction, func(t *testing.T) {
+			for name, head := range map[string][]string{
+				"under a heading":   {"Questions 1-2", instruction},
+				"second line":       {"Questions 1-2", "Answer the questions below.", instruction},
+				"with no structure": {instruction},
+			} {
+				d := recognize(t, exam(lines(append(append(head, passage), questions...)...)), key(lines("1. B\t2. A")))
+				if !strings.Contains(d.Sections[0].Title, instruction) {
+					t.Fatalf("%s: the instruction is the title: %q", name, d.Sections[0].Title)
+				}
+				if g := d.Sections[0].Items[0].Group; g == nil || g.Stimulus == nil || text(t, g.Stimulus) != passage {
+					t.Fatalf("%s: the passage is the stimulus: %+v", name, d.Sections)
+				}
+				if got := notices(d, domain.CodeUnassignedText); len(got) != 0 {
+					t.Fatalf("%s: nothing is left over: %+v", name, got)
+				}
+			}
+		})
+	}
+}
+
+// The grammar is a tie-break for a second line only: straight under a heading, even a line it reads as a statement
+// ("Make no …") is the instruction.
+func TestTheFirstLineUnderAHeadingIsTheInstruction(t *testing.T) {
+	d := recognize(t, exam(lines("Questions 1-2", "Make no changes to the words given.", "1. Rewrite: She is tall.", "2. Rewrite: He is old.")), key(lines("1. Tall she is.\t2. Old he is.")))
+	if d.Sections[0].Title != "Questions 1-2 Make no changes to the words given." {
+		t.Fatalf("title: %q", d.Sections[0].Title)
+	}
+}
+
+// QC-R6GRM-3, QC-R6GRM-4: an instruction broken over hard lines carries on when the next line opens with a
+// preposition or completes the answer format the line began; a passage that opens in lower case does not.
+func TestAnInstructionBrokenOverHardLinesStaysWhole(t *testing.T) {
+	passage := "The museum opened in 1990 after a long campaign by local residents, who raised money for more than a decade."
+	d := recognize(t, exam(lines("Questions 1-2", "Choose", "TWO letters, A-E.", passage, "1. Which two?", "A. a\tB. b\tC. c\tD. d\tE. e")), key(lines("1. B, D")))
+	if q := question(t, d, "1"); q.SelectCount == nil || *q.SelectCount != 2 {
+		t.Fatalf("Choose / TWO: %+v", q)
+	}
+	d = recognize(t, exam(lines("Câu 1-2", "Chọn", "Đúng, Sai hoặc Không có thông tin", passage, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. Đúng\t2. Không có thông tin")))
+	for _, label := range []string{"1", "2"} {
+		if q := question(t, d, label); q.Type != "tfng" {
+			t.Fatalf("Chọn / Đúng, Sai…: question %s: %+v", label, q)
+		}
+	}
+	d = recognize(t, exam(lines("Questions 1-2", "Write the correct letter,", "A, B or C, in boxes 1-2 on your answer sheet.", passage, "1. When?", "A. 1980\tB. 1990\tC. 2000")), key(lines("1. B")))
+	if d.Sections[0].Title != "Questions 1-2 Write the correct letter, A, B or C, in boxes 1-2 on your answer sheet." {
+		t.Fatalf("the letters join: %q", d.Sections[0].Title)
+	}
+	for _, c := range []struct{ head, tail string }{
+		{"Write NO MORE THAN TWO WORDS", "from the passage for each answer."},
+		{"Viết KHÔNG QUÁ HAI TỪ", "cho mỗi câu trả lời."},
+	} {
+		d = recognize(t, exam(lines("Câu 1-2", "Complete the sentences below.", c.head, c.tail, passage, "1. When did it open?", "2. Who raised money?")), key(lines("1. 1990\t2. residents")))
+		if want := "Câu 1-2 Complete the sentences below. " + c.head + " " + c.tail; d.Sections[0].Title != want {
+			t.Fatalf("the phrase carries on: %q", d.Sections[0].Title)
+		}
+	}
+	d = recognize(t, exam(lines("Questions 1-2", "Write TRUE, FALSE or NOT GIVEN", "iPads and phones changed the museum after 2010.", "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
+	if g := d.Sections[0].Items[0].Group; g == nil || g.Stimulus == nil || d.Sections[0].Title != "Questions 1-2 Write TRUE, FALSE or NOT GIVEN" {
+		t.Fatalf("a lower-case passage stays the stimulus: %q %+v", d.Sections[0].Title, d.Sections)
+	}
+}

@@ -138,8 +138,20 @@ func isInstruction(text string) bool {
 		return false
 	}
 	r, _ := utf8.DecodeRuneInString(text[first:])
+	return unicode.IsUpper(r) && imperative.MatchString(text)
+}
+
+// readsAsStatement reports whether an imperative-led line is a statement that only opens like a command (see
+// declarative) and names no answer format. Only a heading that already has its instruction asks it: anywhere else
+// an imperative line is an instruction, so a real one is never lost to the grammar (QC-R6GRM-1).
+func readsAsStatement(text string) bool {
+	text = strings.TrimSpace(text)
 	m := imperative.FindStringSubmatchIndex(text)
-	return unicode.IsUpper(r) && m != nil && (answerFormat(text) || !declarative(text[m[3]:]))
+	if _, after, labelled := strings.Cut(text, ":"); labelled && imperative.MatchString(strings.TrimSpace(after)) {
+		// A label and then the command: "Use of English: choose the correct answer."
+		return false
+	}
+	return m != nil && !answerFormat(text) && declarative(text[m[3]:])
 }
 
 // declarative reads what follows an imperative verb, rest, and reports whether the line is a statement that only
@@ -151,9 +163,10 @@ func isInstruction(text string) bool {
 //   - the verb is a name: a capitalised word that is neither a function word nor a count follows it, and a lower-case
 //     word follows that ("Mark Twain once"; not "Complete Table 1" or "Fill In The Blanks");
 //   - "no" follows the verb and does not open a limit ("Make no mistake"; not "Write no more than");
-//   - the command is the condition of a promise: "… and you will / you'll / you can …";
-//   - in Vietnamese, the verb phrase is the subject of a predicate: "là", "giúp", "khiến" or "ngày càng" in its first
-//     clause.
+//   - the command is the condition of a promise that is not the task's: "… and you will / you'll / you can …", but
+//     not "… and you will find the answers";
+//   - in Vietnamese, the verb phrase is the subject of a predicate: "là", "giúp", "khiến" or "ngày càng", in a
+//     sentence that asks nothing.
 func declarative(rest string) bool {
 	sentence := rest
 	if i := strings.IndexAny(sentence, ".?!:"); i >= 0 {
@@ -171,19 +184,26 @@ func declarative(rest string) bool {
 	case len(words) > 1 && named(words[0]) && startsLower(words[1]):
 		return true
 	}
-	return promise.MatchString(sentence) || vietnamesePredicate(sentence)
+	if loc := promise.FindStringIndex(sentence); loc != nil && !taskPromise.MatchString(sentence[loc[1]:]) {
+		return true
+	}
+	return vietnamesePredicate(sentence)
 }
 
 var (
-	promise          = regexp.MustCompile(`(?i)\band\s+you(?:'ll|\s+(?:will|would|can|could|may|might)\b)`)
-	vietnameseClause = regexp.MustCompile(`[,;]|\s(?:và|rồi)\s`)
-	vietnameseMarks  = [][]string{{"là"}, {"giúp"}, {"khiến"}, {"ngày", "càng"}}
+	promise         = regexp.MustCompile(`(?i)\band\s+you(?:'ll|\s+(?:will|would|can|could|may|might)\b)`)
+	taskPromise     = regexp.MustCompile(`(?i)\b(?:answers?|questions?)\b`)
+	vietnameseMarks = [][]string{{"là"}, {"giúp"}, {"khiến"}, {"ngày", "càng"}}
+	// vietnameseAsks holds the question words that make a sentence the task's question ("… là từ nào"), and the word
+	// that makes "là" a gloss ("có nghĩa là"), not a predicate.
+	vietnameseAsks = map[string]bool{"nào": true, "gì": true, "ai": true, "đâu": true, "nghĩa": true}
 	// notNames holds the capitalised words of a title-case instruction ("Fill In The Blanks") that content.go's
 	// functionWords leaves out.
-	notNames = map[string]bool{"into": true, "out": true, "up": true, "down": true, "each": true, "every": true, "all": true, "your": true, "this": true, "these": true, "those": true, "which": true, "what": true, "any": true, "some": true}
+	notNames = map[string]bool{"into": true, "out": true, "up": true, "down": true, "each": true, "every": true, "all": true, "your": true, "this": true, "these": true, "those": true, "which": true, "what": true, "any": true, "some": true, "yes": true, "not": true}
 )
 
-// named reports whether word reads as a name: capitalised, then lower case, and neither a function word nor a count.
+// named reports whether word reads as a name: capitalised, then lower case, and neither a function word, a count nor
+// an answer word ("Write True if…", "Write Yes if…").
 func named(word string) bool {
 	word = strings.TrimSuffix(strings.TrimRight(word, ",;"), "'s")
 	r, size := utf8.DecodeRuneInString(word)
@@ -192,7 +212,8 @@ func named(word string) bool {
 	}
 	lower := strings.ToLower(word)
 	_, count := numberWords[lower]
-	return !notNames[lower] && !functionWords[lower] && !count
+	_, answer := trueFalseValue(word)
+	return !notNames[lower] && !functionWords[lower] && !count && !answer
 }
 
 func startsLower(word string) bool {
@@ -200,14 +221,14 @@ func startsLower(word string) bool {
 	return unicode.IsLower(r)
 }
 
-// vietnamesePredicate reports whether the first clause of a Vietnamese sentence holds a predicate word, matched as
-// whole words: Go's \b only knows ASCII letters, so "là" inside "làm" must not count.
+// vietnamesePredicate reports whether the first sentence of a Vietnamese line holds a predicate word, matched as
+// whole words (Go's \b only knows ASCII letters, so "là" inside "làm" must not count), and asks nothing: a sentence
+// with a question word or a gloss ("Tìm từ khác loại là từ nào", "Chọn từ có nghĩa là …") is the task.
 func vietnamesePredicate(sentence string) bool {
-	clause := " " + norm.NFC.String(strings.ToLower(sentence)) + " "
-	if loc := vietnameseClause.FindStringIndex(clause); loc != nil {
-		clause = clause[:loc[0]]
+	words := strings.Fields(norm.NFC.String(strings.ToLower(sentence)))
+	if slices.ContainsFunc(words, func(w string) bool { return vietnameseAsks[w] }) {
+		return false
 	}
-	words := strings.Fields(clause)
 	for i := range words {
 		for _, mark := range vietnameseMarks {
 			if i+len(mark) <= len(words) && slices.Equal(words[i:i+len(mark)], mark) {
