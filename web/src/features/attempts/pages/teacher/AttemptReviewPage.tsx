@@ -47,6 +47,7 @@ import { GradeByQuestion } from "../../components/GradeByQuestion";
 import { GradingCard } from "../../components/GradingCard";
 import { gradeFieldMessage } from "../../gradeErrors";
 import { handMarked } from "../../essayMark";
+import { paperScoreText } from "../../paperScore";
 import { DOT, type Verdict } from "../../components/answerStyles";
 
 type Tab = "paper" | "integrity";
@@ -195,6 +196,12 @@ export default function AttemptReviewPage() {
                   {scoreText(score.earned, score.total, locale, t).split("/")[0]}
                 </span>
                 <span className="text-muted-fg">/{score.total}</span>
+                {score.band != null && (
+                  <span className="text-muted-fg">
+                    {" · "}
+                    {paperScoreText(score, locale, t)}
+                  </span>
+                )}
               </span>
             )}
             {tab === "paper" && pending > 0 && gradable && (

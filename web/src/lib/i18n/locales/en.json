@@ -4317,7 +4317,14 @@
     "keySep": "·",
     "keyEnter": "Enter",
     "wordCount_one": "{{count}} word",
-    "wordCount_other": "{{count}} words"
+    "wordCount_other": "{{count}} words",
+    "overLimit": "Over the word limit ({{words}} of {{max}})",
+    "notMatched": "Not matched",
+    "matchedTo": "Matched to {{choice}}",
+    "matchKey": "Key: {{choice}}",
+    "essayBand": "Band {{band}}",
+    "chooseCount": "Choose {{n}} · {{correct}} of {{n}} picks correct",
+    "paperBand": "{{band}} band"
   },
   "timeline": {
     "loadFailed": "Couldn't load this attempt's timeline.",

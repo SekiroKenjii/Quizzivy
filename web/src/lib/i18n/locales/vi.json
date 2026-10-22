@@ -4317,7 +4317,14 @@
     "keySep": "·",
     "keyEnter": "Enter",
     "wordCount_one": "{{count}} từ",
-    "wordCount_other": "{{count}} từ"
+    "wordCount_other": "{{count}} từ",
+    "overLimit": "Vượt giới hạn từ ({{words}}/{{max}} từ)",
+    "notMatched": "Chưa nối",
+    "matchedTo": "Nối với {{choice}}",
+    "matchKey": "Đáp án: {{choice}}",
+    "essayBand": "Band {{band}}",
+    "chooseCount": "Chọn {{n}} · đúng {{correct}}/{{n}} lựa chọn",
+    "paperBand": "Band {{band}}"
   },
   "timeline": {
     "loadFailed": "Không tải được diễn biến của lượt làm này.",

@@ -6,6 +6,7 @@ import {
   useSyncExternalStore,
   type ReactNode,
 } from "react";
+import { paperScoreText } from "../paperScore";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate } from "react-router";
 import { useQuery, type UseQueryResult } from "@tanstack/react-query";
@@ -21,7 +22,6 @@ import {
   elapsedMinutes,
   reviewMatches,
 } from "@/features/assignments/pages/teacher/assignmentDetail";
-import { scoreText } from "@/features/assignments/studentTime";
 import { useCan, useWorkspace } from "@/features/auth/permissions";
 import { Timeline } from "@/features/integrity/components/Timeline";
 import { FLAGGED } from "@/features/integrity/tones";
@@ -222,7 +222,7 @@ function AttemptFacts({
         <div className="rounded-[10px] border p-3">
           <dt className="text-muted-fg text-xs">{t("monitor.score")}</dt>
           <dd className="text-xl font-semibold tabular-nums">
-            {score == null ? "—" : scoreText(score.earned, score.total, locale, t)}
+            {score == null ? "—" : paperScoreText(score, locale, t)}
           </dd>
         </div>
         <div className="rounded-[10px] border p-3">
