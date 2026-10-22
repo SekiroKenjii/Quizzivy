@@ -112,11 +112,12 @@ export function voidAttempt(id: string, body: { reason: string }) {
   return api("post", "/teacher/attempts/{id}/void", { path: { id }, body });
 }
 
-export interface GradeItem {
-  questionId: string;
-  points: number;
-  comment?: string | null;
-}
+/**
+ * GradeItem is one question's mark: `points` for every type but an essay,
+ * which takes `band` without a rubric or `criteria` naming every criterion.
+ */
+export type GradeItem =
+  paths["/teacher/attempts/{id}/grade"]["post"]["requestBody"]["content"]["application/json"]["items"][number];
 
 export function gradeAttempt(id: string, items: GradeItem[], signal?: AbortSignal) {
   return api("post", "/teacher/attempts/{id}/grade", {

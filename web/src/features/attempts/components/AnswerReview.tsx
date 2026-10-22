@@ -4,6 +4,7 @@ import { useTranslation } from "react-i18next";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import type { Answer } from "@/features/take-test/api";
 import { nfc } from "@/lib/nfc";
+import { countWords } from "@/lib/words";
 import { cn } from "@/lib/utils";
 import type { AdminQuestion, ReviewAnswer } from "../api";
 import { OPTION, optionKey } from "./answerStyles";
@@ -86,17 +87,27 @@ function Body({
         label: "text-muted-foreground mb-2 text-xs",
         answer: "text-base leading-relaxed whitespace-pre-wrap",
       };
+  const text =
+    given !== null && given.type === "text" && given.value.trim() !== ""
+      ? given.value
+      : null;
   switch (question.type) {
     case "short_answer":
+    case "essay":
       return (
         <div className={shortAnswerStyle.panel}>
           <p className={shortAnswerStyle.label}>
             {shortAnswerPresentation?.label ?? t("review.studentAnswer")}
           </p>
-          {given !== null && "value" in given && String(given.value).trim() !== "" ? (
-            <p className={shortAnswerStyle.answer}>{nfc(String(given.value))}</p>
-          ) : (
+          {text === null ? (
             <p className="text-muted-foreground text-sm">{t("review.unanswered")}</p>
+          ) : (
+            <p className={shortAnswerStyle.answer}>{nfc(text)}</p>
+          )}
+          {text !== null && question.type === "essay" && (
+            <p className="text-muted-foreground mt-2 text-xs tabular-nums">
+              {t("review.wordCount", { count: countWords(text) })}
+            </p>
           )}
         </div>
       );

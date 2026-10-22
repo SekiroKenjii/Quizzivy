@@ -4265,7 +4265,9 @@
     "voided": "This attempt was voided, so it isn't graded.",
     "keyTo": "–",
     "keySep": "·",
-    "keyEnter": "Enter"
+    "keyEnter": "Enter",
+    "wordCount_one": "{{count}} word",
+    "wordCount_other": "{{count}} words"
   },
   "timeline": {
     "loadFailed": "Couldn't load this attempt's timeline.",

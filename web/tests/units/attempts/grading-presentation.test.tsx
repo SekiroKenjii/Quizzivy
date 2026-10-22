@@ -36,6 +36,7 @@ function mountCard(answer = item.answer, onComment = vi.fn()) {
         position={1}
         total={3}
         onScore={vi.fn()}
+        onBand={vi.fn()}
         onComment={onComment}
         onPrevious={vi.fn()}
         onNext={vi.fn()}
