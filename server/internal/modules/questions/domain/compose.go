@@ -9,7 +9,8 @@ import (
 )
 
 // Composed returns the input with every text it carries composed to NFC: the prose documents and the plain text beside
-// them, the transcript, the sample answer, the alt text, the tags, the options and the accepted answers. A prose document and
+// them, the transcript, the sample answer, the alt text, the tags, the options, the accepted answers, the matching items
+// and the rubric's labels. A prose document and
 // its plain companion are composed together, so the companion still equals the document's projection when it did before.
 // A text that composing leaves over its limit comes back as a *ValidationError naming the field.
 func (in Input) Composed() (Input, error) {
@@ -29,6 +30,8 @@ func (in Input) Composed() (Input, error) {
 	out.Tags = c.Each("tags", in.Tags, 0)
 	out.Options = composeOptions(&c, in.Options)
 	out.Blanks = composeBlanks(&c, in.Blanks)
+	out.MatchItems = composeMatchItems(&c, in.MatchItems)
+	out.Rubric = composeRubric(&c, in.Rubric)
 
 	if err := c.Err(); err != nil {
 		return in, err
@@ -66,6 +69,30 @@ func composeBlanks(c *content.Composer, blanks []BlankInput) []BlankInput {
 
 // composeProse composes one prose document and its plain companion, refusing
 // refusal's field with refusal's message when the document cannot be composed.
+func composeMatchItems(c *content.Composer, items []MatchItemInput) []MatchItemInput {
+	if items == nil {
+		return nil
+	}
+	out := make([]MatchItemInput, len(items))
+	for i, item := range items {
+		item.Text = c.Text(fmt.Sprintf("matchItems[%d].text", i), item.Text, MaxMatchItemLength)
+		out[i] = item
+	}
+	return out
+}
+
+func composeRubric(c *content.Composer, rubric []RubricCriterionInput) []RubricCriterionInput {
+	if rubric == nil {
+		return nil
+	}
+	out := make([]RubricCriterionInput, len(rubric))
+	for i, criterion := range rubric {
+		criterion.Label = c.Text(fmt.Sprintf("rubric[%d].label", i), criterion.Label, MaxRubricLabel)
+		out[i] = criterion
+	}
+	return out
+}
+
 func composeProse(c *content.Composer, raw json.RawMessage, companion *string, refusal validation.Field) (json.RawMessage, *string) {
 	field := refusal.Field
 	if !hasProse(raw) {

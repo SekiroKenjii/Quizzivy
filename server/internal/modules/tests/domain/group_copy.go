@@ -128,6 +128,16 @@ func (c *groupCopier) reserveQuestion(question GroupQuestion) {
 			c.reserved[strings.ToLower(*blank.GapID)] = true
 		}
 	}
+	for _, item := range question.Input.MatchItems {
+		if item.ID != nil {
+			c.reserved[strings.ToLower(*item.ID)] = true
+		}
+	}
+	for _, criterion := range question.Input.Rubric {
+		if criterion.ID != nil {
+			c.reserved[strings.ToLower(*criterion.ID)] = true
+		}
+	}
 }
 
 func (c *groupCopier) reserveDocument(document content.Document) {
@@ -166,6 +176,14 @@ func (c *groupCopier) copyQuestions(questions []GroupQuestion) error {
 		for j := range question.Input.Options {
 			id := c.next()
 			question.Input.Options[j].ID = &id
+		}
+		for j := range question.Input.MatchItems {
+			id := c.next()
+			question.Input.MatchItems[j].ID = &id
+		}
+		for j := range question.Input.Rubric {
+			id := c.next()
+			question.Input.Rubric[j].ID = &id
 		}
 	}
 	return nil

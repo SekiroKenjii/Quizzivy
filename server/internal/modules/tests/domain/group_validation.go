@@ -76,7 +76,7 @@ func (v *groupValidator) members(members []GroupMember, questions []GroupQuestio
 		if _, ok := v.questions[id]; !ok || seen[id] {
 			return &GroupError{Rule: "group_membership", QuestionID: member.QuestionID}
 		}
-		if (member.OptionOrder != "shuffle" && member.OptionOrder != fixedOptionOrder) || (member.OptionOrder == fixedOptionOrder && !v.questions[id].Input.Type.IsChoice()) {
+		if (member.OptionOrder != "shuffle" && member.OptionOrder != fixedOptionOrder) || (member.OptionOrder == fixedOptionOrder && !v.questions[id].Input.Type.HasOptions()) {
 			return &GroupError{Rule: "group_option_order", QuestionID: member.QuestionID}
 		}
 		seen[id] = true
@@ -115,6 +115,16 @@ func (v *groupValidator) questionChildren(in questions.Input) bool {
 			return false
 		}
 	}
+	for _, item := range in.MatchItems {
+		if item.ID != nil && !v.claimID(*item.ID) {
+			return false
+		}
+	}
+	for _, criterion := range in.Rubric {
+		if criterion.ID != nil && !v.claimID(*criterion.ID) {
+			return false
+		}
+	}
 	return true
 }
 
@@ -147,6 +157,12 @@ func validGroupQuestionStrings(in questions.Input) bool {
 	}
 	for _, blank := range in.Blanks {
 		values = append(values, blank.AcceptedAnswers...)
+	}
+	for _, item := range in.MatchItems {
+		values = append(values, item.Text)
+	}
+	for _, criterion := range in.Rubric {
+		values = append(values, criterion.Label)
 	}
 	for _, value := range values {
 		if !validGroupText(value, MaxGroupBytes, false) {

@@ -41,6 +41,22 @@ type contentKey struct {
 	Tags               []string
 	Options            []optionKey
 	Blanks             []blankKey
+	SelectCount        int
+	MaxWords           int
+	MatchAllowReuse    string
+	MatchItems         []matchItemKey
+	Rubric             []rubricKey
+}
+
+type matchItemKey struct {
+	ID            string
+	Text          string
+	CorrectOption int
+}
+
+type rubricKey struct {
+	ID    string
+	Label string
 }
 
 type audioKey struct {
@@ -107,6 +123,21 @@ func (q GroupQuestion) contentKey() (contentKey, bool) {
 	for _, blank := range in.Blanks {
 		key.Blanks = append(key.Blanks, blankKey{ID: textOf(blank.ID), GapID: textOf(blank.GapID), Ordinal: blank.Ordinal,
 			CaseSensitive: blank.CaseSensitive, AcceptedAnswers: sortedCopy(blank.AcceptedAnswers)})
+	}
+	if in.SelectCount != nil {
+		key.SelectCount = *in.SelectCount
+	}
+	if in.MaxWords != nil {
+		key.MaxWords = *in.MaxWords
+	}
+	if in.MatchAllowReuse != nil {
+		key.MatchAllowReuse = fmt.Sprint(*in.MatchAllowReuse)
+	}
+	for _, item := range in.MatchItems {
+		key.MatchItems = append(key.MatchItems, matchItemKey{ID: textOf(item.ID), Text: item.Text, CorrectOption: item.CorrectOption})
+	}
+	for _, criterion := range in.Rubric {
+		key.Rubric = append(key.Rubric, rubricKey{ID: textOf(criterion.ID), Label: criterion.Label})
 	}
 	return key, true
 }

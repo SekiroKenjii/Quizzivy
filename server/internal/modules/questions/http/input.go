@@ -16,7 +16,28 @@ func ToAPIInput(in domain.Input) (openapi.StoredQuestionInput, error) {
 	}
 	tags := append([]string{}, in.Tags...)
 	out := openapi.StoredQuestionInput{Level: (*openapi.QuestionLevel)(in.Level), Skill: (*openapi.QuestionSkill)(in.Skill), Type: openapi.QuestionType(in.Type), Prompt: in.Prompt, PromptContent: in.PromptContent, Points: points,
-		Explanation: in.Explanation, ExplanationContent: in.ExplanationContent, SampleAnswer: in.SampleAnswer, Transcript: in.Transcript, MediaAlt: in.MediaAlt, Tags: &tags}
+		Explanation: in.Explanation, ExplanationContent: in.ExplanationContent, SampleAnswer: in.SampleAnswer, Transcript: in.Transcript, MediaAlt: in.MediaAlt, Tags: &tags,
+		SelectCount: in.SelectCount, MaxWords: in.MaxWords, MatchAllowReuse: in.MatchAllowReuse}
+	if in.Type == domain.Matching {
+		items := make([]openapi.MatchItemInput, len(in.MatchItems))
+		for i, item := range in.MatchItems {
+			items[i] = openapi.MatchItemInput{Text: item.Text, CorrectOption: item.CorrectOption}
+			if item.ID != nil {
+				items[i].Id = httpapi.Ptr(httpapi.ParseUUID(*item.ID))
+			}
+		}
+		out.MatchItems = &items
+	}
+	if in.Type == domain.Essay {
+		rubric := make([]openapi.RubricCriterionInput, len(in.Rubric))
+		for i, criterion := range in.Rubric {
+			rubric[i] = openapi.RubricCriterionInput{Label: criterion.Label}
+			if criterion.ID != nil {
+				rubric[i].Id = httpapi.Ptr(httpapi.ParseUUID(*criterion.ID))
+			}
+		}
+		out.Rubric = &rubric
+	}
 	if in.MediaAssetID != nil {
 		out.MediaAssetId = httpapi.Ptr(httpapi.ParseUUID(*in.MediaAssetID))
 	}

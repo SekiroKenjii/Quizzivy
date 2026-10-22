@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/matchkey"
 	"strconv"
 )
 
@@ -71,6 +72,9 @@ func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuesti
 			TrueFalse:      facets.ByType[domain.TrueFalse],
 			FillBlank:      facets.ByType[domain.FillBlank],
 			ShortAnswer:    facets.ByType[domain.ShortAnswer],
+			Tfng:           facets.ByType[domain.TFNG],
+			Matching:       facets.ByType[domain.Matching],
+			Essay:          facets.ByType[domain.Essay],
 		},
 		Tags:      tagList,
 		BankTotal: bankTotal,
@@ -258,6 +262,19 @@ func ToQuestionInput(body openapi.QuestionInput) domain.Input {
 		Explanation:        body.Explanation,
 		ExplanationContent: body.ExplanationContent,
 		SampleAnswer:       body.SampleAnswer,
+		SelectCount:        body.SelectCount,
+		MaxWords:           body.MaxWords,
+		MatchAllowReuse:    body.MatchAllowReuse,
+	}
+	if body.MatchItems != nil {
+		for _, item := range *body.MatchItems {
+			in.MatchItems = append(in.MatchItems, domain.MatchItemInput{ID: optionID(item.Id), Text: item.Text, CorrectOption: item.CorrectOption})
+		}
+	}
+	if body.Rubric != nil {
+		for _, criterion := range *body.Rubric {
+			in.Rubric = append(in.Rubric, domain.RubricCriterionInput{ID: optionID(criterion.Id), Label: criterion.Label})
+		}
 	}
 	if body.MediaAssetId != nil {
 		id := body.MediaAssetId.String()
@@ -322,6 +339,9 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 		Tags:               q.Tags,
 		UsedInTests:        &q.UsedInTests,
 		Transcript:         q.Transcript,
+		SelectCount:        q.SelectCount,
+		MaxWords:           q.MaxWords,
+		MatchAllowReuse:    q.MatchAllowReuse,
 		CreatedAt:          q.CreatedAt,
 		UpdatedAt:          q.UpdatedAt,
 	}
@@ -351,6 +371,26 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 		}
 	}
 	out.Options = &options
+	if q.Type == domain.Matching {
+		for i, o := range q.Options {
+			options[i].Key = httpapi.Ptr(matchkey.Option(o.Ordinal))
+		}
+		items := make([]openapi.AdminMatchItem, len(q.MatchItems))
+		for i, item := range q.MatchItems {
+			items[i] = openapi.AdminMatchItem{
+				Id: httpapi.ParseUUID(item.ID), Ordinal: item.Ordinal, Text: item.Text,
+				Key: matchkey.Item(item.Ordinal), CorrectOptionId: httpapi.ParseUUID(item.CorrectOptionID),
+			}
+		}
+		out.MatchItems = &items
+	}
+	if q.Type == domain.Essay {
+		rubric := make([]openapi.RubricCriterion, len(q.Rubric))
+		for i, criterion := range q.Rubric {
+			rubric[i] = openapi.RubricCriterion{Id: httpapi.ParseUUID(criterion.ID), Ordinal: criterion.Ordinal, Label: criterion.Label}
+		}
+		out.Rubric = &rubric
+	}
 
 	blanks := make([]openapi.AdminQuestionBlank, len(q.Blanks))
 	for i, b := range q.Blanks {

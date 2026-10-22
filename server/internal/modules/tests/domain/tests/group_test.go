@@ -345,3 +345,39 @@ func TestGroupLimitsMatchOpenAPI(t *testing.T) {
 		t.Fatalf("group limits %v differ from contract %v", limits, contract)
 	}
 }
+
+// T-R6.3: a group holds members of every new type; tfng and matching may keep
+// their options in authored order, an essay has none to order.
+func TestGroupMembersMayBeOfEveryNewType(t *testing.T) {
+	withNewTypes := func() domain.GroupBundle {
+		bundle := groupFixture()
+		bundle.Group.Members = append(bundle.Group.Members,
+			domain.GroupMember{QuestionID: groupID(20), OptionOrder: "fixed"},
+			domain.GroupMember{QuestionID: groupID(30), OptionOrder: "fixed"},
+			domain.GroupMember{QuestionID: groupID(40), OptionOrder: "shuffle"})
+		bundle.Questions = append(bundle.Questions,
+			domain.GroupQuestion{ID: groupID(20), Input: questions.Input{Type: questions.TFNG, Prompt: "Người viết sinh ở Huế.", Points: "1",
+				Options: []questions.OptionInput{{ID: groupPointer(groupID(21)), Text: "True"}, {ID: groupPointer(groupID(22)), Text: "False", IsCorrect: true}, {ID: groupPointer(groupID(23)), Text: "Not given"}}}},
+			domain.GroupQuestion{ID: groupID(30), Input: questions.Input{Type: questions.Matching, Prompt: "Nối tiêu đề", Points: "2", MatchAllowReuse: groupPointer(false),
+				Options:    []questions.OptionInput{{ID: groupPointer(groupID(31)), Text: "Cảng"}, {ID: groupPointer(groupID(32)), Text: "Làng"}},
+				MatchItems: []questions.MatchItemInput{{ID: groupPointer(groupID(33)), Text: "Đoạn 1", CorrectOption: 1}, {ID: groupPointer(groupID(34)), Text: "Đoạn 2", CorrectOption: 0}}}},
+			domain.GroupQuestion{ID: groupID(40), Input: questions.Input{Type: questions.Essay, Prompt: "Viết một bài", Points: "9",
+				Rubric: []questions.RubricCriterionInput{{ID: groupPointer(groupID(41)), Label: "Nội dung"}}}})
+		return bundle
+	}
+	if err := withNewTypes().Validate(); err != nil {
+		t.Fatalf("a group with tfng, matching and essay members was refused: %v", err)
+	}
+
+	fixedEssay := withNewTypes()
+	fixedEssay.Group.Members[len(fixedEssay.Group.Members)-1].OptionOrder = "fixed"
+	if err := fixedEssay.Validate(); err == nil {
+		t.Error("an essay member with a fixed option order was accepted")
+	}
+
+	reusedID := withNewTypes()
+	reusedID.Questions[len(reusedID.Questions)-1].Input.Rubric[0].ID = groupPointer(groupID(33))
+	if err := reusedID.Validate(); err == nil {
+		t.Error("a criterion reusing a matching item's id was accepted")
+	}
+}
