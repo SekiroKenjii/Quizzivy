@@ -6,6 +6,11 @@ type Review = AttemptResult["review"];
 type Attempt = AttemptResult["attempt"];
 type Section = AttemptResult["sections"][number];
 type Option = NonNullable<ResultQuestion["options"]>[number];
+type Skill = NonNullable<ResultQuestion["skill"]>;
+type MatchItem = NonNullable<ResultQuestion["matchItems"]>[number];
+
+/** TOP_BAND is the highest essay band, against which a band's arc is drawn. */
+const TOP_BAND = 9;
 
 const MANUAL: ReadonlySet<ResultQuestion["type"]> = new Set(["short_answer", "essay"]);
 const FRESH_MS = 60_000;
@@ -67,6 +72,12 @@ export type Ring =
       readonly total: number;
       readonly share: number;
     }
+  | {
+      readonly kind: "band";
+      readonly band: number;
+      readonly share: number;
+      readonly tone: RingTone;
+    }
   | { readonly kind: "grading" }
   | { readonly kind: "withheld" };
 
@@ -75,7 +86,9 @@ export type Ring =
  * is a paper with every answer marked, and its `key` says whether an answer
  * below draws its correct answer; `partly` has answers marked automatically
  * and answers waiting; `pending` has nothing marked automatically and answers
- * waiting; `withheld` is a paper whose score the policy hides.
+ * waiting; `withheld` is a paper whose score the policy hides. `band` is a
+ * paper of essays with every essay banded: it names the grader and, when one
+ * criterion of a single essay's rubric has the highest band alone, that one.
  */
 export type Summary =
   | {
@@ -84,6 +97,7 @@ export type Summary =
       readonly total: number;
       readonly key: boolean;
     }
+  | { readonly kind: "band"; readonly strongest: string | null }
   | { readonly kind: "partly"; readonly marked: number; readonly waiting: number }
   | { readonly kind: "pending" }
   | {
@@ -96,8 +110,9 @@ export type Summary =
 /**
  * Tile is one box under the summary. While answers wait: the points marked
  * automatically, how many answers wait, and the time used. Once graded: one
- * box per part of the paper. The time is in whole minutes, a started minute
- * counting as one, and its share is those minutes of the attempt's allowance.
+ * box per rubric criterion, per part or per skill (`tilesOf`). The time is in
+ * whole minutes, a started minute counting as one, and its share is those
+ * minutes of the attempt's allowance. A criterion's share is its band of 9.
  */
 export type Tile =
   | {
@@ -116,7 +131,29 @@ export type Tile =
       readonly total: number;
       readonly share: number;
       readonly tone: "success" | "warning";
+    }
+  | {
+      readonly kind: "criterion";
+      readonly id: string;
+      readonly label: string;
+      readonly band: number;
+      readonly share: number;
+      readonly tone: "success" | "warning";
+    }
+  | {
+      readonly kind: "skill";
+      readonly skill: Skill;
+      readonly earned: number;
+      readonly total: number;
+      readonly share: number;
+      readonly tone: "success" | "warning";
     };
+
+/**
+ * Callout is the teacher's comment drawn under the summary: the comment on a
+ * paper's only hand-graded answer, which that answer then leaves out.
+ */
+export type Callout = Readonly<{ questionId: string; comment: string }>;
 
 /** Filter is one choice of the "Your answers" filter. */
 export type Filter = "all" | "wrong" | "waiting";
@@ -143,6 +180,12 @@ export interface ResultView {
   readonly ring: Ring;
   readonly summary: Summary;
   readonly tiles: readonly Tile[];
+  readonly callout: Callout | null;
+  /**
+   * grader is the name of the one account that graded every hand-graded
+   * answer, when the server sends it under `showScore` (D-072).
+   */
+  readonly grader: string | null;
   readonly filters: readonly Filter[];
   readonly lock: Lock;
   readonly releasesAt: string | null;
@@ -166,28 +209,110 @@ function timeUsed(attempt: Attempt): Tile | null {
   };
 }
 
+function barTone(part: number): "success" | "warning" {
+  return part >= 0.7 ? "success" : "warning";
+}
+
+function marks(own: readonly ResultQuestion[]) {
+  const earned = sum(own.map((question) => question.earned ?? 0));
+  const total = sum(own.map((question) => question.points));
+  return {
+    earned,
+    total,
+    share: share(earned, total),
+    tone: barTone(share(earned, total)),
+  };
+}
+
+/**
+ * soleEssay is the essay a paper is made of: its only question worth points,
+ * when that question is an essay. Questions worth nothing do not count.
+ */
+function soleEssay(questions: readonly ResultQuestion[]): ResultQuestion | null {
+  const scored = questions.filter((question) => question.points > 0);
+  const only = scored.length === 1 ? scored[0] : undefined;
+  return only?.type === "essay" ? only : null;
+}
+
+function criterionTiles(essay: ResultQuestion | null): Tile[] {
+  return (essay?.criteria ?? []).map((criterion) => ({
+    kind: "criterion",
+    id: criterion.id,
+    label: criterion.label,
+    band: criterion.band,
+    share: share(criterion.band, TOP_BAND),
+    tone: barTone(share(criterion.band, TOP_BAND)),
+  }));
+}
+
 function partTiles(
   sections: readonly Section[],
   questions: readonly ResultQuestion[],
 ): Tile[] {
-  const parts = sections.flatMap((section): Tile[] => {
+  return sections.flatMap((section): Tile[] => {
     const own = questions.filter((question) => question.sectionId === section.id);
     if (own.length === 0) return [];
-    const earned = sum(own.map((question) => question.earned ?? 0));
-    const total = sum(own.map((question) => question.points));
-    return [
-      {
-        kind: "part",
-        id: section.id,
-        title: section.title,
-        earned,
-        total,
-        share: share(earned, total),
-        tone: share(earned, total) >= 0.7 ? "success" : "warning",
-      },
-    ];
+    return [{ kind: "part", id: section.id, title: section.title, ...marks(own) }];
   });
-  return parts.length >= 2 ? parts : [];
+}
+
+function skillTiles(questions: readonly ResultQuestion[]): Tile[] {
+  const skills = [...new Set(questions.flatMap((question) => question.skill ?? []))];
+  return skills.map((skill) => ({
+    kind: "skill",
+    skill,
+    ...marks(questions.filter((question) => question.skill === skill)),
+  }));
+}
+
+/**
+ * tilesOf is the tiles of a graded paper, by the first rule that matches: a
+ * paper made of one essay with a rubric shows a tile per criterion; else a
+ * paper of two or more parts a tile per part; else a paper whose questions
+ * name two or more skills a tile per skill, counting only the questions that
+ * name one; else no tile. Topics have no model, so a one-part, one-skill paper
+ * has no tile (DG-85).
+ */
+function tilesOf(
+  sections: readonly Section[],
+  questions: readonly ResultQuestion[],
+): Tile[] {
+  const criteria = criterionTiles(soleEssay(questions));
+  if (criteria.length > 0) return criteria;
+  const parts = partTiles(sections, questions);
+  if (parts.length >= 2) return parts;
+  const skills = skillTiles(questions);
+  return skills.length >= 2 ? skills : [];
+}
+
+/**
+ * strongestOf is the criterion of a single essay's rubric with the highest
+ * band, or null when none has it alone.
+ */
+function strongestOf(questions: readonly ResultQuestion[]): string | null {
+  const criteria = soleEssay(questions)?.criteria ?? [];
+  const top = Math.max(...criteria.map((criterion) => criterion.band));
+  const leaders = criteria.filter((criterion) => criterion.band === top);
+  return leaders.length === 1 ? (leaders[0]?.label ?? null) : null;
+}
+
+function graderOf(attempt: Attempt): string | null {
+  const name = attempt.score?.gradedBy?.name.trim() ?? "";
+  return name === "" ? null : name;
+}
+
+/**
+ * calloutOf is the comment on the paper's only hand-graded answer, when it
+ * has one (DG-84). A paper with two hand-graded answers keeps each comment on
+ * its answer.
+ */
+function calloutOf(questions: readonly ResultQuestion[]): Callout | null {
+  const manual = questions.filter((question) => MANUAL.has(question.type));
+  const only = manual.length === 1 ? manual[0] : undefined;
+  const comment = only?.graderComment?.trim() ?? "";
+  return only === undefined || comment === ""
+    ? null
+    : { questionId: only.id, comment: only.graderComment ?? "" };
 }
 
 function lock(review: Review): Lock {
@@ -212,8 +337,10 @@ function lock(review: Review): Lock {
  * the teacher, the ring holds the points decided so far and the tiles say
  * what was marked automatically, how many answers wait and how long the
  * attempt took; with nothing marked automatically the ring only says
- * "grading". Once every answer is marked, the ring holds the final score and a
- * paper of two or more parts gets a tile per part, summed from its questions.
+ * "grading". Once every answer is marked, the ring holds the final score, or
+ * the paper's band when the server sends one (every essay banded, D-071), and
+ * the tiles follow `tilesOf`. The comment on the paper's only hand-graded
+ * answer moves up to the callout.
  * The filter offers Wrong only when scores are shown and Waiting only when
  * something waits.
  */
@@ -232,6 +359,8 @@ export function resultView(data: AttemptResult): ResultView {
     lock: releasesAt === null ? lock(review) : ("afterClose" as const),
     releasesAt,
     classAverage: data.classAverage ?? null,
+    callout: calloutOf(questions),
+    grader: review.showScore ? graderOf(attempt) : null,
   };
 
   if (score === null) {
@@ -247,6 +376,20 @@ export function resultView(data: AttemptResult): ResultView {
         until: releasesAt,
       },
       tiles: [],
+    };
+  }
+
+  if (waiting.length === 0 && score.band != null) {
+    return {
+      ...base,
+      ring: {
+        kind: "band",
+        band: score.band,
+        share: share(score.band, TOP_BAND),
+        tone: ringTone(score.band, TOP_BAND),
+      },
+      summary: { kind: "band", strongest: strongestOf(questions) },
+      tiles: tilesOf(sections, questions),
     };
   }
 
@@ -267,7 +410,7 @@ export function resultView(data: AttemptResult): ResultView {
         total: questions.length,
         key: questions.some((question) => correctKey(question, review) !== null),
       },
-      tiles: partTiles(sections, questions),
+      tiles: tilesOf(sections, questions),
     };
   }
 
@@ -343,7 +486,19 @@ export type Given =
   | { readonly kind: "options"; readonly options: readonly Option[] }
   | { readonly kind: "text"; readonly text: string }
   | { readonly kind: "boolean"; readonly value: boolean }
-  | { readonly kind: "blanks"; readonly values: readonly (string | null)[] };
+  | { readonly kind: "blanks"; readonly values: readonly (string | null)[] }
+  | { readonly kind: "pairs"; readonly pairs: readonly Pair[] };
+
+/**
+ * Pair is one matching item with a choice: the one the student gave it, or
+ * the correct one; `right` says whether the student's choice is the key's,
+ * and is null when the review policy does not show the key.
+ */
+export type Pair = Readonly<{
+  item: MatchItem;
+  option: Option | null;
+  right: boolean | null;
+}>;
 
 function blanksOf(question: ResultQuestion) {
   return [...(question.blanks ?? [])].sort((a, b) => a.ordinal - b.ordinal);
@@ -354,7 +509,9 @@ function blanksOf(question: ResultQuestion) {
  * answered is the engine's rule (`take-test/answered`), so a saved answer
  * that was cleared reads "no answer". A fill-in with some blanks filled is
  * not answered by that rule, and still lists what was typed: those blanks may
- * have earned points. An answer the retention policy removed reads `removed`.
+ * have earned points. A matching lists every item with the choice given it,
+ * null for an item left unmatched. An answer the retention policy removed
+ * reads `removed`.
  */
 export function given(question: ResultQuestion): Given {
   if (question.answerRemoved === true) return { kind: "removed" };
@@ -369,10 +526,25 @@ export function given(question: ResultQuestion): Given {
       ? { kind: "blanks", values }
       : { kind: "none" };
   }
+  if (answer.type === "matching") {
+    const options = new Map(
+      (question.options ?? []).map((option) => [option.id, option]),
+    );
+    const key = keyOf(question);
+    const pairs = (question.matchItems ?? []).map((item): Pair => {
+      const picked = answer.pairs[item.id];
+      const option = picked === undefined ? null : (options.get(picked) ?? null);
+      const right =
+        key === null ? null : option !== null && key.get(item.id) === option.id;
+      return { item, option, right };
+    });
+    return pairs.some((pair) => pair.option !== null)
+      ? { kind: "pairs", pairs }
+      : { kind: "none" };
+  }
   if (!answered(question, answer)) return { kind: "none" };
   if (answer.type === "text") return { kind: "text", text: answer.value.trim() };
   if (answer.type === "true_false") return { kind: "boolean", value: answer.value };
-  if (answer.type === "matching") return { kind: "none" };
   const chosen = new Set(answer.optionIds);
   const options = (question.options ?? []).filter((option) => chosen.has(option.id));
   return options.length > 0 ? { kind: "options", options } : { kind: "none" };
@@ -380,11 +552,24 @@ export function given(question: ResultQuestion): Given {
 
 /**
  * Key is the correct answer a review item writes: the right options of a
- * choice, or one accepted answer per blank of a fill-in, in the paper's order.
+ * choice, one accepted answer per blank of a fill-in, or the right choice of
+ * each matching item the student did not match to it, in the paper's order.
  */
 export type Key =
   | { readonly kind: "options"; readonly options: readonly Option[] }
-  | { readonly kind: "blanks"; readonly values: readonly string[] };
+  | { readonly kind: "blanks"; readonly values: readonly string[] }
+  | { readonly kind: "pairs"; readonly pairs: readonly Pair[] };
+
+/**
+ * keyOf is a matching question's key, item id to option id, or null when the
+ * server did not send it: it does so only under `showCorrectAnswers`.
+ */
+function keyOf(question: ResultQuestion): Map<string, string> | null {
+  if (question.correctMatches === undefined) return null;
+  return new Map(
+    question.correctMatches.map((entry) => [entry.itemId, entry.optionId]),
+  );
+}
 
 /**
  * correctKey is the correct answer to show for a question, or null. It needs
@@ -400,6 +585,26 @@ export function correctKey(question: ResultQuestion, review: Review): Key | null
     );
     const values = blanksOf(question).flatMap((blank) => accepted.get(blank.id) ?? []);
     return values.length > 0 ? { kind: "blanks", values } : null;
+  }
+  if (question.type === "matching") {
+    const key = keyOf(question);
+    if (key === null) return null;
+    const chosen = given(question);
+    const right = new Set(
+      chosen.kind === "pairs"
+        ? chosen.pairs.filter((pair) => pair.right === true).map((pair) => pair.item.id)
+        : [],
+    );
+    const options = new Map(
+      (question.options ?? []).map((option) => [option.id, option]),
+    );
+    const pairs = (question.matchItems ?? []).flatMap((item): Pair[] => {
+      const option = options.get(key.get(item.id) ?? "");
+      return option === undefined || right.has(item.id)
+        ? []
+        : [{ item, option, right: true }];
+    });
+    return pairs.length > 0 ? { kind: "pairs", pairs } : null;
   }
   const correct = new Set(question.correctOptionIds ?? []);
   const options = (question.options ?? []).filter((option) => correct.has(option.id));

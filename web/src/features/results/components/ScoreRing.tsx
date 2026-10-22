@@ -1,6 +1,7 @@
 import type { CSSProperties } from "react";
 import { useTranslation } from "react-i18next";
 import { Lock } from "lucide-react";
+import { formatBand } from "@/lib/bands";
 import type { Locale } from "@/lib/i18n";
 import type { Ring, RingTone } from "../resultView";
 
@@ -14,7 +15,7 @@ const VALUE = "text-[1.5rem] leading-[1.1] font-bold tabular-nums";
 const CAPTION = "text-muted-fg max-w-20 text-center text-xs leading-[1.1] text-balance";
 
 function arcOf(ring: Ring): { colour: string; degrees: number } {
-  if (ring.kind === "score")
+  if (ring.kind === "score" || ring.kind === "band")
     return { colour: ARC[ring.tone], degrees: Math.round(ring.share * 360) };
   if (ring.kind === "soFar")
     return { colour: ARC.accent, degrees: Math.round(ring.share * 360) };
@@ -25,7 +26,8 @@ function arcOf(ring: Ring): { colour: string; degrees: number } {
  * ScoreRing is the summary's 112px ring, as the design deck draws it: an arc
  * for the share of the points earned, and the number inside. A final score
  * reads "8 of 10" in the tone its share earns; while answers wait for the
- * teacher it reads "3 of 6 so far" in the accent; with nothing marked yet it
+ * teacher it reads "3 of 6 so far" in the accent; a paper of banded essays
+ * reads "6.0 band", its arc the band of 9; with nothing marked yet it
  * reads "…" and "grading"; a score the review policy hides is a lock and no
  * number.
  */
@@ -49,6 +51,12 @@ export function ScoreRing({ ring }: Readonly<{ ring: Ring }>) {
             <span className={CAPTION}>
               {t("result.ring.of", { total: n.format(ring.total) })}
             </span>
+          </>
+        )}
+        {ring.kind === "band" && (
+          <>
+            <span className={VALUE}>{formatBand(ring.band, i18n.language)}</span>
+            <span className={CAPTION}>{t("result.ring.band")}</span>
           </>
         )}
         {ring.kind === "soFar" && (

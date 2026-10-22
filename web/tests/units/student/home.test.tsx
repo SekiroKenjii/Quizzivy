@@ -728,6 +728,18 @@ describe("recent results", () => {
     expect(link.getByText("7,5 / 10")).toBeInTheDocument();
   });
 
+  it("shows a banded paper's band, as the deck's 6.0 (T-R6.12)", async () => {
+    home({
+      completed: [
+        done(1, { score: { earned: 6, total: 9, pendingManual: 0, band: 6 } }),
+      ],
+    });
+    const link = await screen.findByRole("link", { name: /Paper 1/ });
+    expect(within(link).getByText("6,0")).toHaveAttribute("aria-hidden", "true");
+    expect(link).toHaveAccessibleName(/Band 6,0/);
+    expect(within(link).queryByText(/\/ 9/)).toBeNull();
+  });
+
   it("says a paper is being graded and keeps the part score to itself", async () => {
     home({
       completed: [done(1, { score: { earned: 20, total: 30, pendingManual: 2 } })],
