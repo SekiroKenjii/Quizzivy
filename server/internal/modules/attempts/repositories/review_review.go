@@ -7,6 +7,8 @@ import (
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/platform/db"
 	"quizzivy/internal/shared/access"
+	"quizzivy/internal/shared/bands"
+	"quizzivy/internal/shared/matchkey"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/visibility"
 	"time"
@@ -37,7 +39,8 @@ func (s *Reviews) Get(ctx context.Context, scope access.Scope, attemptID string)
 		SELECT at.id::text, at.assignment_id::text, at.student_id::text, at.test_version_id::text,
 		       at.attempt_no, at.status, at.started_at, at.deadline_at, at.submitted_at, at.graded_at,
 		       at.focus_loss_count, at.flagged, at.score_total, at.teacher_note,
-		       asg.max_attempts + coalesce(o.extra_attempts, 0), t.title, v.published_at
+		       asg.max_attempts + coalesce(o.extra_attempts, 0), t.title, v.published_at,
+		       `+bands.OfPaper("at")+`
 		  FROM app.attempts at
 		  JOIN app.assignments asg ON asg.id = at.assignment_id
 		  JOIN app.tests t ON t.id = asg.test_id
@@ -49,7 +52,7 @@ func (s *Reviews) Get(ctx context.Context, scope access.Scope, attemptID string)
 		&a.ID, &a.AssignmentID, &a.StudentID, &a.TestVersionID,
 		&a.AttemptNo, &a.Status, &a.StartedAt, &a.DeadlineAt, &a.SubmittedAt, &a.GradedAt,
 		&a.FocusLossCount, &a.Flagged, &total, &out.TeacherNote,
-		&out.MaxAttempts, &out.TestTitle, &out.PublishedAt)
+		&out.MaxAttempts, &out.TestTitle, &out.PublishedAt, &out.Score.Band)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return domain.Review{}, domain.ErrPaperNotFound
 	}
@@ -111,7 +114,7 @@ func (s *Reviews) questions(ctx context.Context, versionID string) ([]domain.Rev
 		       m.bytes, m.duration_ms, m.created_at,
 		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after, coalesce(q.audio_allow_pause, true),
 		       q.transcript, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content,
-		       coalesce(gm.group_id::text,'')
+		       coalesce(gm.group_id::text,''), q.select_count, q.max_words, q.match_allow_reuse
 		  FROM app.test_version_questions q
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		  LEFT JOIN app.media_assets m ON m.id = q.media_asset_id
@@ -136,10 +139,14 @@ func (s *Reviews) questions(ctx context.Context, versionID string) ([]domain.Rev
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("review: read questions: %w", err)
 	}
-	if err := s.attachOptions(ctx, versionID, out, at); err != nil {
-		return nil, err
+	for _, attach := range []func(context.Context, string, []domain.ReviewQuestion, map[string]int) error{
+		s.attachOptions, s.attachBlanks, s.attachMatchItems, s.attachRubric,
+	} {
+		if err := attach(ctx, versionID, out, at); err != nil {
+			return nil, err
+		}
 	}
-	return out, s.attachBlanks(ctx, versionID, out, at)
+	return out, nil
 }
 
 func scanReviewQuestion(rows pgx.Rows) (domain.ReviewQuestion, error) {
@@ -154,7 +161,8 @@ func scanReviewQuestion(rows pgx.Rows) (domain.ReviewQuestion, error) {
 	if err := rows.Scan(&q.ID, &q.Type, &q.Prompt, &q.Points,
 		&mediaID, &mediaKind, &mimeType, &filename, &mediaBytes, &durationMs, &createdAt,
 		&maxPlays, &allowSeek, &showTranscript, &allowPause,
-		&q.Transcript, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent, &q.GroupID); err != nil {
+		&q.Transcript, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent, &q.GroupID,
+		&q.SelectCount, &q.MaxWords, &q.MatchAllowReuse); err != nil {
 		return domain.ReviewQuestion{}, fmt.Errorf("review: scan question: %w", err)
 	}
 	if mediaID != nil {
@@ -182,7 +190,8 @@ func orZero[T any](p *T) T {
 
 func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []domain.ReviewQuestion, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT o.test_version_question_id::text, o.id::text, o.ordinal, o.text, o.is_correct, o.content
+		SELECT o.test_version_question_id::text, o.id::text, o.ordinal, o.text, o.is_correct, o.content,
+		       q.type = 'matching'
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
@@ -191,7 +200,11 @@ func (s *Reviews) attachOptions(ctx context.Context, versionID string, qs []doma
 		func(rows pgx.Rows) (string, domain.ReviewOption, error) {
 			var questionID string
 			var o domain.ReviewOption
-			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect, &o.Content)
+			var keyed bool
+			err := rows.Scan(&questionID, &o.ID, &o.Ordinal, &o.Text, &o.IsCorrect, &o.Content, &keyed)
+			if keyed {
+				o.Key = matchkey.Option(o.Ordinal)
+			}
 			return questionID, o, err
 		})
 	if err != nil {
@@ -235,7 +248,7 @@ func (s *Reviews) attachBlanks(ctx context.Context, versionID string, qs []domai
 
 func (s *Reviews) answers(ctx context.Context, attemptID string) (map[string]domain.ReviewAnswer, error) {
 	rows, err := s.Query(ctx, `
-		SELECT question_id::text, payload, auto_score, manual_score, requires_manual, grader_comment
+		SELECT question_id::text, payload, auto_score, manual_score, band, requires_manual, grader_comment
 		  FROM app.attempt_answers WHERE attempt_id = $1::uuid`, attemptID)
 	if err != nil {
 		return nil, fmt.Errorf("review: read answers: %w", err)
@@ -245,12 +258,23 @@ func (s *Reviews) answers(ctx context.Context, attemptID string) (map[string]dom
 	for rows.Next() {
 		var id string
 		var a domain.ReviewAnswer
-		if err := rows.Scan(&id, &a.Payload, &a.AutoScore, &a.ManualScore, &a.RequiresManual, &a.GraderComment); err != nil {
+		if err := rows.Scan(&id, &a.Payload, &a.AutoScore, &a.ManualScore, &a.Band, &a.RequiresManual, &a.GraderComment); err != nil {
 			return nil, fmt.Errorf("review: scan answer: %w", err)
 		}
 		out[id] = a
 	}
-	return out, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("review: read answers: %w", err)
+	}
+	given, err := s.givenCriteria(ctx, `g.attempt_id = $1::uuid`, attemptID)
+	if err != nil {
+		return nil, err
+	}
+	for id, a := range out {
+		a.Criteria = given[attemptID+":"+id]
+		out[id] = a
+	}
+	return out, nil
 }
 
 func (s *Reviews) audioPlays(ctx context.Context, attemptID string) (map[string]int, error) {

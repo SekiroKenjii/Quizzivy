@@ -161,7 +161,7 @@ func toAPIReviewAnswers(stored map[string]domain.ReviewAnswer) (map[string]revie
 	answers := make(map[string]reviewAnswer, len(stored))
 	for id, a := range stored {
 		entry := reviewAnswer{
-			AutoScore: a.AutoScore, ManualScore: a.ManualScore,
+			AutoScore: a.AutoScore, ManualScore: a.ManualScore, Band: a.Band, Criteria: toAPICriteria(a.Criteria),
 			GraderComment: a.GraderComment, RequiresManual: httpapi.Ptr(a.RequiresManual),
 		}
 		switch {
@@ -211,6 +211,8 @@ func (h Attempts) ListAnswersForQuestion(ctx context.Context, request openapi.Li
 			StudentName:   it.StudentName,
 			AttemptNo:     it.AttemptNo,
 			ManualScore:   it.ManualScore,
+			Band:          it.Band,
+			Criteria:      toAPICriteria(it.Criteria),
 			GraderComment: it.GraderComment,
 		}
 		switch {
@@ -313,8 +315,23 @@ func (h Attempts) toAPIReviewQuestion(ctx context.Context, q domain.ReviewQuesti
 	options := make([]openapi.AdminQuestionOption, len(q.Options))
 	for i, o := range q.Options {
 		options[i] = openapi.AdminQuestionOption{Id: httpapi.ParseUUID(o.ID), Ordinal: o.Ordinal, Text: o.Text, Content: o.Content, IsCorrect: o.IsCorrect}
+		if o.Key != "" {
+			options[i].Key = httpapi.Ptr(o.Key)
+		}
 	}
 	out.Options = &options
+	out.SelectCount, out.MaxWords, out.MatchAllowReuse = q.SelectCount, q.MaxWords, q.MatchAllowReuse
+	if q.Type == "matching" {
+		items := make([]openapi.AdminMatchItem, len(q.MatchItems))
+		for i, it := range q.MatchItems {
+			items[i] = openapi.AdminMatchItem{Id: httpapi.ParseUUID(it.ID), Ordinal: it.Ordinal, Key: it.Key, Text: it.Text, CorrectOptionId: httpapi.ParseUUID(it.CorrectOptionID)}
+		}
+		out.MatchItems = &items
+	}
+	if q.Type == domain.Essay {
+		rubric := toAPIRubric(q.Rubric)
+		out.Rubric = &rubric
+	}
 	blanks := make([]openapi.AdminQuestionBlank, len(q.Blanks))
 	for i, b := range q.Blanks {
 		blanks[i] = openapi.AdminQuestionBlank{
@@ -336,6 +353,25 @@ func (h Attempts) toAPIReviewQuestion(ctx context.Context, q domain.ReviewQuesti
 		out.Media = &media
 	}
 	return out, nil
+}
+
+func toAPIRubric(rubric []domain.RubricCriterion) []openapi.RubricCriterion {
+	out := make([]openapi.RubricCriterion, len(rubric))
+	for i, c := range rubric {
+		out[i] = openapi.RubricCriterion{Id: httpapi.ParseUUID(c.ID), Ordinal: c.Ordinal, Label: c.Label}
+	}
+	return out
+}
+
+func toAPICriteria(given []domain.CriterionBand) *[]openapi.CriterionBand {
+	if len(given) == 0 {
+		return nil
+	}
+	out := make([]openapi.CriterionBand, len(given))
+	for i, c := range given {
+		out[i] = openapi.CriterionBand{CriterionId: httpapi.ParseUUID(c.CriterionID), Band: c.Band}
+	}
+	return &out
 }
 
 func toAPIIntegritySummary(sm domain.IntegritySummary) openapi.IntegritySummary {

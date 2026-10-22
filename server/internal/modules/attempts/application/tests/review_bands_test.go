@@ -315,3 +315,103 @@ func TestAGradeIsAuditedWithWhatItChanged(t *testing.T) {
 		}
 	})
 }
+
+func TestTheTeacherReviewCarriesBandsCriteriaAndThePaperBand(t *testing.T) {
+	pool := newPool(t)
+	p := seedEssayPaper(t, pool)
+	store := repositories.NewReviews(db.NewContext(pool))
+	ctx := context.Background()
+	if _, err := store.Grade(ctx, everyone, p.attempt, domain.Request{ActorID: p.admin}, []domain.GradeItem{
+		{QuestionID: p.rubric, Criteria: p.bands(7, 6.5, 6, 6.5)},
+		{QuestionID: p.plain, Band: pts(5.5)},
+	}); err != nil {
+		t.Fatal(err)
+	}
+
+	rv, err := store.Get(ctx, everyone, p.attempt)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !is(rv.Score.Band, 6) {
+		t.Errorf("review score %+v: (6.5 × 3 + 5.5 × 6) ÷ 9 = 5.83 rounds to band 6.0", rv.Score)
+	}
+	rubric := rv.Answers[p.rubric]
+	if !is(rubric.Band, 6.5) || !slices.Equal(rubric.Criteria, p.bands(7, 6.5, 6, 6.5)) {
+		t.Errorf("rubric answer %+v, want band 6.5 and the criteria in rubric order", rubric)
+	}
+	if plain := rv.Answers[p.plain]; !is(plain.Band, 5.5) || plain.Criteria != nil {
+		t.Errorf("plain answer %+v", plain)
+	}
+	for _, q := range rv.Questions {
+		if q.ID == p.rubric && (len(q.Rubric) != 4 || q.Rubric[0].ID != p.criteria[0] || q.Rubric[3].Ordinal != 3) {
+			t.Errorf("rubric question carries %+v", q.Rubric)
+		}
+		if q.ID == p.plain && len(q.Rubric) != 0 {
+			t.Errorf("plain essay carries a rubric %+v", q.Rubric)
+		}
+	}
+
+	var assignment string
+	if err := pool.QueryRow(ctx, `SELECT assignment_id::text FROM app.attempts WHERE id = $1::uuid`, p.attempt).Scan(&assignment); err != nil {
+		t.Fatal(err)
+	}
+	byQ, err := store.AnswersForQuestion(ctx, everyone, assignment, p.rubric)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(byQ.Items) != 1 || !is(byQ.Items[0].Band, 6.5) || !slices.Equal(byQ.Items[0].Criteria, p.bands(7, 6.5, 6, 6.5)) {
+		t.Errorf("by-question rows %+v", byQ.Items)
+	}
+	if !slices.Equal(byQ.ManualIDs, []string{p.rubric, p.plain}) {
+		t.Errorf("manual questions %v, want both essays", byQ.ManualIDs)
+	}
+	if len(byQ.Question.Rubric) != 4 {
+		t.Errorf("by-question question carries rubric %+v", byQ.Question.Rubric)
+	}
+}
+
+func TestTheTeacherReviewCarriesTheRulesAndKeysOfTheNewTypes(t *testing.T) {
+	pool := newPool(t)
+	w := seedTypedWorld(t, pool)
+	session := startTyped(t, pool, w)
+	rv, err := repositories.NewReviews(db.NewContext(pool)).Get(context.Background(), everyone, session.Attempt.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := map[string]domain.ReviewQuestion{}
+	for _, q := range rv.Questions {
+		byID[q.ID] = q
+	}
+	if got := byID[w.chooseTwo].SelectCount; got == nil || *got != 2 {
+		t.Errorf("selectCount %v", got)
+	}
+	if got := byID[w.limited].MaxWords; got == nil || *got != 3 {
+		t.Errorf("maxWords %v", got)
+	}
+	matching := byID[w.matching]
+	if matching.MatchAllowReuse == nil || *matching.MatchAllowReuse {
+		t.Errorf("matchAllowReuse %v", matching.MatchAllowReuse)
+	}
+	want := []domain.ReviewMatchItem{
+		{ID: w.items[0], Key: "A", Text: "item 0", CorrectOptionID: w.choices[2], Ordinal: 0},
+		{ID: w.items[1], Key: "B", Text: "item 1", CorrectOptionID: w.choices[0], Ordinal: 1},
+	}
+	if !slices.Equal(matching.MatchItems, want) {
+		t.Errorf("match items %+v, want %+v", matching.MatchItems, want)
+	}
+	var keys []string
+	for _, o := range matching.Options {
+		keys = append(keys, o.Key)
+	}
+	if !slices.Equal(keys, []string{"i", "ii", "iii"}) {
+		t.Errorf("matching choices keyed %v", keys)
+	}
+	for _, o := range byID[w.tfng].Options {
+		if o.Key != "" {
+			t.Errorf("a tfng option has key %q", o.Key)
+		}
+	}
+	if rubric := byID[w.essay].Rubric; len(rubric) != 1 || rubric[0].Label != "TIEU-CHI-AN" {
+		t.Errorf("essay rubric %+v", rubric)
+	}
+}
