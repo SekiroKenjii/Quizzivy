@@ -350,6 +350,9 @@ describe("a check's fix", () => {
     expect(
       fixFits({ ...short, type: "essay" }, finding(wordLimit, "short_answer")),
     ).toBe(false);
+    expect(fixFits({ ...short, maxWords: 2 }, finding(wordLimit, "short_answer"))).toBe(
+      false,
+    );
   });
 
   it("replaces the explanation with plain text, and leaves advice alone", () => {

@@ -6,6 +6,7 @@ import (
 	"math"
 	"strconv"
 	"strings"
+	"unicode/utf8"
 
 	"quizzivy/internal/modules/ai/domain"
 )
@@ -48,7 +49,11 @@ func essayScore(in ScoreInput) Prompt {
 	if len(a.Accepted) > 0 {
 		fmt.Fprintf(&b, "The teacher's sample answer: \"\"\"%s\"\"\"\n", clip(strings.Join(a.Accepted, "\n"), 1500))
 	}
-	fmt.Fprintf(&b, "Student essay: \"\"\"%s\"\"\"\nBands: %s.\n", clip(a.Answer, MaxEssay), scoreList(Bands()))
+	fmt.Fprintf(&b, "Student essay: \"\"\"%s\"\"\"\n", clip(a.Answer, MaxEssay))
+	if utf8.RuneCountInString(strings.TrimSpace(a.Answer)) > MaxEssay {
+		fmt.Fprintf(&b, "The essay is longer than this; only its first %d characters are shown. Judge what is shown and say in the comment that the rest was not read.\n", MaxEssay)
+	}
+	fmt.Fprintf(&b, "Bands: %s.\n", scoreList(Bands()))
 	if len(a.Criteria) > 0 {
 		b.WriteString("Rubric criteria:\n")
 		for i, c := range a.Criteria {
@@ -66,11 +71,11 @@ func essayScore(in ScoreInput) Prompt {
 
 func decodeEssayScore(raw json.RawMessage, in ScoreInput) (Suggestion, error) {
 	var answer struct {
-		Band     float64 `json:"band"`
+		Band     *float64 `json:"band"`
 		Criteria []struct {
-			Criterion int     `json:"criterion"`
-			Band      float64 `json:"band"`
-			Reason    string  `json:"reason"`
+			Criterion int      `json:"criterion"`
+			Band      *float64 `json:"band"`
+			Reason    string   `json:"reason"`
 		} `json:"criteria"`
 		Confidence string   `json:"confidence"`
 		Reasons    []string `json:"reasons"`
@@ -82,10 +87,10 @@ func decodeEssayScore(raw json.RawMessage, in ScoreInput) (Suggestion, error) {
 	out := Suggestion{Confidence: confidence(answer.Confidence), Comment: clip(answer.Comment, 1000)}
 	rubric := in.Answer.Criteria
 	if len(rubric) == 0 {
-		if !finite(answer.Band) {
-			return Suggestion{}, ErrUnusable
+		band, ok := bandOf(answer.Band)
+		if !ok {
+			return Suggestion{}, fmt.Errorf("%w: the essay has no band", ErrUnusable)
 		}
-		band := nearest(Bands(), answer.Band)
 		out.Band, out.Score, out.Reasons = &band, PointsOfBand(band, in.Answer.Points), distinct(answer.Reasons, 4, 300)
 		return out, nil
 	}
@@ -96,10 +101,10 @@ func decodeEssayScore(raw json.RawMessage, in ScoreInput) (Suggestion, error) {
 		if i < 0 || i >= len(rubric) || given[i] != nil {
 			continue
 		}
-		if !finite(c.Band) {
-			return Suggestion{}, ErrUnusable
+		band, ok := bandOf(c.Band)
+		if !ok {
+			return Suggestion{}, fmt.Errorf("%w: criterion %d has no band", ErrUnusable, c.Criterion)
 		}
-		band := nearest(Bands(), c.Band)
 		given[i], reasons[i] = &band, clip(oneLine(c.Reason), 300)
 	}
 	bands := make([]float64, len(rubric))
@@ -123,6 +128,11 @@ func criterionReason(label, reason string, band float64) string {
 	return clip(oneLine(label)+": "+reason, 300)
 }
 
-func finite(v float64) bool {
-	return !math.IsNaN(v) && !math.IsInf(v, 0)
+// bandOf moves the model's band onto the band scale, rounding half up to 0.5 as grading rounds a criteria mean, so 6.25 is 6.5, and clamping to 3–9. A band that is missing, not finite, or 0 or below is no band, and false.
+func bandOf(v *float64) (float64, bool) {
+	if v == nil || math.IsNaN(*v) || math.IsInf(*v, 0) || *v <= 0 {
+		return 0, false
+	}
+	halves := min(max(math.Floor(*v*2+0.5), 6), 18)
+	return halves / 2, true
 }

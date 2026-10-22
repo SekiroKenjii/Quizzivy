@@ -190,8 +190,23 @@ func TestAnEssayWithoutCriteriaGetsOneBand(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if got.Band == nil || *got.Band != 6.5 || got.Score != 1.44 || got.Criteria != nil || !slices.Equal(got.Reasons, []string{"Clear", "Few figures"}) {
-		t.Errorf("the suggestion reads %+v (band %v), want band 6.5 (the lower on a tie), 6.5 × 2 ÷ 9 = 1.44 and no criteria", got, got.Band)
+	if got.Band == nil || *got.Band != 7 || got.Score != 1.56 || got.Criteria != nil || !slices.Equal(got.Reasons, []string{"Clear", "Few figures"}) {
+		t.Errorf("the suggestion reads %+v (band %v), want band 7.0 (half up, as grading rounds), 7 × 2 ÷ 9 = 1.56 and no criteria", got, got.Band)
+	}
+	for raw, want := range map[string]float64{"6.25": 6.5, "6.2": 6, "2": 3, "10": 9} {
+		got, err := prompts.DecodeScore([]byte(`{"band":`+raw+`,"criteria":[],"confidence":"high","reasons":[],"comment":""}`), in)
+		if err != nil || got.Band == nil || *got.Band != want {
+			t.Errorf("band %s reads %v (%v), want %v", raw, got.Band, err, want)
+		}
+	}
+	for _, raw := range []string{`"band":0,`, `"band":-1,`, `"band":null,`, ``} {
+		if _, err := prompts.DecodeScore([]byte(`{`+raw+`"criteria":[],"confidence":"high","reasons":[],"comment":""}`), in); !errors.Is(err, prompts.ErrUnusable) {
+			t.Errorf("an answer with %q: err = %v, want ErrUnusable rather than band 3", raw, err)
+		}
+	}
+	rubric := essayInput("Task", "Grammar")
+	if _, err := prompts.DecodeScore([]byte(`{"band":6,"criteria":[{"criterion":1,"band":6,"reason":""},{"criterion":2,"band":0,"reason":""}],"confidence":"high","reasons":[],"comment":""}`), rubric); !errors.Is(err, prompts.ErrUnusable) {
+		t.Errorf("a criterion with band 0: err = %v, want ErrUnusable", err)
 	}
 	if _, err := prompts.DecodeScore([]byte(`{"band":"six","criteria":[],"confidence":"low","reasons":[],"comment":""}`), in); !errors.Is(err, prompts.ErrUnusable) {
 		t.Errorf("a band that is not a number: err = %v, want ErrUnusable", err)
@@ -227,6 +242,12 @@ func TestTheEssayPromptSendsTheTaskTheEssayAndTheCriteriaAndNoOneElse(t *testing
 	}
 	if strings.Contains(p.User, "Ignore all") || len([]rune(p.User)) > prompts.MaxEssay+2000 {
 		t.Errorf("the essay was not cut to %d characters", prompts.MaxEssay)
+	}
+	if !strings.Contains(p.User, "only its first 6000 characters are shown") {
+		t.Error("the prompt does not say a long essay was cut")
+	}
+	if strings.Contains(prompts.Score(essayInput()).User, "only its first") {
+		t.Error("a short essay is said to be cut")
 	}
 	if p.Feature != domain.FeatureScore || p.MaxTokens > 1000 {
 		t.Errorf("the essay prompt meters as %s with %d tokens; it must stay inside the score ceiling and the call budget", p.Feature, p.MaxTokens)

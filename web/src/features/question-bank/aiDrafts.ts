@@ -151,7 +151,7 @@ export function withFix(values: QuestionValues, finding: AiFinding): QuestionVal
  * question's options new ids each time it is saved, so a finding kept across
  * a save no longer fits; a new tfng key fits while the question is still a
  * tfng holding that option, and a word limit while it is still a short
- * answer; the explanation fix names nothing and always does.
+ * answer with no limit, so it never replaces one the teacher set; the explanation fix names nothing and always does.
  */
 export function fixFits(values: QuestionValues, finding: AiFinding): boolean {
   const { kind, payload } = finding.fix;
@@ -167,7 +167,11 @@ export function fixFits(values: QuestionValues, finding: AiFinding): boolean {
         values.options.some((o) => o.id === optionId)
       );
     case "word_limit":
-      return values.type === "short_answer" && payload?.maxWords !== undefined;
+      return (
+        values.type === "short_answer" &&
+        values.maxWords == null &&
+        payload?.maxWords !== undefined
+      );
     case "accepted_answer":
       return blankId !== undefined && values.blanks.some((b) => b.id === blankId);
     case "explanation":

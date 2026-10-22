@@ -100,13 +100,13 @@ func Check(in CheckInput) (Prompt, error) {
 }
 
 type rawFix struct {
-	Kind        string `json:"kind"`
-	Description string `json:"description"`
-	Label       string `json:"label"`
-	Option      string `json:"option"`
-	Blank       int    `json:"blank"`
-	Words       int    `json:"words"`
-	Text        string `json:"text"`
+	Kind        string      `json:"kind"`
+	Description string      `json:"description"`
+	Label       string      `json:"label"`
+	Option      string      `json:"option"`
+	Blank       int         `json:"blank"`
+	Words       json.Number `json:"words"`
+	Text        string      `json:"text"`
 }
 
 type rawFinding struct {
@@ -119,7 +119,7 @@ type rawFinding struct {
 // MaxFindings is the most findings one check returns.
 const MaxFindings = 100
 
-// DecodeCheck reads the provider's answer. A finding about a question that is not in the draft, or with no issue, is dropped; a fix that names no option or blank of its question, a tfng_answer that names no other option of a tfng question, and a word_limit on anything but a short answer, out of range or equal to the limit it has, are kept as advice only. The findings come worst first, then in paper order. An empty result is a draft with nothing to report.
+// DecodeCheck reads the provider's answer. A finding about a question that is not in the draft, or with no issue, is dropped; a fix that names no option or blank of its question, a tfng_answer that names no other option of a tfng question, and a word_limit on anything but a short answer with no limit, or with a words count that is not a whole number from 1 to MaxWordLimit, are kept as advice only. The findings come worst first, then in paper order. An empty result is a draft with nothing to report.
 func DecodeCheck(raw json.RawMessage, in CheckInput) ([]Finding, error) {
 	var answer struct {
 		Findings []rawFinding `json:"findings"`
@@ -173,8 +173,9 @@ func tidyFix(f rawFix, issue string, q domain.PaperQuestion) Fix {
 	case FixTfngAnswer:
 		fix.OptionID, fix.Text, ok = tfngKey(f.Option, q)
 	case FixWordLimit:
-		ok = q.Type == ShortAnswer && f.Words >= 1 && f.Words <= MaxWordLimit && f.Words != q.MaxWords
-		fix.MaxWords, fix.Text = f.Words, WordLimitRule(f.Words)
+		words, err := strconv.Atoi(f.Words.String())
+		ok = err == nil && q.Type == ShortAnswer && q.MaxWords == 0 && words >= 1 && words <= MaxWordLimit
+		fix.MaxWords, fix.Text = words, WordLimitRule(words)
 	}
 	if !ok {
 		return advice
