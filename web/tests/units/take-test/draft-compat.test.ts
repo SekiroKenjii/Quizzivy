@@ -109,3 +109,26 @@ describe("what this build writes", () => {
     expect(sessionStorage.getItem(FLAGS_KEY)).toBe(V080_FLAGS);
   });
 });
+
+describe("a v0.9.0 draft beside answers of the new types", () => {
+  it("restores the v0.9.0 entries whole and keeps the new types next to them", () => {
+    const draft = JSON.parse(V080_DRAFT) as { answers: Record<string, unknown> };
+    draft.answers["q5"] = { type: "matching", pairs: { i1: "o4" } };
+    draft.answers["q6"] = { type: "text", value: "An essay." };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    start();
+    expect(store().answers).toEqual({
+      ...V080_ANSWERS,
+      q5: { type: "matching", pairs: { i1: "o4" } },
+      q6: text("An essay."),
+    });
+  });
+
+  it("drops only the entry a later build wrote in a shape this one cannot read", () => {
+    const draft = JSON.parse(V080_DRAFT) as { answers: Record<string, unknown> };
+    draft.answers["q7"] = { type: "ordering", order: ["o1", "o2"] };
+    localStorage.setItem(DRAFT_KEY, JSON.stringify(draft));
+    start();
+    expect(store().answers).toEqual(V080_ANSWERS);
+  });
+});

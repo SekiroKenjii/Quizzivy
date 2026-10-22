@@ -127,7 +127,7 @@ describe("Add from question bank", () => {
     expect(first).toHaveTextContent("Một đáp án · B1 · dùng trong 2 đề");
     expect(
       within(picker).getByText("Câu số 2").closest<HTMLElement>('[role="checkbox"]')!,
-    ).toHaveTextContent("Tự luận · dùng trong 1 đề");
+    ).toHaveTextContent("Trả lời ngắn · dùng trong 1 đề");
     const held = within(picker)
       .getByText("Câu số 3")
       .closest<HTMLElement>('[role="checkbox"]')!;

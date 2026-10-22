@@ -87,8 +87,45 @@ export function toFormValues(question: AdminQuestion): QuestionValues {
     points: question.points,
     explanation: question.explanation ?? null,
     sampleAnswer: question.sampleAnswer ?? null,
+    ...typeFields(question),
     tags: question.tags,
   };
+}
+
+/**
+ * typeFields are the R6 settings a stored question carries, in the form's
+ * shape: a matching item names its option by index, as the request does,
+ * where the response names it by id. Each appears only on its own type.
+ */
+function typeFields(
+  question: AdminQuestion,
+): Pick<
+  QuestionValues,
+  "selectCount" | "maxWords" | "matchAllowReuse" | "matchItems" | "rubric"
+> {
+  switch (question.type) {
+    case "multiple_choice":
+      return question.selectCount == null ? {} : { selectCount: question.selectCount };
+    case "short_answer":
+      return question.maxWords == null ? {} : { maxWords: question.maxWords };
+    case "essay":
+      return {
+        rubric: (question.rubric ?? []).map(({ id, label }) => ({ id, label })),
+      };
+    case "matching": {
+      const ids = (question.options ?? []).map((option) => option.id);
+      return {
+        matchAllowReuse: question.matchAllowReuse ?? false,
+        matchItems: (question.matchItems ?? []).map((item) => ({
+          id: item.id,
+          text: item.text,
+          correctOption: ids.indexOf(item.correctOptionId),
+        })),
+      };
+    }
+    default:
+      return {};
+  }
 }
 
 /** A-06's bulk "Gắn thẻ". Additive and idempotent; see the contract. */

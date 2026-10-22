@@ -159,6 +159,41 @@ describe("the keys", () => {
     expect(screen.getByRole("checkbox", { name: "More tourists" })).not.toBeChecked();
   });
 
+  it('replace the oldest pick of a "Choose two" with a third, as a tap does', async () => {
+    const paper = deckSession(new Date());
+    const fourth = paper.questions[3]!;
+    const option = (n: number) => fourth.options![n]!.id;
+    vi.mocked(getAttempt).mockResolvedValue(paper);
+    const user = mount();
+    await screen.findByRole("main");
+    await user.click(screen.getByRole("button", { name: "Câu 4" }));
+
+    await user.keyboard("e");
+    await user.keyboard("a");
+    await user.keyboard("b");
+    expect(store().answers[fourth.id]).toEqual({
+      type: "choice",
+      optionIds: [option(0), option(1)],
+    });
+    expect(screen.getByRole("checkbox", { name: "More tourists" })).not.toBeChecked();
+  });
+
+  it("pick a true / false / not given option by its position", async () => {
+    const paper = deckSession(new Date());
+    const third = paper.questions[2]!;
+    vi.mocked(getAttempt).mockResolvedValue(paper);
+    const user = mount();
+    await screen.findByRole("main");
+    await user.click(screen.getByRole("button", { name: /^Câu 3\b/ }));
+
+    await user.keyboard("c");
+    expect(screen.getByRole("radio", { name: "Không có thông tin" })).toBeChecked();
+    expect(store().answers[third.id]).toEqual({
+      type: "choice",
+      optionIds: [third.options![2]!.id],
+    });
+  });
+
   it("ignore a letter past the question's last option", async () => {
     const user = mount();
     await screen.findByRole("radio", { name: "First answer" });

@@ -14,6 +14,14 @@ export const QUESTION_TYPES: readonly QuestionType[] = [
   "short_answer",
 ];
 
+/** editorType is the entry of QUESTION_TYPES a question of `type` shows as. */
+export function editorType(type: QuestionType): QuestionType {
+  return type === "tfng" ? "true_false" : type;
+}
+
+/** ESSAY_POINTS is an essay's default points: a band of 3 to 9 is then its score. */
+export const ESSAY_POINTS = 9;
+
 /** optionLetter is the letter the deck names an option by: A for the first, H for the eighth. */
 export function optionLetter(index: number): string {
   return String.fromCharCode(65 + index);
@@ -118,6 +126,71 @@ export function trueFalseOptions(
   ];
 }
 
+/** TfngAnswer is which of a tfng question's three fixed options is correct. */
+export type TfngAnswer = "true" | "false" | "not_given";
+
+const TFNG_ORDER: readonly TfngAnswer[] = ["true", "false", "not_given"];
+
+/** TFNG_TEXTS are a tfng question's option texts in their fixed order, as the server writes them. */
+export const TFNG_TEXTS: Readonly<Record<TfngAnswer, string>> = {
+  true: "True",
+  false: "False",
+  not_given: "Not given",
+};
+
+/**
+ * readTfng reads a tfng question's answer by position: the server stores its
+ * three options in fixed order (True, False, Not given). With none ticked
+ * the answer is True, as a new true/false question's is.
+ */
+export function readTfng(options: readonly Option[]): TfngAnswer {
+  const index = options.findIndex((option) => option.isCorrect);
+  return TFNG_ORDER[index] ?? "true";
+}
+
+/**
+ * tfngOptions are a tfng question's three options in their fixed order with
+ * `answer` ticked, each keeping the id of the option it replaces at its
+ * position, so the server matches it to its stored row.
+ */
+export function tfngOptions(
+  answer: TfngAnswer,
+  from: readonly Option[] = [],
+): Option[] {
+  return TFNG_ORDER.map((key, index) =>
+    canonicalOption(TFNG_TEXTS[key], key === answer, from[index]),
+  );
+}
+
+/**
+ * withNotGiven turns a true/false question into a tfng one, or back, keeping
+ * its answer and the ids of its True and False options. Turning "Not given"
+ * off while it is the answer makes the answer False, as the deck draws it.
+ */
+export function withNotGiven(value: QuestionValues, on: boolean): QuestionValues {
+  if (on === (value.type === "tfng")) return value;
+  if (on) {
+    const answer = readTrueFalse(value.options);
+    return {
+      ...value,
+      type: "tfng",
+      options: tfngOptions(answer.trueIsCorrect ? "true" : "false", [
+        ...(answer.trueOption ? [answer.trueOption] : []),
+        ...(answer.falseOption ? [answer.falseOption] : []),
+      ]),
+    };
+  }
+  const answer = readTfng(value.options);
+  return {
+    ...value,
+    type: "true_false",
+    options: trueFalseOptions(answer === "true", {
+      trueOption: value.options[0],
+      falseOption: value.options[1],
+    }),
+  };
+}
+
 function canonicalOption(
   text: string,
   isCorrect: boolean,
@@ -133,30 +206,95 @@ function canonicalOption(
 
 /**
  * retype changes a question's type and keeps what still applies: the prompt,
- * the explanation, media, audio, points and tags always; the options between
- * single and multiple choice, where single keeps only the first tick; true /
- * false rebuilt as its two canonical options; the blanks only for fill in the
- * blank and the sample answer only for short answer.
+ * the explanation, media, audio, points and tags always; the options among
+ * single choice, multiple choice and matching, where single keeps only the
+ * first tick and matching none; true / false rebuilt as its two canonical
+ * options (a tfng question keeps its answer unless it was "Not given"); the
+ * blanks only for fill in the blank; the sample answer between short answer
+ * and essay. Each R6 setting stays only on its own type. Points the teacher
+ * left at the old type's default take the new type's (nine for an essay, one
+ * otherwise); points they set are kept.
  */
 export function retype(value: QuestionValues, type: QuestionType): QuestionValues {
-  return {
-    ...value,
-    type,
-    options: optionsFor(value, type),
-    blanks: type === "fill_blank" ? value.blanks : [],
-    sampleAnswer: type === "short_answer" ? value.sampleAnswer : null,
-  };
+  const options = optionsFor(value, type);
+  return withTypeFields(
+    {
+      ...value,
+      type,
+      options,
+      blanks: type === "fill_blank" ? value.blanks : [],
+      sampleAnswer:
+        WRITTEN_TYPES.has(type) && WRITTEN_TYPES.has(value.type)
+          ? value.sampleAnswer
+          : null,
+      points:
+        value.points === defaultPoints(value.type) ? defaultPoints(type) : value.points,
+    },
+    value,
+  );
+}
+
+/** defaultPoints is what a new question of `type` is worth: nine for an essay, else one. */
+export function defaultPoints(type: QuestionType): number {
+  return type === "essay" ? ESSAY_POINTS : 1;
+}
+
+const WRITTEN_TYPES: ReadonlySet<QuestionType> = new Set(["short_answer", "essay"]);
+
+function withTypeFields(next: QuestionValues, from: QuestionValues): QuestionValues {
+  const rest = { ...next };
+  delete rest.selectCount;
+  delete rest.maxWords;
+  delete rest.matchAllowReuse;
+  delete rest.matchItems;
+  delete rest.rubric;
+  const same = next.type === from.type;
+  switch (next.type) {
+    case "multiple_choice":
+      return same && from.selectCount != null
+        ? { ...rest, selectCount: from.selectCount }
+        : rest;
+    case "short_answer":
+      return same && from.maxWords != null
+        ? { ...rest, maxWords: from.maxWords }
+        : rest;
+    case "essay":
+      return { ...rest, rubric: same ? (from.rubric ?? []) : [] };
+    case "matching":
+      return {
+        ...rest,
+        matchAllowReuse: same ? (from.matchAllowReuse ?? false) : false,
+        matchItems: same ? (from.matchItems ?? []) : blankItems(),
+      };
+    default:
+      return rest;
+  }
+}
+
+const LISTED_TYPES: ReadonlySet<QuestionType> = new Set([
+  "single_choice",
+  "multiple_choice",
+  "matching",
+]);
+
+function trueFalseFor(value: QuestionValues): Option[] {
+  if (value.type === "tfng") return withNotGiven(value, false).options;
+  if (value.type !== "true_false") return trueFalseOptions(true);
+  const answer = readTrueFalse(value.options);
+  return trueFalseOptions(answer.trueIsCorrect, answer);
 }
 
 function optionsFor(value: QuestionValues, type: QuestionType): Option[] {
-  const carried =
-    value.type === "single_choice" || value.type === "multiple_choice"
-      ? value.options
-      : [];
-  if (type === "true_false") {
-    if (value.type !== "true_false") return trueFalseOptions(true);
-    const answer = readTrueFalse(value.options);
-    return trueFalseOptions(answer.trueIsCorrect, answer);
+  const carried = LISTED_TYPES.has(value.type) ? value.options : [];
+  if (type === "true_false") return trueFalseFor(value);
+  if (type === "tfng") {
+    if (value.type === "tfng")
+      return tfngOptions(readTfng(value.options), value.options);
+    return withNotGiven({ ...value, options: trueFalseFor(value) }, true).options;
+  }
+  if (type === "matching") {
+    if (carried.length === 0) return blankOptions(false);
+    return carried.map((option) => ({ ...option, isCorrect: false }));
   }
   if (type === "multiple_choice") return carried.length > 0 ? carried : blankOptions();
   if (type === "single_choice") {
@@ -167,9 +305,16 @@ function optionsFor(value: QuestionValues, type: QuestionType): Option[] {
   return [];
 }
 
-function blankOptions(): Option[] {
+function blankOptions(firstCorrect = true): Option[] {
   return [
-    { id: null, text: "", isCorrect: true },
+    { id: null, text: "", isCorrect: firstCorrect },
     { id: null, text: "", isCorrect: false },
+  ];
+}
+
+function blankItems(): NonNullable<QuestionValues["matchItems"]> {
+  return [
+    { id: null, text: "", correctOption: -1 },
+    { id: null, text: "", correctOption: -1 },
   ];
 }

@@ -164,6 +164,73 @@ describe("progress", () => {
   });
 });
 
+/** T-R6.6's rules for the new types, as the student card counts them. */
+describe("answered and progress, for the R6 types", () => {
+  const chooseTwo = question({ type: "multiple_choice", selectCount: 2 });
+  const matching = question({
+    type: "matching",
+    options: [
+      { id: "o1", key: "i", text: "" },
+      { id: "o2", key: "ii", text: "" },
+    ],
+    matchItems: [
+      { id: "m1", key: "A", text: "Sign one" },
+      { id: "m2", key: "B", text: "Sign two" },
+    ],
+    matchAllowReuse: false,
+  });
+
+  it('needs exactly N picks for a "Choose N", and one pick of two is partly', () => {
+    const picks = (...optionIds: string[]) => ({ type: "choice" as const, optionIds });
+    expect(answered(chooseTwo, picks())).toBe(false);
+    expect(progress(chooseTwo, picks())).toBe("none");
+    expect(answered(chooseTwo, picks("o1"))).toBe(false);
+    expect(progress(chooseTwo, picks("o1"))).toBe("partly");
+    expect(answered(chooseTwo, picks("o1", "o2"))).toBe(true);
+    expect(progress(chooseTwo, picks("o1", "o2"))).toBe("full");
+    expect(answered(chooseTwo, picks("o1", "o2", "o3"))).toBe(false);
+    expect(progress(chooseTwo, picks("o1", "o2", "o3"))).toBe("partly");
+  });
+
+  it("keeps a plain multiple choice answered by any pick", () => {
+    const plain = question({ type: "multiple_choice" });
+    expect(answered(plain, { type: "choice", optionIds: ["o1"] })).toBe(true);
+    expect(progress(plain, { type: "choice", optionIds: ["o1"] })).toBe("full");
+  });
+
+  it("answers a true / false / not given with its one pick", () => {
+    const tfng = question({ type: "tfng" });
+    expect(answered(tfng, { type: "choice", optionIds: ["t3"] })).toBe(true);
+    expect(progress(tfng, { type: "choice", optionIds: [] })).toBe("none");
+  });
+
+  it("needs every item of a matching paired, and is partly until then", () => {
+    expect(answered(matching, { type: "matching", pairs: {} })).toBe(false);
+    expect(progress(matching, { type: "matching", pairs: {} })).toBe("none");
+    expect(answered(matching, { type: "matching", pairs: { m1: "o2" } })).toBe(false);
+    expect(progress(matching, { type: "matching", pairs: { m1: "o2" } })).toBe(
+      "partly",
+    );
+    const both = { type: "matching" as const, pairs: { m1: "o2", m2: "o1" } };
+    expect(answered(matching, both)).toBe(true);
+    expect(progress(matching, both)).toBe("full");
+  });
+
+  it("counts no pair for an item the question does not have", () => {
+    const stale = { type: "matching" as const, pairs: { gone: "o1" } };
+    expect(answered(matching, stale)).toBe(false);
+    expect(progress(matching, stale)).toBe("none");
+    expect(answered(question({ type: "matching" }), stale)).toBe(false);
+  });
+
+  it("answers an essay with text that is not blank", () => {
+    const essay = question({ type: "essay" });
+    expect(answered(essay, { type: "text", value: " \n " })).toBe(false);
+    expect(answered(essay, { type: "text", value: "Parks matter." })).toBe(true);
+    expect(progress(essay, { type: "text", value: "Parks" })).toBe("full");
+  });
+});
+
 /** The R6 cases, the same list the server's live count runs (T-R6.6). */
 describe("answered, for the R6 types", () => {
   const chooseTwo = question({ type: "multiple_choice", selectCount: 2 });

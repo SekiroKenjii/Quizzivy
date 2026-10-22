@@ -2,35 +2,40 @@ import type { TFunction } from "i18next";
 import type { StudentQuestion } from "./api";
 
 /**
- * QuestionKind is how the engine answers a question. The three choice types
- * differ only in how many options may be chosen, so they share a kind.
- * `unknown` is a type this build has no renderer for: the paper says so and
- * writes no answer for it.
+ * QuestionKind is how the engine answers a question. The four choice types
+ * differ only in how many options may be chosen and how they are labelled,
+ * so they share a kind. `unknown` is a type this build has no renderer for:
+ * the paper says so and writes no answer for it.
  */
-export type QuestionKind = "choice" | "fill_blank" | "short_answer" | "unknown";
+export type QuestionKind =
+  "choice" | "fill_blank" | "short_answer" | "essay" | "unknown";
 
-type DrawnType = Exclude<StudentQuestion["type"], "tfng" | "matching" | "essay">;
+type DrawnType = Exclude<StudentQuestion["type"], "matching">;
 
 const KIND: Record<DrawnType, Exclude<QuestionKind, "unknown">> = {
   single_choice: "choice",
   multiple_choice: "choice",
   true_false: "choice",
+  tfng: "choice",
   fill_blank: "fill_blank",
   short_answer: "short_answer",
+  essay: "essay",
 };
 
 const LABEL: Record<DrawnType, string> = {
   single_choice: "takeTest.type.single_choice",
   multiple_choice: "takeTest.type.multiple_choice",
   true_false: "takeTest.type.true_false",
+  tfng: "takeTest.type.tfng",
   fill_blank: "takeTest.type.fill_blank",
   short_answer: "takeTest.type.short_answer",
+  essay: "takeTest.type.essay",
 };
 
 /**
  * questionKind reads the kind from the question's type. A type the server
- * added after this page was loaded is `unknown`, never a choice, and so are
- * true / false / not given, matching and essay until the engine draws them.
+ * added after this page was loaded is `unknown`, never a choice, and so is
+ * matching until the engine draws it.
  */
 export function questionKind(question: Pick<StudentQuestion, "type">): QuestionKind {
   return isDrawn(question.type) ? KIND[question.type] : "unknown";

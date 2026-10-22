@@ -57,7 +57,7 @@ export function deckSession(now: Date, leftMs = DECK_LEFT_MS): AttemptSession {
       {
         id: id("b003"),
         sectionId: SECTION,
-        type: "single_choice",
+        type: "tfng",
         prompt: "Homes near parks always sell for 15 per cent more.",
         points: 1,
         options: choice(3, ["True", "False", "Not given"]),
@@ -68,6 +68,7 @@ export function deckSession(now: Date, leftMs = DECK_LEFT_MS): AttemptSession {
         type: "multiple_choice",
         prompt: "Which TWO benefits of trees and parks does paragraph B mention?",
         points: 1,
+        selectCount: 2,
         options: choice(4, [
           "Lower street temperatures",
           "Less traffic noise",
@@ -82,6 +83,7 @@ export function deckSession(now: Date, leftMs = DECK_LEFT_MS): AttemptSession {
         type: "short_answer",
         prompt: "What should cities prioritise when they plan new districts?",
         points: 1,
+        maxWords: 3,
       },
       {
         id: id("b006"),
@@ -102,11 +104,12 @@ export function deckSession(now: Date, leftMs = DECK_LEFT_MS): AttemptSession {
         type: "short_answer",
         prompt: "What do locals call the streets closed to traffic on Sundays?",
         points: 1,
+        maxWords: 2,
       },
       {
         id: id("b008"),
         sectionId: SECTION,
-        type: "single_choice",
+        type: "tfng",
         prompt: "Shop owners on play streets were against the idea at first.",
         points: 1,
         options: choice(8, ["True", "False", "Not given"]),

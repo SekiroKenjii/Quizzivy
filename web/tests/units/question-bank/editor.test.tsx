@@ -175,7 +175,7 @@ describe("the question editor, per question type", () => {
       points: 2,
     });
 
-    await user.click(screen.getByRole("tab", { name: "Tự luận" }));
+    await user.click(screen.getByRole("tab", { name: "Trả lời ngắn" }));
 
     expect(screen.getByLabelText("Nội dung câu hỏi")).toHaveValue(
       "They ___ to the museum.",
