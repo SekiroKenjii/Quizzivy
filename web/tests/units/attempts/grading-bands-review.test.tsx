@@ -8,7 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { focusManager, QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createMemoryRouter, MemoryRouter, RouterProvider } from "react-router";
 import { http, HttpResponse } from "msw";
 import AttemptReviewPage from "@/features/attempts/pages/teacher/AttemptReviewPage";
@@ -229,7 +229,10 @@ it("grades essays question by question, one band scale per paper", async () => {
 });
 
 function mountReview() {
-  const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  // As the app's client: a read stays fresh for 30 s, so only "always" re-reads on focus.
+  const client = new QueryClient({
+    defaultOptions: { queries: { retry: false, staleTime: 30_000 } },
+  });
   const router = createMemoryRouter(
     [
       { path: "/teacher/attempts/:id", element: <AttemptReviewPage /> },
@@ -416,7 +419,7 @@ it("names a banded essay graded on a band, not partly correct", async () => {
   expect(screen.queryByText("Partly correct")).toBeNull();
 });
 
-function servePointsRows(row: { manualScore: number | null }) {
+function pointsRowHandlers(row: { manualScore: number | null }) {
   const question = review().questions[1]!;
   server.use(
     http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/answers`, () =>
@@ -441,6 +444,19 @@ function servePointsRows(row: { manualScore: number | null }) {
     http.post(`${BASE}/teacher/attempts/:id/grade`, async ({ request }) => {
       const body = (await request.json()) as { items: { points: number }[] };
       graded.push(body);
+      await hold;
+      if (refuse)
+        return HttpResponse.json(
+          {
+            error: {
+              code: refuse,
+              message: "Refused",
+              requestId: "req-1",
+              details: { questionIds: [ESSAY_ID] },
+            },
+          },
+          { status: 422 },
+        );
       row.manualScore = body.items[0]!.points;
       return contractJson("/teacher/attempts/{id}/grade", "post", 200, {
         earned: 6,
@@ -449,6 +465,10 @@ function servePointsRows(row: { manualScore: number | null }) {
       });
     }),
   );
+}
+
+function servePointsRows(row: { manualScore: number | null }) {
+  pointsRowHandlers(row);
   const client = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   render(
     <QueryClientProvider client={client}>
@@ -500,3 +520,310 @@ it("keeps a G-04 points edit that came back to its start when a grade lands else
   expect(box).toHaveValue(1.5);
   expect(screen.queryByText(/graded elsewhere/)).toBeNull();
 });
+
+it("asks before the rail or Skip drops an unsaved band on the paper review", async () => {
+  serve(essayPaper(false));
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Give band 6.0" }));
+  await user.click(screen.getByRole("button", { name: "Skip" }));
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toHaveTextContent("Leave with unsaved marks?");
+  // The safe answer has focus.
+  expect(within(dialog).getByRole("button", { name: "Stay" })).toHaveFocus();
+  await user.click(within(dialog).getByRole("button", { name: "Stay" }));
+  expect(screen.getByRole("button", { name: "Give band 6.0" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  await user.click(screen.getByRole("button", { name: /^Question 1,/ }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Leave" }),
+  );
+  await waitFor(() =>
+    expect(screen.queryByRole("button", { name: "Give band 6.0" })).toBeNull(),
+  );
+  expect(graded).toEqual([]);
+});
+
+it("moves along the rail at once when nothing is unsaved", async () => {
+  serve(essayPaper(false));
+  const { user } = mountReview();
+  await screen.findByRole("button", { name: "Give band 6.0" });
+  await user.click(screen.getByRole("button", { name: /^Question 1,/ }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Give band 6.0" })).toBeNull();
+});
+
+it("asks before Grade per paper drops an unsaved points mark in G-04", async () => {
+  serve(review());
+  pointsRowHandlers({ manualScore: null });
+  const { user, router } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Grade by question" }));
+  await user.type(await screen.findByLabelText("Points for Student 01"), "3");
+  // A points row reports its unsaved mark to the page's guard.
+  await act(async () => void router.navigate("/teacher"));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Stay" }),
+  );
+  await user.click(screen.getByRole("button", { name: "Grade per paper" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Stay" }),
+  );
+  expect(screen.getByLabelText("Points for Student 01")).toHaveValue(3);
+  await user.click(screen.getByRole("button", { name: "Grade per paper" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Leave" }),
+  );
+  expect(
+    await screen.findByRole("button", { name: "Grade by question" }),
+  ).toBeVisible();
+  expect(graded).toEqual([]);
+});
+
+it("names a refused save on a G-04 points row and puts focus back on its box", async () => {
+  refuse = "GRADE_NEEDS_POINTS";
+  let answer!: () => void;
+  hold = new Promise((resolve) => (answer = resolve));
+  const { user } = servePointsRows({ manualScore: null });
+  const box = await screen.findByLabelText("Points for Student 01");
+  await user.type(box, "3");
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  await waitFor(() => expect(graded).toHaveLength(1));
+  // jsdom cannot blur the paused button, so park focus on the page by hand.
+  box.focus();
+  box.blur();
+  expect(document.activeElement).toBe(document.body);
+
+  answer();
+  expect(await screen.findByRole("alert")).toHaveTextContent(
+    "Choose a score for this answer.",
+  );
+  await waitFor(() => expect(box).toHaveFocus());
+});
+
+it("puts focus back on the points box when a refused save left it on the page", async () => {
+  refuse = "GRADE_NEEDS_POINTS";
+  let answer!: () => void;
+  hold = new Promise((resolve) => (answer = resolve));
+  serve(review());
+  const { user } = mountReview();
+  const box = await screen.findByLabelText("Points");
+  await user.type(box, "3");
+  await user.click(screen.getByRole("button", { name: "Save & next" }));
+  await waitFor(() => expect(graded).toHaveLength(1));
+  // jsdom cannot blur the paused button, so park focus on the page by hand.
+  box.focus();
+  box.blur();
+  expect(document.activeElement).toBe(document.body);
+  answer();
+  await screen.findByRole("alert");
+  await waitFor(() => expect(box).toHaveFocus());
+});
+
+it("reads the paper again when the window regains focus", async () => {
+  let reads = 0;
+  const paper = essayPaper(false);
+  server.use(
+    http.get(`${BASE}/teacher/attempts/${ATTEMPT_ID}`, () => {
+      reads += 1;
+      return contractJson("/teacher/attempts/{id}", "get", 200, paper);
+    }),
+  );
+  mountReview();
+  await screen.findByRole("group", { name: "Band" });
+  expect(reads).toBe(1);
+  act(() => focusManager.setFocused(false));
+  act(() => focusManager.setFocused(true));
+  await waitFor(() => expect(reads).toBe(2));
+  act(() => focusManager.setFocused());
+});
+
+it("reads G-04's answers again when the window regains focus", async () => {
+  let reads = 0;
+  serve(review());
+  pointsRowHandlers({ manualScore: null });
+  const question = review().questions[1]!;
+  server.use(
+    http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/answers`, () => {
+      reads += 1;
+      return contractJson("/teacher/assignments/{id}/answers", "get", 200, {
+        question,
+        questionNumber: 2,
+        questionCount: 2,
+        manualQuestionIds: [ESSAY_ID],
+        items: [],
+      });
+    }),
+  );
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Grade by question" }));
+  await waitFor(() => expect(reads).toBe(1));
+  act(() => focusManager.setFocused(false));
+  act(() => focusManager.setFocused(true));
+  await waitFor(() => expect(reads).toBe(2));
+  act(() => focusManager.setFocused());
+});
+
+it("writes a fractional question's points in the reader's form", async () => {
+  await act(async () => setLocale("vi"));
+  const paper = review();
+  paper.questions[1]!.points = 1.5;
+  serve(paper);
+  mountReview();
+  expect(await screen.findByText("Câu 2 · Trả lời ngắn · 1,5 điểm")).toBeVisible();
+});
+
+const OTHER_ATTEMPT = "018f0000-0000-7000-8000-0000000000f2";
+
+function twoRowHandlers(points = 5) {
+  const question = { ...review().questions[1]!, points };
+  const row = (attemptId: string, studentName: string) => ({
+    attemptId,
+    studentId: STUDENT_ID,
+    studentName,
+    attemptNo: 1,
+    answer: { type: "text" as const, value: "I usually wake up at six o'clock." },
+    manualScore: null,
+    graderComment: null,
+  });
+  server.use(
+    http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/answers`, () =>
+      contractJson("/teacher/assignments/{id}/answers", "get", 200, {
+        question,
+        questionNumber: 1,
+        questionCount: 2,
+        manualQuestionIds: [ESSAY_ID, TASK],
+        items: [row(ATTEMPT_ID, "Nguyễn Đức Minh"), row(OTHER_ATTEMPT, "Trần Thu Hà")],
+      }),
+    ),
+    http.post(`${BASE}/teacher/attempts/:id/grade`, async ({ request }) => {
+      graded.push(await request.json());
+      return contractJson("/teacher/attempts/{id}/grade", "post", 200, {
+        earned: 6,
+        total: 10,
+        pendingManual: 0,
+      });
+    }),
+  );
+}
+
+it("asks before the Integrity tab or a group link drops an unsaved band", async () => {
+  serve(essayPaper(false));
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Give band 6.0" }));
+  await user.click(screen.getByRole("tab", { name: "Integrity" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Stay" }),
+  );
+  expect(screen.getByRole("tab", { name: "Paper" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(screen.getByRole("button", { name: "Give band 6.0" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  // The question already shown is no move, so its rail dot does not ask.
+  await user.click(screen.getByRole("button", { name: /^Question 2,/ }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("asks before Grade by question drops an unsaved band on the paper review", async () => {
+  serve(essayPaper(false));
+  twoRowHandlers();
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Give band 6.0" }));
+  await user.click(screen.getByRole("button", { name: "Grade by question" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Stay" }),
+  );
+  expect(screen.queryByLabelText("Points for Student 01")).toBeNull();
+});
+
+it("asks before Next question, or a save and next, drops another row's mark in G-04", async () => {
+  serve(review());
+  twoRowHandlers();
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Grade by question" }));
+  const first = await screen.findByLabelText("Points for Student 01");
+  await user.type(screen.getByLabelText("Points for Student 02"), "2");
+  await user.click(screen.getByRole("button", { name: /^Next question/ }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Stay" }),
+  );
+  // Saving row 1 and moving on would drop row 2's mark, so it asks too.
+  await user.type(first, "4");
+  await user.keyboard("{Control>}{Enter}{/Control}");
+  await waitFor(() => expect(graded).toHaveLength(1));
+  const dialog = await screen.findByRole("dialog");
+  await user.click(within(dialog).getByRole("button", { name: "Stay" }));
+  expect(screen.getByLabelText("Points for Student 02")).toHaveValue(2);
+});
+
+it("moves on after a save and next when no other row holds marks", async () => {
+  serve(review());
+  twoRowHandlers();
+  let questions = 0;
+  server.events.on("request:start", ({ request }) => {
+    if (request.url.includes("/answers")) questions += 1;
+  });
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Grade by question" }));
+  await user.type(await screen.findByLabelText("Points for Student 01"), "4");
+  await user.keyboard("{Control>}{Enter}{/Control}");
+  await waitFor(() => expect(graded).toHaveLength(1));
+  await waitFor(() => expect(questions).toBeGreaterThanOrEqual(3));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  server.events.removeAllListeners();
+});
+
+it("marks a refused G-04 points box invalid and ties the message to it", async () => {
+  refuse = "GRADE_NEEDS_POINTS";
+  const { user } = servePointsRows({ manualScore: null });
+  const box = await screen.findByLabelText("Points for Student 01");
+  await user.type(box, "3");
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  const alert = await screen.findByRole("alert");
+  expect(box).toHaveAttribute("aria-invalid", "true");
+  expect(box).toHaveAccessibleDescription(alert.textContent!);
+});
+
+it("writes G-04's question points in the reader's form, singular for one", async () => {
+  serve(review());
+  twoRowHandlers(1.5);
+  await act(async () => setLocale("vi"));
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Chấm theo câu hỏi" }));
+  expect(await screen.findByText("Câu 1 · Trả lời ngắn · 1,5 điểm")).toBeVisible();
+});
+
+it("writes one point in the singular in G-04", async () => {
+  twoRowHandlers(1);
+  servePointsRowsShell();
+  expect(await screen.findByText("Question 1 · Short answer · 1 point")).toBeVisible();
+});
+
+it("pauses Next question on the last question instead of dimming it", async () => {
+  pointsRowHandlers({ manualScore: null });
+  servePointsRowsShell();
+  const next = await screen.findByRole("button", { name: /^Next question/ });
+  expect(next).toHaveAttribute("aria-disabled", "true");
+  expect(next).toBeEnabled();
+});
+
+function servePointsRowsShell() {
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <MemoryRouter>
+        <GradeByQuestion
+          assignmentId={ASSIGNMENT_ID}
+          testTitle="Daily routines"
+          initialQuestionId={ESSAY_ID}
+          onExit={() => {}}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}

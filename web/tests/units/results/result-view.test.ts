@@ -73,6 +73,17 @@ describe("verdict", () => {
   });
 });
 
+describe("a paper with banded essays", () => {
+  it("leaves banded essays out of the correct count, and offers no empty Wrong filter", () => {
+    const mixed = resultView(
+      scored([choice(1, AB, [0], { earned: 1 }), banded(2, 6), banded(3, 7)]),
+    );
+    expect(mixed.summary).toMatchObject({ kind: "graded", correct: 1, total: 1 });
+    expect(mixed.filters).toEqual(["all", "wrong"]);
+    expect(resultView(scored([banded(1, 6), banded(2, 7)])).filters).toEqual(["all"]);
+  });
+});
+
 describe("ringTone", () => {
   it.each([
     [8, 10, "success"],

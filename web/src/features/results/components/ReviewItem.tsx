@@ -154,7 +154,7 @@ function Pairs({
             >
               {option === null
                 ? t("result.noAnswer")
-                : `${option.key ?? ""} ${nfc(option.text)}`.trim()}
+                : [option.key, nfc(option.text)].filter(Boolean).join(" · ")}
             </span>
           </li>
         );
