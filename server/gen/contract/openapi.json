@@ -10281,12 +10281,15 @@
       },
       "DiffField": {
         "type": "string",
-        "description": "The part of a question that differs, for a `changed` entry.\n`prompt` and `explanation` cover the text and the rich content;\n`options` the text and content of the choices in their order, `blanks`\nthe gaps and their case rule, and `media` the attachment with its audio\npolicy and transcript. `context` is the shared material of the group\nthe question belongs to, or its being in a group at all, and `section`\nthe part of the paper it sits in. The correct options and the accepted\nanswers are not here: they are `answer` entries.\n",
+        "description": "The part of a question that differs, for a `changed` entry.\n`prompt` and `explanation` cover the text and the rich content;\n`options` the text and content of the choices in their order, `blanks`\nthe gaps and their case rule, and `media` the attachment with its audio\npolicy and transcript. `items` is the text of a matching question's\nitems in their order, `rubric` an essay's criterion labels in their\norder, and `rules` the rules a student is told: a multiple choice's\n`selectCount`, a short answer's `maxWords` and a matching question's\n`matchAllowReuse`. `context` is the shared material of the group\nthe question belongs to, or its being in a group at all, and `section`\nthe part of the paper it sits in. The correct options, the accepted\nanswers and the choice each matching item is keyed to are not here:\nthey are `answer` entries.\n",
         "enum": [
           "type",
           "prompt",
           "options",
           "blanks",
+          "items",
+          "rubric",
+          "rules",
           "media",
           "points",
           "explanation",
@@ -20994,7 +20997,7 @@
           "teacher-attempts"
         ],
         "summary": "Save manual grades",
-        "description": "Saved per call rather than as one giant submit, so a half-graded attempt\nsurvives a refresh. `points` is rejected above the question's ceiling.\n\nAn item for an `essay` takes a `band` when the question has no rubric\ncriteria, or `criteria` naming every one of them, and no `points`: the\nserver derives `manual_score = round(band × points ÷ 9, 2)`, with the\nband of a rubric the mean of its criteria rounded half up to 0.5. An\nitem for any other type takes `points` and neither of the others. The\nschema cannot express that rule, so the handler applies it and answers\n422 (see below). G-04's by-question grading writes through this\noperation too.\n",
+        "description": "Saved per call rather than as one giant submit, so a half-graded attempt\nsurvives a refresh. `points` is rejected above the question's ceiling,\nand a question named by more than one item is rejected: both are 400\n`VALIDATION_FAILED` with `details` keyed by the question's id. The\nrefusals are answered in this order: 409, then 422, then 400.\n\nAn item for an `essay` takes a `band` when the question has no rubric\ncriteria, or `criteria` naming every one of them, and no `points`: the\nserver derives `manual_score = round(band × points ÷ 9, 2)`, with the\nband of a rubric the mean of its criteria rounded half up to 0.5. An\nitem for any other type takes `points` and neither of the others. The\nschema cannot express that rule, so the handler applies it and answers\n422 (see below). G-04's by-question grading writes through this\noperation too.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -21137,7 +21140,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "`GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.",
+            "description": "`GRADING_INCOMPLETE` — a `short_answer` or `essay` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.",
             "content": {
               "application/json": {
                 "schema": {
@@ -26603,7 +26606,7 @@
         "tags": [
           "take-test"
         ],
-        "description": "**Idempotent.** A second call on an already-closed attempt is `409\nATTEMPT_CLOSED`, and a race between a manual tap and an auto-submit\nyields one submission.\n\nObjective types are graded immediately; `short_answer` is marked\n`requiresManual`. Nothing is rejected based on audio play count (§11.4).\n",
+        "description": "**Idempotent.** A second call on an already-closed attempt is `409\nATTEMPT_CLOSED`, and a race between a manual tap and an auto-submit\nyields one submission.\n\nObjective types are graded immediately; `short_answer` and `essay` are\nmarked `requiresManual`. Nothing is rejected based on audio play count (§11.4).\n",
         "requestBody": {
           "content": {
             "application/json": {

@@ -146,7 +146,7 @@ func TestAnotherTeachersPaperAnswersAsAMissingOne(t *testing.T) {
 		if err := w.reviews.SetNote(ctx, b, paper, &note); !errors.Is(err, domain.ErrPaperNotFound) {
 			t.Errorf("B noting %s paper: %v", label, err)
 		}
-		if _, err := w.reviews.Grade(ctx, b, paper, w.b, []domain.GradeItem{{QuestionID: w.essay, Points: 5}}); !errors.Is(err, domain.ErrPaperNotFound) {
+		if _, err := w.reviews.Grade(ctx, b, paper, domain.Request{ActorID: w.b}, []domain.GradeItem{{QuestionID: w.essay, Points: pts(5)}}); !errors.Is(err, domain.ErrPaperNotFound) {
 			t.Errorf("B grading %s paper: %v", label, err)
 		}
 		if _, err := w.reviews.Finish(ctx, b, paper); !errors.Is(err, domain.ErrPaperNotFound) {
@@ -200,7 +200,7 @@ func TestTheOwnerAndScopeAllReachEveryPaper(t *testing.T) {
 			if err := w.reviews.SetNote(ctx, who, w.paperA, &note); err != nil {
 				t.Errorf("noting: %v", err)
 			}
-			if _, err := w.reviews.Grade(ctx, who, w.paperA, who.UserID, []domain.GradeItem{{QuestionID: w.essay, Points: 4}}); err != nil {
+			if _, err := w.reviews.Grade(ctx, who, w.paperA, domain.Request{ActorID: who.UserID}, []domain.GradeItem{{QuestionID: w.essay, Points: pts(4)}}); err != nil {
 				t.Errorf("grading: %v", err)
 			}
 			if _, err := w.reviews.Finish(ctx, who, w.paperA); err != nil {
@@ -235,7 +235,7 @@ func TestTheApplicationCarriesTheScopeToTheStore(t *testing.T) {
 	app := application.New(w.timelines, w.reviews, w.store)
 	b, a := access.Scope{UserID: w.b}, access.Scope{UserID: w.a}
 	note := "ghi chú"
-	grade := []domain.GradeItem{{QuestionID: w.essay, Points: 3}}
+	grade := []domain.GradeItem{{QuestionID: w.essay, Points: pts(3)}}
 	paperBefore, overdueBefore := w.snapshot(t, w.paperA), w.snapshot(t, w.overdue)
 
 	if _, err := app.Queries.Review.Handle(ctx, query.Review{AttemptID: w.paperA, Scope: b}); !errors.Is(err, domain.ErrPaperNotFound) {

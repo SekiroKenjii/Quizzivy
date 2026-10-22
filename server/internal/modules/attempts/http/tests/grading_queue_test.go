@@ -143,3 +143,31 @@ func TestGradingQueueTransportErrorsAreHonest(t *testing.T) {
 		t.Fatalf("nil application=%v", err)
 	}
 }
+
+func TestAQueuedEssayCarriesItsRubricAndAShortAnswerItsWordLimit(t *testing.T) {
+	id, criterion := uuid.NewString(), uuid.NewString()
+	limit := 40
+	item := func(q domain.ReviewQuestion) domain.GradingQueueItem {
+		return domain.GradingQueueItem{AttemptID: id, AssignmentID: id, StudentID: id, PublishedAt: time.Now(), Question: q,
+			Answer: domain.ReviewAnswer{Payload: []byte(`{"type":"text","value":"Saved answer"}`)}}
+	}
+	queue := domain.GradingQueue{Items: []domain.GradingQueueItem{
+		item(domain.ReviewQuestion{ID: id, Type: "essay", Prompt: "Essay", Points: 9, Rubric: []domain.RubricCriterion{{ID: criterion, Ordinal: 0, Label: "Task response"}}}),
+		item(domain.ReviewQuestion{ID: id, Type: "short_answer", Prompt: "Short", Points: 1, MaxWords: &limit}),
+	}}
+	response, err := queueTransport(queue, nil).ListGradingQueue(context.Background(), openapi.ListGradingQueueRequestObject{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body := response.(openapi.ListGradingQueue200JSONResponse)
+	essay, short := body.Items[0], body.Items[1]
+	if essay.Rubric == nil || len(*essay.Rubric) != 1 || (*essay.Rubric)[0].Id.String() != criterion || (*essay.Rubric)[0].Label != "Task response" {
+		t.Errorf("essay rubric %+v", essay.Rubric)
+	}
+	if essay.Band != nil || essay.Criteria != nil {
+		t.Error("a queued essay is ungraded, so it carries no band")
+	}
+	if short.MaxWords == nil || *short.MaxWords != 40 || short.Rubric != nil {
+		t.Errorf("short answer maxWords %v rubric %v", short.MaxWords, short.Rubric)
+	}
+}

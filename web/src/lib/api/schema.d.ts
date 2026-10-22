@@ -2140,7 +2140,10 @@ export interface paths {
         /**
          * Save manual grades
          * @description Saved per call rather than as one giant submit, so a half-graded attempt
-         *     survives a refresh. `points` is rejected above the question's ceiling.
+         *     survives a refresh. `points` is rejected above the question's ceiling,
+         *     and a question named by more than one item is rejected: both are 400
+         *     `VALIDATION_FAILED` with `details` keyed by the question's id. The
+         *     refusals are answered in this order: 409, then 422, then 400.
          *
          *     An item for an `essay` takes a `band` when the question has no rubric
          *     criteria, or `criteria` naming every one of them, and no `points`: the
@@ -4393,8 +4396,8 @@ export interface paths {
          *     ATTEMPT_CLOSED`, and a race between a manual tap and an auto-submit
          *     yields one submission.
          *
-         *     Objective types are graded immediately; `short_answer` is marked
-         *     `requiresManual`. Nothing is rejected based on audio play count (§11.4).
+         *     Objective types are graded immediately; `short_answer` and `essay` are
+         *     marked `requiresManual`. Nothing is rejected based on audio play count (§11.4).
          */
         post: operations["submitAttempt"];
         delete?: never;
@@ -8193,13 +8196,18 @@ export interface components {
          *     `prompt` and `explanation` cover the text and the rich content;
          *     `options` the text and content of the choices in their order, `blanks`
          *     the gaps and their case rule, and `media` the attachment with its audio
-         *     policy and transcript. `context` is the shared material of the group
+         *     policy and transcript. `items` is the text of a matching question's
+         *     items in their order, `rubric` an essay's criterion labels in their
+         *     order, and `rules` the rules a student is told: a multiple choice's
+         *     `selectCount`, a short answer's `maxWords` and a matching question's
+         *     `matchAllowReuse`. `context` is the shared material of the group
          *     the question belongs to, or its being in a group at all, and `section`
-         *     the part of the paper it sits in. The correct options and the accepted
-         *     answers are not here: they are `answer` entries.
+         *     the part of the paper it sits in. The correct options, the accepted
+         *     answers and the choice each matching item is keyed to are not here:
+         *     they are `answer` entries.
          * @enum {string}
          */
-        DiffField: "type" | "prompt" | "options" | "blanks" | "media" | "points" | "explanation" | "context" | "section";
+        DiffField: "type" | "prompt" | "options" | "blanks" | "items" | "rubric" | "rules" | "media" | "points" | "explanation" | "context" | "section";
         /**
          * @description One closed set of fields for every kind; `DiffChangeKind` says which of
          *     them a kind carries. Plain values only.
@@ -13827,7 +13835,7 @@ export interface operations {
             };
             400: components["responses"]["BadRequest"];
             404: components["responses"]["NotFound"];
-            /** @description `GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade. */
+            /** @description `GRADING_INCOMPLETE` — a `short_answer` or `essay` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade. */
             409: {
                 headers: {
                     [name: string]: unknown;

@@ -5,8 +5,9 @@ import type { DotState } from "./components/Navigator";
  * Whether an answer says anything. S-06's dots and the review's counts both
  * read this, so "đã trả lời" means one thing everywhere.
  *
- * A fill_blank needs EVERY blank filled, because grading is per blank (O-17).
- * It takes the question because `values` carries only the blanks typed into.
+ * A fill_blank needs EVERY blank filled, because grading is per blank (O-17),
+ * a "choose N" exactly N picks, and a matching question every item paired.
+ * It takes the question because the answer carries only what was typed or picked.
  */
 export function answered(
   question: StudentQuestion,
@@ -15,7 +16,9 @@ export function answered(
   if (answer === undefined) return false;
   switch (answer.type) {
     case "choice":
-      return answer.optionIds.length > 0;
+      return question.selectCount == null
+        ? answer.optionIds.length > 0
+        : answer.optionIds.length === question.selectCount;
     case "true_false":
       return typeof answer.value === "boolean";
     case "fill_blank": {
@@ -30,7 +33,8 @@ export function answered(
     case "matching": {
       const items = question.matchItems ?? [];
       return (
-        items.length > 0 && items.every((item) => answer.pairs[item.id] !== undefined)
+        items.length > 0 &&
+        items.every((item) => typeof answer.pairs[item.id] === "string")
       );
     }
   }

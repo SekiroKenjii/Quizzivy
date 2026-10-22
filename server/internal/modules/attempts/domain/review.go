@@ -56,13 +56,35 @@ type ReviewQuestion struct {
 	Transcript         *string
 	Explanation        *string
 	SampleAnswer       *string
+	SelectCount        *int
+	MaxWords           *int
+	MatchAllowReuse    *bool
 	Options            []ReviewOption
 	Blanks             []ReviewBlank
+	MatchItems         []ReviewMatchItem
+	Rubric             []RubricCriterion
+}
+
+// ReviewMatchItem is one matching item with its key, which the grader sees.
+type ReviewMatchItem struct {
+	ID              string
+	Key             string
+	Text            string
+	CorrectOptionID string
+	Ordinal         int
+}
+
+// RubricCriterion is one of an essay's frozen rubric criteria.
+type RubricCriterion struct {
+	ID      string
+	Label   string
+	Ordinal int
 }
 
 type ReviewOption struct {
 	Content   json.RawMessage
 	ID        string
+	Key       string
 	Ordinal   int
 	Text      string
 	IsCorrect bool
@@ -81,8 +103,10 @@ type ReviewAnswer struct {
 	Payload        []byte
 	AutoScore      *float64
 	ManualScore    *float64
-	RequiresManual bool
+	Band           *float64
 	GraderComment  *string
+	Criteria       []CriterionBand
+	RequiresManual bool
 }
 
 // ReviewPolicy is what the assignment lets a student see afterwards (§9).
@@ -111,12 +135,21 @@ type ResultQuestion struct {
 	AudioPlaysUsed *int
 }
 
-// GradeItem is one manual mark: the question, the points, and a comment the
+// GradeItem is one manual mark: the question, its points or, for an essay,
+// its band or the band of each of its rubric criteria, and a comment the
 // student will read.
 type GradeItem struct {
-	QuestionID string
-	Points     float64
+	Points     *float64
+	Band       *float64
 	Comment    *string
+	QuestionID string
+	Criteria   []CriterionBand
+}
+
+// CriterionBand is the band one rubric criterion of an essay was given.
+type CriterionBand struct {
+	CriterionID string
+	Band        float64
 }
 
 // GradeItemError names an item that could not be marked and why -- `not_on_paper`,
@@ -164,7 +197,9 @@ type QuestionAnswer struct {
 	AttemptNo     int
 	Payload       []byte
 	ManualScore   *float64
+	Band          *float64
 	GraderComment *string
+	Criteria      []CriterionBand
 }
 
 func (e *GradeValidationError) Error() string {

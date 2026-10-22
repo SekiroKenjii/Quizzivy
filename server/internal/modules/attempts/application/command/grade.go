@@ -8,10 +8,13 @@ import (
 	"quizzivy/internal/shared/content"
 )
 
-// Grade marks a paper on an assignment Scope reaches, as GraderID.
+// Grade marks a paper on an assignment Scope reaches, as GraderID, from IP
+// and UserAgent for the audit entry.
 type Grade struct {
 	AttemptID string
 	GraderID  string
+	IP        string
+	UserAgent string
 	Items     []domain.GradeItem
 	Scope     access.Scope
 }
@@ -29,5 +32,5 @@ func (r GradeHandler) Handle(ctx context.Context, cmd Grade) (domain.Score, erro
 			items[i] = item
 		}
 	}
-	return r.Repo.Grade(ctx, cmd.Scope, cmd.AttemptID, cmd.GraderID, items)
+	return r.Repo.Grade(ctx, cmd.Scope, cmd.AttemptID, domain.Request{ActorID: cmd.GraderID, IP: cmd.IP, UserAgent: cmd.UserAgent}, items)
 }

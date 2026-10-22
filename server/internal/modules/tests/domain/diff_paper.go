@@ -35,6 +35,9 @@ type questionParts struct {
 	points      int64
 	options     string
 	blanks      string
+	items       string
+	rubric      string
+	rules       string
 	answer      string
 	correct     []int
 	gaps        map[string]int
@@ -89,11 +92,15 @@ func newParts(e *encoder, q DraftQuestion) questionParts {
 		points:      e.points(q),
 		options:     e.json(optionPrints(q.Options)),
 		blanks:      e.json(blankPrints(q.Blanks, gaps)),
-		answer:      e.json(correct, acceptedAnswers(q.Blanks), q.SampleAnswer),
+		items:       e.json(itemTexts(q.MatchItems)),
+		rubric:      e.json(criterionLabels(q.Rubric)),
+		rules:       e.json(q.SelectCount, q.MaxWords, q.MatchAllowReuse),
+		answer:      e.json(correct, acceptedAnswers(q.Blanks), q.SampleAnswer, itemKeys(q.MatchItems)),
 		correct:     correct,
 		gaps:        gaps,
 	}
-	parts.print = e.json(parts.kind, parts.prompt, parts.explanation, parts.media, parts.points, parts.options, parts.blanks, parts.answer)
+	parts.print = e.json(parts.kind, parts.prompt, parts.explanation, parts.media, parts.points, parts.options, parts.blanks,
+		parts.items, parts.rubric, parts.rules, parts.answer)
 	return parts
 }
 
@@ -173,6 +180,38 @@ func acceptedAnswers(blanks []DraftBlank) [][]string {
 		accepted = append(accepted, answers)
 	}
 	return accepted
+}
+
+func orderedItems(items []DraftMatchItem) []DraftMatchItem {
+	ordered := slices.Clone(items)
+	slices.SortStableFunc(ordered, func(a, b DraftMatchItem) int { return a.Ordinal - b.Ordinal })
+	return ordered
+}
+
+func itemTexts(items []DraftMatchItem) []string {
+	texts := make([]string, 0, len(items))
+	for _, item := range orderedItems(items) {
+		texts = append(texts, item.Text)
+	}
+	return texts
+}
+
+func itemKeys(items []DraftMatchItem) []int {
+	keys := make([]int, 0, len(items))
+	for _, item := range orderedItems(items) {
+		keys = append(keys, item.CorrectOption)
+	}
+	return keys
+}
+
+func criterionLabels(rubric []DraftCriterion) []string {
+	ordered := slices.Clone(rubric)
+	slices.SortStableFunc(ordered, func(a, b DraftCriterion) int { return a.Ordinal - b.Ordinal })
+	labels := make([]string, 0, len(ordered))
+	for _, criterion := range ordered {
+		labels = append(labels, criterion.Label)
+	}
+	return labels
 }
 
 type encoder struct{ err error }

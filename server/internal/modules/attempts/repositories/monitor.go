@@ -7,6 +7,7 @@ import (
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/access"
 	"quizzivy/internal/shared/answered"
+	"quizzivy/internal/shared/bands"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/schedule"
 	"quizzivy/internal/shared/visibility"
@@ -111,7 +112,8 @@ func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows
 		         UNION ALL
 		         SELECT 1 FROM app.attempt_group_audio_plays p
 		           JOIN app.test_version_group_recordings r ON r.id=p.recording_id
-		          WHERE p.attempt_id=at.id AND r.max_plays IS NOT NULL AND p.plays>r.max_plays)
+		          WHERE p.attempt_id=at.id AND r.max_plays IS NOT NULL AND p.plays>r.max_plays),
+		       `+bands.OfPaper("at")+`
 		  FROM app.attempts at
 		 WHERE at.assignment_id = $1::uuid
 		 ORDER BY at.student_id, (at.status <> 'voided') DESC, at.attempt_no DESC`, assignmentID)
@@ -127,11 +129,11 @@ func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows
 			pending                 int
 			started, deadline       time.Time
 			submitted               *time.Time
-			earned, total           *float64
+			earned, total, band     *float64
 			flagged, overLimit      bool
 		)
 		if err := found.Scan(&studentID, &id, &no, &status, &started, &deadline, &submitted,
-			&earned, &total, &focusLoss, &flagged, &progress, &pending, &overLimit); err != nil {
+			&earned, &total, &focusLoss, &flagged, &progress, &pending, &overLimit, &band); err != nil {
 			return fmt.Errorf("attempts: scan monitor attempt: %w", err)
 		}
 		i, ok := at[studentID]
@@ -150,7 +152,7 @@ func (s *Postgres) attachAttempts(ctx context.Context, assignmentID string, rows
 		row.Flagged = flagged
 		row.AudioOverLimit = overLimit
 		if earned != nil && total != nil {
-			row.Score = &domain.Score{Earned: *earned, Total: *total, PendingManual: pending}
+			row.Score = &domain.Score{Earned: *earned, Total: *total, PendingManual: pending, Band: band}
 		}
 	}
 	return found.Err()
