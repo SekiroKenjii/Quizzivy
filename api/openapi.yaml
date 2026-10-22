@@ -6402,8 +6402,12 @@ components:
 
     AiQuestionType:
       type: string
-      description: The question types the assistant writes, a subset of `QuestionType`.
-      enum: [single_choice, multiple_choice, true_false, fill_blank, short_answer]
+      description: |
+        The question types the assistant writes, a subset of `QuestionType`.
+        `tfng` is written only from a passage, since "Not given" means the
+        text does not say: a standalone request that names it is refused
+        with `VALIDATION_FAILED` on `types`.
+      enum: [single_choice, multiple_choice, true_false, fill_blank, short_answer, tfng]
 
     AiGenerateRequest:
       type: object
@@ -6429,7 +6433,7 @@ components:
         types:
           type: array
           minItems: 1
-          maxItems: 5
+          maxItems: 6
           uniqueItems: true
           items: { $ref: '#/components/schemas/AiQuestionType' }
         count: { type: integer, minimum: 1, maximum: 8, description: "How many questions to write, 1 to 8." }
@@ -6442,7 +6446,8 @@ components:
       description: |
         A draft question. For a choice type `options` holds the options in order
         and `answerKey` the text of each correct one, exactly as written in
-        `options`; a true/false question has the options `True` and `False`. For
+        `options`; a true/false question has the options `True` and `False`,
+        and a `tfng` question `True`, `False` and `Not given` in that order. For
         `fill_blank` the prompt holds `___` for the gap and `answerKey` the
         accepted answers; for `short_answer` it holds the sample answer.
       required: [type, prompt, answerKey, explanation]
@@ -6497,12 +6502,18 @@ components:
         What a one-click fix writes, through `updateQuestion`, into the question
         it names: `text` replaces the option `optionId` (`option_text`), is added
         as an accepted answer of the blank `blankId` (`accepted_answer`), or
-        becomes the explanation (`explanation`).
+        becomes the explanation (`explanation`). For `tfng_answer` the option
+        `optionId` of a `tfng` question becomes its one correct option, and
+        `text` is that option's text (`Not given` for "Change to Not given").
+        For `word_limit` `maxWords` becomes a short answer's `maxWords`, and
+        `text` is the rule the student reads, such as "Write NO MORE THAN
+        THREE WORDS.".
       required: [text]
       additionalProperties: false
       properties:
         optionId: { $ref: '#/components/schemas/Uuid' }
         blankId: { $ref: '#/components/schemas/Uuid' }
+        maxWords: { type: integer, minimum: 1, maximum: 100, description: '`word_limit` only.' }
         text: { type: string, minLength: 1, maxLength: 2000 }
 
     AiFix:
@@ -6510,11 +6521,11 @@ components:
       description: |
         `kind` is `none` when the fix is advice only; `payload` is then absent.
         Otherwise `payload` is present, and names an option or a blank of the
-        question when the kind needs one.
+        question, or carries a word limit, when the kind needs one.
       required: [kind, description]
       additionalProperties: false
       properties:
-        kind: { type: string, enum: [option_text, accepted_answer, explanation, none] }
+        kind: { type: string, enum: [option_text, accepted_answer, explanation, none, tfng_answer, word_limit] }
         description: { type: string, minLength: 1, maxLength: 500, description: The fix in a sentence. }
         label: { type: string, minLength: 1, maxLength: 80, description: The one-click button's label. Absent when `kind` is `none`. }
         payload: { $ref: '#/components/schemas/AiFixPayload' }
@@ -6641,17 +6652,30 @@ components:
     AiScoreSuggestion:
       type: object
       description: |
-        `score` is one of the multiples of 0.5 from 0 to the question's points:
-        what the model proposed is moved to the nearest one. Nothing is saved;
-        a teacher marks the answer with `gradeAttempt`.
+        For a short answer `score` is one of the multiples of 0.5 from 0 to
+        the question's points: what the model proposed is moved to the nearest
+        one. For an essay `band` is present and `score` is what the band gives,
+        `round(band × points ÷ 9, 2)`, as `gradeAttempt` derives it. An essay
+        with rubric criteria also has `criteria`, one band for each criterion
+        in the rubric's order, `band` is their mean rounded half up to 0.5,
+        and `reasons` holds one line for each criterion, in the same order.
+        Nothing is saved; a teacher marks the answer with `gradeAttempt`.
       required: [score, confidence, reasons, comment, usage]
       additionalProperties: false
       properties:
         score: { $ref: '#/components/schemas/Points' }
+        band:
+          allOf: [{ $ref: '#/components/schemas/Band' }]
+          description: An essay's suggested band. Absent for a short answer.
+        criteria:
+          type: array
+          maxItems: 6
+          items: { $ref: '#/components/schemas/CriterionBand' }
+          description: The band suggested for each rubric criterion, in the rubric's order. Present only for an essay with criteria.
         confidence: { type: string, enum: [high, medium, low] }
         reasons:
           type: array
-          maxItems: 4
+          maxItems: 6
           items: { type: string, minLength: 1, maxLength: 300 }
         comment: { type: string, maxLength: 1000, description: "A comment to the student, for the teacher to keep, change or drop." }
         usage: { $ref: '#/components/schemas/AiUsage' }
@@ -14498,11 +14522,12 @@ paths:
         - { in: path, name: questionId, kind: version-question }
       x-permission: ai.use
       tags: [teacher-ai]
-      summary: Suggest a score for a short answer
+      summary: Suggest a score for a short answer or a band for an essay
       description: |
         Reads the question's prompt, type, points and accepted or sample
-        answers and the student's answer text, and proposes a score and a
-        comment. The student's name, email, id and class, the attempt's id and
+        answers (an essay's rubric criterion labels instead of accepted
+        answers) and the student's answer text, and proposes a score, or an
+        essay's band, and a comment. The student's name, email, id and class, the attempt's id and
         the student's other answers are never sent. The caller must hold
         `teaching.grading` as well as `ai.use`, the attempt must be one they
         reach as the grading reads do, and their `ai.readStudentAnswers`
@@ -14531,7 +14556,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '422':
-          description: The question is not a short answer waiting for a mark by hand (the grader marked this answer itself), or the student left it unanswered.
+          description: The question is not a short answer or an essay waiting for a mark by hand (the grader marked this answer itself), or the student left it unanswered.
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }

@@ -24,6 +24,17 @@ const (
 	ShortAnswer    = "short_answer"
 )
 
+// The R6 types the assistant reads or writes: tfng is generated from a passage and its key can be fixed, and an essay is given a band.
+const (
+	Tfng  = "tfng"
+	Essay = "essay"
+)
+
+// TfngOptions are a tfng question's three options, in their fixed order.
+func TfngOptions() []string {
+	return []string{"True", "False", "Not given"}
+}
+
 // QuestionTypes lists the five stored types in the order the contract names them.
 func QuestionTypes() []string {
 	return []string{SingleChoice, MultipleChoice, TrueFalse, FillBlank, ShortAnswer}

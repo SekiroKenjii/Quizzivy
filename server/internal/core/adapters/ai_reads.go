@@ -187,7 +187,7 @@ func questionOf(member testsdomain.GroupQuestion) questionsdomain.Question {
 	in := member.Input
 	question := questionsdomain.Question{
 		ID: member.ID, Type: in.Type, Prompt: in.Prompt, PromptContent: in.PromptContent,
-		Explanation: in.Explanation, ExplanationContent: in.ExplanationContent, SampleAnswer: in.SampleAnswer,
+		Explanation: in.Explanation, ExplanationContent: in.ExplanationContent, SampleAnswer: in.SampleAnswer, MaxWords: in.MaxWords,
 	}
 	for i, o := range in.Options {
 		question.Options = append(question.Options, questionsdomain.Option{ID: deref(o.ID), Ordinal: i, Text: o.Text, IsCorrect: o.IsCorrect, Content: o.Content})
@@ -284,8 +284,15 @@ func paperQuestion(q questionsdomain.Question, number int) aidomain.PaperQuestio
 	return aidomain.PaperQuestion{
 		ID: q.ID, Number: number, Type: string(q.Type), Prompt: q.Prompt, Explanation: deref(q.Explanation), Sample: deref(q.SampleAnswer),
 		Rich:    !plainOptions || !plainDocument(q.PromptContent) || !plainDocument(q.ExplanationContent),
-		Options: options, Blanks: readBlanks(q.Blanks),
+		Options: options, Blanks: readBlanks(q.Blanks), MaxWords: derefInt(q.MaxWords),
 	}
+}
+
+func derefInt(n *int) int {
+	if n == nil {
+		return 0
+	}
+	return *n
 }
 
 // AIQuestions reads the bank for the ai module from the questions module's handlers.
@@ -368,9 +375,20 @@ func (g AIGrading) Answer(ctx context.Context, scope access.Scope, attemptID, qu
 		if sample := deref(q.SampleAnswer); sample != "" {
 			out.Accepted = []string{sample}
 		}
+		out.Criteria = rubricOf(q.Rubric)
 		return out, nil
 	}
 	return aidomain.GradedAnswer{}, aidomain.ErrNotFound
+}
+
+func rubricOf(rubric []attemptsdomain.RubricCriterion) []aidomain.Criterion {
+	sorted := slices.Clone(rubric)
+	slices.SortFunc(sorted, func(a, b attemptsdomain.RubricCriterion) int { return a.Ordinal - b.Ordinal })
+	var out []aidomain.Criterion
+	for _, c := range sorted {
+		out = append(out, aidomain.Criterion{ID: c.ID, Label: c.Label})
+	}
+	return out
 }
 
 func answerText(payload []byte) string {

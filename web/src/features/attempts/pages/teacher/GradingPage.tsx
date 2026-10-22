@@ -14,7 +14,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ListSkeleton, LoadError, EmptyState } from "@/components/shared/ListState";
 import { useCan, useWorkspace } from "@/features/auth/permissions";
 import { useAuthStore } from "@/stores/auth";
-import type { AttemptListRow, GradingQueueParams } from "../../api";
+import type { AttemptListRow, GradingQueueItem, GradingQueueParams } from "../../api";
 import {
   gradingGroupKey,
   gradingItemKey,
@@ -25,7 +25,8 @@ import { useGradingQueue, type GradingQueueModel } from "./useGradingQueue";
 import { GradingQueueAside } from "./GradingQueueAside";
 import { GradingAnswerCard } from "./GradingAnswerCard";
 import { GradingReadyCard, ROWS_SHOWN, type ReadyScan } from "./GradingReadyCard";
-import { AiScoreBox } from "../../components/AiScoreBox";
+import { AiScoreBox, type ScoreBoxFor } from "../../components/AiScoreBox";
+import { handMarked, suggestedMark } from "../../essayMark";
 import "@/features/attempts/gradingMessages";
 import { cn } from "@/lib/utils";
 import {
@@ -402,15 +403,26 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                       openReview(event, `/teacher/attempts/${selected.attemptId}`)
                     }
                     suggestion={
-                      selected.type === "short_answer" && (
+                      handMarked(selected.type) && (
                         <AiScoreBox
                           key={gradingItemKey(selected)}
                           attemptId={selected.attemptId}
                           questionId={selected.questionId}
                           max={selected.points}
+                          kind={scoreBoxFor(selected)}
                           busy={model.busy}
-                          onUse={(points, comment) =>
-                            model.fill(selected, points, comment)
+                          onUse={(suggestion) =>
+                            selected.type === "essay"
+                              ? model.fillMark(
+                                  selected,
+                                  suggestedMark(selected.rubric ?? [], suggestion),
+                                  suggestion.comment,
+                                )
+                              : model.fill(
+                                  selected,
+                                  suggestion.score,
+                                  suggestion.comment,
+                                )
                           }
                         />
                       )
@@ -684,4 +696,9 @@ function QueueEmpty({
       {t("grading.empty")}
     </EmptyState>
   );
+}
+
+function scoreBoxFor(item: GradingQueueItem): ScoreBoxFor {
+  if (item.type !== "essay") return "short";
+  return item.rubric?.length ? "rubric" : "essay";
 }
