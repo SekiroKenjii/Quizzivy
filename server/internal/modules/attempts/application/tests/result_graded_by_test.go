@@ -281,7 +281,7 @@ func TestARemovedAnswerGradedBySomeoneElseStillCounts(t *testing.T) {
 	p, score := gradedEssayPaper(t)
 	pool := newPool(t)
 	ctx := context.Background()
-	other := student(t, pool, "Thầy Hai")
+	other := teacherAccount(t, pool, "Thầy Hai")
 	if _, err := pool.Exec(ctx, `UPDATE app.attempt_answers SET payload = '`+retention.RemovedAnswer+`'::jsonb, graded_by = $3::uuid WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
 		p.attempt, p.rubric, other); err != nil {
 		t.Fatal(err)
@@ -297,7 +297,7 @@ func TestAnOverrideByAnotherTeacherDoesNotHideTheEssaysGrader(t *testing.T) {
 	pool := newPool(t)
 	p := seedPaper(t, pool, "submitted")
 	ctx := context.Background()
-	other := student(t, pool, "Thầy Hai")
+	other := teacherAccount(t, pool, "Thầy Hai")
 	grade(t, p.attempt, other, domain.GradeItem{QuestionID: p.choice, Points: pts(4)})
 	grade(t, p.attempt, p.admin, domain.GradeItem{QuestionID: p.essay, Points: pts(3)})
 	var assignment string
@@ -314,12 +314,13 @@ func TestAnOverrideByAnotherTeacherDoesNotHideTheEssaysGrader(t *testing.T) {
 	}
 }
 
-// student inserts an account named name, removed when the test ends.
-func student(t *testing.T, pool *pgxpool.Pool, name string) string {
+// teacherAccount inserts a teacher's account named name, removed when the test
+// ends.
+func teacherAccount(t *testing.T, pool *pgxpool.Pool, name string) string {
 	t.Helper()
 	var id string
 	if err := pool.QueryRow(context.Background(), `INSERT INTO app.users (email, full_name, role_id)
-		VALUES ('grader-'||gen_random_uuid()||'@example.com', $1, (SELECT id FROM app.roles WHERE builtin_key = 'student'))
+		VALUES ('grader-'||gen_random_uuid()||'@example.com', $1, (SELECT id FROM app.roles WHERE builtin_key = 'teacher'))
 		RETURNING id::text`, name).Scan(&id); err != nil {
 		t.Fatal(err)
 	}
