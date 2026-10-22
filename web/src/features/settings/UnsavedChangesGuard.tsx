@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useBlocker } from "react-router";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
 import {
   ConfirmMove,
   ReportUnsaved,
+  type ConfirmMoveFn,
   type UnsavedReport,
 } from "@/features/settings/unsavedSection";
 
@@ -49,17 +50,18 @@ export function UnsavedChangesGuard({
   const [unsavedSections, setUnsavedSections] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const report = useCallback<UnsavedReport>(
-    (section, unsaved) =>
-      setUnsavedSections((sections) => marked(sections, section, unsaved)),
-    [],
-  );
+  const current = useRef<ReadonlySet<string>>(unsavedSections);
+  const report = useCallback<UnsavedReport>((section, unsaved) => {
+    current.current = marked(current.current, section, unsaved);
+    setUnsavedSections(current.current);
+  }, []);
   const unsaved = unsavedSections.size > 0;
   const [move, setMove] = useState<(() => void) | null>(null);
-  const confirmMove = useCallback(
-    (next: () => void) => (unsaved ? setMove(() => next) : next()),
-    [unsaved],
-  );
+  const confirmMove = useCallback<ConfirmMoveFn>((next, spare = () => false) => {
+    const held = [...current.current].some((section) => !spare(section));
+    if (held) setMove(() => next);
+    else next();
+  }, []);
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>

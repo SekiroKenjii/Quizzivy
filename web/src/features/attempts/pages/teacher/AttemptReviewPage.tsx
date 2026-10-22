@@ -275,7 +275,10 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
         </p>
       </PageHead>
 
-      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => confirmMove(() => setTab(value as Tab))}
+      >
         <TabsList aria-label={t("review.tabsLabel")}>
           <TabsTrigger value="paper">{t("review.tabs.paper")}</TabsTrigger>
           <TabsTrigger value="integrity">{t("review.tabs.integrity")}</TabsTrigger>
@@ -308,7 +311,10 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
                     type="button"
                     aria-current={i === current ? "true" : undefined}
                     aria-label={dotLabel(i, verdicts[i] ?? "unanswered", t)}
-                    onClick={() => confirmMove(() => pick(i))}
+                    onClick={() => {
+                      if (i === current) pick(i);
+                      else confirmMove(() => pick(i));
+                    }}
                     className={cn(
                       DOT.base,
                       "h-9",
@@ -378,8 +384,11 @@ function ReviewPage({ id }: Readonly<{ id: string }>) {
                     onRetry={() => void review.refetch()}
                     onQuestion={(questionId) => {
                       const number = numbers.get(questionId);
-                      if (number !== undefined) pick(number - 1);
-                      document.getElementById("review-answer")?.focus();
+                      if (number === undefined) return;
+                      confirmMove(() => {
+                        pick(number - 1);
+                        document.getElementById("review-answer")?.focus();
+                      });
                     }}
                   />
                 )}

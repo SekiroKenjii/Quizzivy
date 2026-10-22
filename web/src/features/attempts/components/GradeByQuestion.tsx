@@ -32,6 +32,7 @@ import {
   type EssayMark,
 } from "../essayMark";
 import { useConfirmMove, useUnsavedSection } from "@/features/settings/unsavedSection";
+import { useLocale } from "@/lib/i18n/useLocale";
 import { pointsSignature, useFocusWithin, useSavedSync } from "../savedSync";
 import { EssayBands, GradedElsewhere } from "./BandScale";
 import type { GradeMarks } from "./GradingCard";
@@ -54,6 +55,7 @@ export function GradeByQuestion({
   onExit: () => void;
 }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   const queryClient = useQueryClient();
   const [questionId, setQuestionId] = useState(initialQuestionId);
   const [showNames, setShowNames] = useState(false);
@@ -117,11 +119,14 @@ export function GradeByQuestion({
     const row = items[index];
     if (row) inputs.current.get(row.attemptId)?.focus();
   };
+  // Save and next moves on only if no other row holds unsaved marks.
+  const nextAfterSave = (row: QuestionAnswerRow) =>
+    confirmMove(goNext, (section) => section.startsWith(`g04:${row.attemptId}`));
   const saveRow =
     (row: QuestionAnswerRow, index: number) => (marks: GradeMarks, andNext: boolean) =>
       grade.mutate(
         { row, marks },
-        { onSuccess: () => (andNext ? goNext() : focusRow(index + 1)) },
+        { onSuccess: () => (andNext ? nextAfterSave(row) : focusRow(index + 1)) },
       );
   const goNext = () => {
     if (nextId === undefined) return;
@@ -161,8 +166,10 @@ export function GradeByQuestion({
             <Button
               variant="outline"
               size="sm"
-              disabled={nextId === undefined}
-              onClick={() => confirmMove(goNext)}
+              aria-disabled={nextId === undefined || undefined}
+              onClick={() => {
+                if (nextId !== undefined) confirmMove(goNext);
+              }}
             >
               {t("byQuestion.next")}
               <ArrowRight aria-hidden="true" />
@@ -211,7 +218,10 @@ export function GradeByQuestion({
                     type: t(`questionEditor.type.${data.question.type}`, {
                       defaultValue: data.question.type,
                     }),
-                    points: data.question.points,
+                    count: data.question.points,
+                    points: new Intl.NumberFormat(locale, {
+                      maximumFractionDigits: 2,
+                    }).format(data.question.points),
                   })}
                 </p>
                 {data.sharedContext?.groups.map((group) => (
@@ -372,6 +382,7 @@ function AnswerRow({
   );
   useUnsavedSection(`g04:${row.attemptId}`, sync.dirty);
   const box = useRef<HTMLInputElement | null>(null);
+  const errorId = useId();
   useEffect(() => {
     if (error === null || rubric !== null) return;
     const lost =
@@ -470,6 +481,7 @@ function AnswerRow({
               className="w-20 text-center tabular-nums"
               aria-label={t("byQuestion.pointsFor", { who: label })}
               aria-invalid={error !== null || undefined}
+              aria-describedby={error === null ? undefined : errorId}
               value={points}
               onChange={(event) => setPoints(event.target.value)}
               onKeyDown={(event) => {
@@ -503,7 +515,7 @@ function AnswerRow({
           </div>
         )}
         {!blank && rubric === null && error !== null && (
-          <p role="alert" className="text-destructive text-sm">
+          <p id={errorId} role="alert" className="text-destructive text-sm">
             {error}
           </p>
         )}

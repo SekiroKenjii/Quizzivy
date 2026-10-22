@@ -672,3 +672,158 @@ it("writes a fractional question's points in the reader's form", async () => {
   mountReview();
   expect(await screen.findByText("Câu 2 · Trả lời ngắn · 1,5 điểm")).toBeVisible();
 });
+
+const OTHER_ATTEMPT = "018f0000-0000-7000-8000-0000000000f2";
+
+function twoRowHandlers(points = 5) {
+  const question = { ...review().questions[1]!, points };
+  const row = (attemptId: string, studentName: string) => ({
+    attemptId,
+    studentId: STUDENT_ID,
+    studentName,
+    attemptNo: 1,
+    answer: { type: "text" as const, value: "I usually wake up at six o'clock." },
+    manualScore: null,
+    graderComment: null,
+  });
+  server.use(
+    http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/answers`, () =>
+      contractJson("/teacher/assignments/{id}/answers", "get", 200, {
+        question,
+        questionNumber: 1,
+        questionCount: 2,
+        manualQuestionIds: [ESSAY_ID, TASK],
+        items: [row(ATTEMPT_ID, "Nguyễn Đức Minh"), row(OTHER_ATTEMPT, "Trần Thu Hà")],
+      }),
+    ),
+    http.post(`${BASE}/teacher/attempts/:id/grade`, async ({ request }) => {
+      graded.push(await request.json());
+      return contractJson("/teacher/attempts/{id}/grade", "post", 200, {
+        earned: 6,
+        total: 10,
+        pendingManual: 0,
+      });
+    }),
+  );
+}
+
+it("asks before the Integrity tab or a group link drops an unsaved band", async () => {
+  serve(essayPaper(false));
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Give band 6.0" }));
+  await user.click(screen.getByRole("tab", { name: "Integrity" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Stay" }),
+  );
+  expect(screen.getByRole("tab", { name: "Paper" })).toHaveAttribute(
+    "aria-selected",
+    "true",
+  );
+  expect(screen.getByRole("button", { name: "Give band 6.0" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  // The question already shown is no move, so its rail dot does not ask.
+  await user.click(screen.getByRole("button", { name: /^Question 2,/ }));
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("asks before Grade by question drops an unsaved band on the paper review", async () => {
+  serve(essayPaper(false));
+  twoRowHandlers();
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Give band 6.0" }));
+  await user.click(screen.getByRole("button", { name: "Grade by question" }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Stay" }),
+  );
+  expect(screen.queryByLabelText("Points for Student 01")).toBeNull();
+});
+
+it("asks before Next question, or a save and next, drops another row's mark in G-04", async () => {
+  serve(review());
+  twoRowHandlers();
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Grade by question" }));
+  const first = await screen.findByLabelText("Points for Student 01");
+  await user.type(screen.getByLabelText("Points for Student 02"), "2");
+  await user.click(screen.getByRole("button", { name: /^Next question/ }));
+  await user.click(
+    within(await screen.findByRole("dialog")).getByRole("button", { name: "Stay" }),
+  );
+  // Saving row 1 and moving on would drop row 2's mark, so it asks too.
+  await user.type(first, "4");
+  await user.keyboard("{Control>}{Enter}{/Control}");
+  await waitFor(() => expect(graded).toHaveLength(1));
+  const dialog = await screen.findByRole("dialog");
+  await user.click(within(dialog).getByRole("button", { name: "Stay" }));
+  expect(screen.getByLabelText("Points for Student 02")).toHaveValue(2);
+});
+
+it("moves on after a save and next when no other row holds marks", async () => {
+  serve(review());
+  twoRowHandlers();
+  let questions = 0;
+  server.events.on("request:start", ({ request }) => {
+    if (request.url.includes("/answers")) questions += 1;
+  });
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Grade by question" }));
+  await user.type(await screen.findByLabelText("Points for Student 01"), "4");
+  await user.keyboard("{Control>}{Enter}{/Control}");
+  await waitFor(() => expect(graded).toHaveLength(1));
+  await waitFor(() => expect(questions).toBeGreaterThanOrEqual(3));
+  expect(screen.queryByRole("dialog")).toBeNull();
+  server.events.removeAllListeners();
+});
+
+it("marks a refused G-04 points box invalid and ties the message to it", async () => {
+  refuse = "GRADE_NEEDS_POINTS";
+  const { user } = servePointsRows({ manualScore: null });
+  const box = await screen.findByLabelText("Points for Student 01");
+  await user.type(box, "3");
+  await user.click(screen.getByRole("button", { name: "Save" }));
+  const alert = await screen.findByRole("alert");
+  expect(box).toHaveAttribute("aria-invalid", "true");
+  expect(box).toHaveAccessibleDescription(alert.textContent!);
+});
+
+it("writes G-04's question points in the reader's form, singular for one", async () => {
+  serve(review());
+  twoRowHandlers(1.5);
+  await act(async () => setLocale("vi"));
+  const { user } = mountReview();
+  await user.click(await screen.findByRole("button", { name: "Chấm theo câu hỏi" }));
+  expect(await screen.findByText("Câu 1 · Trả lời ngắn · 1,5 điểm")).toBeVisible();
+});
+
+it("writes one point in the singular in G-04", async () => {
+  twoRowHandlers(1);
+  servePointsRowsShell();
+  expect(await screen.findByText("Question 1 · Short answer · 1 point")).toBeVisible();
+});
+
+it("pauses Next question on the last question instead of dimming it", async () => {
+  pointsRowHandlers({ manualScore: null });
+  servePointsRowsShell();
+  const next = await screen.findByRole("button", { name: /^Next question/ });
+  expect(next).toHaveAttribute("aria-disabled", "true");
+  expect(next).toBeEnabled();
+});
+
+function servePointsRowsShell() {
+  render(
+    <QueryClientProvider
+      client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}
+    >
+      <MemoryRouter>
+        <GradeByQuestion
+          assignmentId={ASSIGNMENT_ID}
+          testTitle="Daily routines"
+          initialQuestionId={ESSAY_ID}
+          onExit={() => {}}
+        />
+      </MemoryRouter>
+    </QueryClientProvider>,
+  );
+}
