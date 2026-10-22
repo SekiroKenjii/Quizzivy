@@ -96,14 +96,22 @@ function useBesideShared(questionId: string): boolean {
   );
 }
 
+/**
+ * columnsOf lays short options in columns. `labels` is what each option
+ * shows when that is not its stored text, as a true / false / not given's
+ * translated names, so the reader's language decides what is short.
+ */
 function columnsOf(
   options: NonNullable<StudentQuestion["options"]>,
+  labels: readonly (string | null)[],
   besideShared: boolean,
   wide: boolean,
 ): string {
-  const short = options.every(
-    (option) => option.content == null && [...option.text].length <= SHORT_OPTION,
-  );
+  const short = options.every((option, index) => {
+    const label = labels[index] ?? null;
+    if (label !== null) return [...label].length <= SHORT_OPTION;
+    return option.content == null && [...option.text].length <= SHORT_OPTION;
+  });
   if (!short || besideShared || options.length === 0) return "grid-cols-1";
   if (!wide) return "grid-cols-2";
   return COLUMNS[Math.min(4, options.length) - 1] ?? "grid-cols-1";
@@ -117,7 +125,11 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
   const instructionId = useId();
   const size = textSizes(larger);
   const wide = useEngineWidthAtLeast(768);
-  const columns = columnsOf(options, useBesideShared(question.id), wide);
+  const labels = options.map((_, index) => {
+    const key = question.type === "tfng" ? tfngLabelKey(index) : null;
+    return key === null ? null : t(key);
+  });
+  const columns = columnsOf(options, labels, useBesideShared(question.id), wide);
   const chosen = new Set(
     answer !== undefined && "optionIds" in answer ? answer.optionIds : [],
   );
@@ -153,7 +165,7 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
       >
         {options.map((option, index) => {
           const selected = chosen.has(option.id);
-          const label = question.type === "tfng" ? tfngLabelKey(index) : null;
+          const label = labels[index] ?? null;
           return (
             <label
               key={option.id}
@@ -194,7 +206,7 @@ function Choice({ question, answer, onAnswer, disabled, larger }: Readonly<Props
                     type={question.type}
                   />
                 ) : (
-                  t(label)
+                  label
                 )}
               </span>
             </label>
@@ -393,6 +405,9 @@ function ShortAnswer({
         text={question.prompt}
         content={question.promptContent}
       />
+      {question.maxWords != null && (
+        <p className={HINT}>{wordLimitHint(question.maxWords, t)}</p>
+      )}
       <div className="flex flex-col gap-1.5">
         <textarea
           rows={1}
@@ -428,6 +443,16 @@ function instructionOf(
 ): string {
   if (count != null) return t("takeTest.chooseCount", { words: numberWord(count, t) });
   return t(multiple ? "takeTest.chooseMultiple" : "takeTest.chooseSingle");
+}
+
+/**
+ * wordLimitHint is the deck's rule line under a word-limited prompt, "Write
+ * NO MORE THAN THREE WORDS.", or "Write ONE WORD." for a limit of one.
+ */
+function wordLimitHint(limit: number, t: TFunction): string {
+  if (limit === 1) return t("takeTest.wordLimitHintOne");
+  const words = limit <= NUMBER_WORDS ? numberWord(limit, t) : String(limit);
+  return t("takeTest.wordLimitHint", { words: words.toLocaleUpperCase() });
 }
 
 const NUMBER_WORDS = 11;

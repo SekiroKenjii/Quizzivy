@@ -3914,6 +3914,8 @@
     "wordLimit_other": "{{words}} of {{count}} words",
     "wordLimitOver_one": "{{words}} of {{count}} word · too many",
     "wordLimitOver_other": "{{words}} of {{count}} words · too many",
+    "wordLimitHintOne": "Write ONE WORD.",
+    "wordLimitHint": "Write NO MORE THAN {{words}} WORDS.",
     "yourEssay": "Your essay",
     "essayPlaceholder": "Write your essay",
     "leave": "Leave test",

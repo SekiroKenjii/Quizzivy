@@ -183,8 +183,22 @@ describe("the panes from 768", () => {
     const { unmount } = await open(deckSession(NOW));
     await user.click(next());
     await user.click(next());
-    expect(within(sheet()).getByRole("radiogroup")).toHaveClass("grid-cols-3");
+    // "Không có thông tin" is past the short length, so the vi labels take one column.
+    expect(within(sheet()).getByRole("radiogroup")).toHaveClass("grid-cols-1");
     unmount();
+    store().reset();
+    sessionStorage.clear();
+
+    await i18n.changeLanguage("en");
+    try {
+      const english = await open(deckSession(NOW));
+      await user.click(screen.getByRole("button", { name: "Next question" }));
+      await user.click(screen.getByRole("button", { name: "Next question" }));
+      expect(within(sheet()).getByRole("radiogroup")).toHaveClass("grid-cols-3");
+      english.unmount();
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
     store().reset();
     sessionStorage.clear();
 
