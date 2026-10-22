@@ -138,7 +138,7 @@ describe("the Submit dialog", () => {
 
     expect(frame).toHaveAccessibleName(UNANSWERED);
     expect(frame).toHaveAccessibleDescription(
-      "Câu chưa trả lời sẽ không có điểm. Bạn vẫn còn 38 phút.",
+      "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Bạn vẫn còn 38 phút.",
     );
     expect(frame).toHaveClass("w-[min(27.5rem,calc(100%-1.5rem))]", "bg-card");
     expect(frame).toHaveClass("gap-3.5", "p-5.5", "rounded-2xl", "top-[50%]");
@@ -212,11 +212,11 @@ describe("the Submit dialog", () => {
     await open(MINUTE + 1_000);
     await ask();
     expect(dialog()).toHaveAccessibleDescription(
-      "Câu chưa trả lời sẽ không có điểm. Bạn vẫn còn 1 phút.",
+      "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Bạn vẫn còn 1 phút.",
     );
     await pass(2_000);
     expect(dialog()).toHaveAccessibleDescription(
-      "Câu chưa trả lời sẽ không có điểm. Bạn còn chưa đầy một phút.",
+      "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Bạn còn chưa đầy một phút.",
     );
   });
 
@@ -294,7 +294,10 @@ describe("the Submit dialog", () => {
     act(() => {
       store().setAnswer(q(4), {
         type: "choice",
-        optionIds: ["018f0000-0000-7000-8000-00000000c401"],
+        optionIds: [
+          "018f0000-0000-7000-8000-00000000c401",
+          "018f0000-0000-7000-8000-00000000c403",
+        ],
       });
       store().setAnswer(q(5), text("green space"));
       store().setAnswer(q(6), {
@@ -577,7 +580,7 @@ describe("the Submit dialog", () => {
 
     await ask();
     expect(dialog()).toHaveAccessibleDescription(
-      "Câu chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
+      "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
     );
     expect(facts()["Còn lại"]).toHaveTextContent(/^00:00$/);
 
@@ -601,7 +604,7 @@ describe("the Submit dialog", () => {
     await ask();
     expect(dialog()).toHaveAccessibleName("Nộp bài khi còn 4 câu chưa trả lời?");
     expect(dialog()).toHaveAccessibleDescription(
-      "Câu chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
+      "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
     );
     expect(facts()["Còn lại"]).toHaveTextContent(/^00:00$/);
     expect(facts()["Còn lại"]).toHaveClass("text-danger-ink");
@@ -609,7 +612,7 @@ describe("the Submit dialog", () => {
 
     await pass(2_000);
     expect(dialog()).toHaveAccessibleDescription(
-      "Câu chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
+      "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
     );
     expect(facts()["Còn lại"]).toHaveTextContent(/^00:00$/);
     expect(facts()["Còn lại"]).toHaveClass("text-danger-ink");
@@ -811,7 +814,7 @@ describe("the Submit dialog in English", () => {
 
     expect(dialog()).toHaveAccessibleName("Submit with 5 unanswered?");
     expect(dialog()).toHaveAccessibleDescription(
-      "Unanswered questions score zero. You still have 38 minutes.",
+      "Unanswered gaps, matches and questions score zero. You still have 38 minutes.",
     );
     expect(
       inDialog()
@@ -834,12 +837,12 @@ describe("the Submit dialog in English", () => {
     fireEvent.click(header().getByRole("button", { name: "Submit" }));
     await pass(0);
     expect(dialog()).toHaveAccessibleDescription(
-      "Unanswered questions score zero. You have less than a minute left.",
+      "Unanswered gaps, matches and questions score zero. You have less than a minute left.",
     );
 
     await pass(30_000);
     expect(dialog()).toHaveAccessibleDescription(
-      "Unanswered questions score zero. Time is up.",
+      "Unanswered gaps, matches and questions score zero. Time is up.",
     );
   });
 
@@ -848,7 +851,7 @@ describe("the Submit dialog in English", () => {
     fireEvent.click(header().getByRole("button", { name: "Submit" }));
     await pass(0);
     expect(dialog()).toHaveAccessibleDescription(
-      "Unanswered questions score zero. You still have 1 minute.",
+      "Unanswered gaps, matches and questions score zero. You still have 1 minute.",
     );
     fireEvent.click(inDialog().getByRole("button", { name: "Keep working" }));
     await pass(0);
