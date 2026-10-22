@@ -40,6 +40,7 @@ type questionParts struct {
 	rules       string
 	answer      string
 	correct     []int
+	keys        []int
 	gaps        map[string]int
 	print       string
 }
@@ -84,6 +85,7 @@ func newParts(e *encoder, q DraftQuestion) questionParts {
 	promptContent, gaps := canonicalContent(q.PromptContent)
 	explanationContent, _ := canonicalContent(q.ExplanationContent)
 	correct := correctPositions(q.Options)
+	keys := itemKeys(q.MatchItems)
 	parts := questionParts{
 		kind:        q.Type,
 		prompt:      e.json(q.Prompt, promptContent),
@@ -95,8 +97,9 @@ func newParts(e *encoder, q DraftQuestion) questionParts {
 		items:       e.json(itemTexts(q.MatchItems)),
 		rubric:      e.json(criterionLabels(q.Rubric)),
 		rules:       e.json(q.SelectCount, q.MaxWords, q.MatchAllowReuse),
-		answer:      e.json(correct, acceptedAnswers(q.Blanks), q.SampleAnswer, itemKeys(q.MatchItems)),
+		answer:      e.json(correct, acceptedAnswers(q.Blanks), q.SampleAnswer, keys),
 		correct:     correct,
+		keys:        keys,
 		gaps:        gaps,
 	}
 	parts.print = e.json(parts.kind, parts.prompt, parts.explanation, parts.media, parts.points, parts.options, parts.blanks,

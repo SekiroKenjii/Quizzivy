@@ -3,6 +3,7 @@ package domain
 import (
 	"fmt"
 	questionsdomain "quizzivy/internal/modules/questions/domain"
+	"quizzivy/internal/shared/matchkey"
 	"strings"
 	"unicode/utf8"
 )
@@ -52,7 +53,8 @@ type Change struct {
 	// Fields is what differs, for ChangeChanged.
 	Fields []ChangedField
 	// AnswerFrom and AnswerTo are the labels of the correct options of a
-	// choice question, for ChangeAnswer.
+	// choice or TFNG question, or of each matching item and its option, for
+	// ChangeAnswer.
 	AnswerFrom []string
 	AnswerTo   []string
 	// PointsFrom and PointsTo are the two totals, for ChangePoints.
@@ -155,23 +157,58 @@ func changedFields(from, to paperQuestion, fromContext, toContext string) []Chan
 
 func answerChange(from, to paperQuestion) Change {
 	change := Change{Kind: ChangeAnswer, Number: to.number, QuestionID: to.id}
-	if questionsdomain.Type(from.parts.kind).IsChoice() && questionsdomain.Type(to.parts.kind).IsChoice() {
-		change.AnswerFrom = optionLabels(from.parts.correct)
-		change.AnswerTo = optionLabels(to.parts.correct)
+	fromKind, toKind := questionsdomain.Type(from.parts.kind), questionsdomain.Type(to.parts.kind)
+	switch {
+	case fromKind == questionsdomain.Matching && toKind == questionsdomain.Matching:
+		change.AnswerFrom = matchLabels(from.parts.keys)
+		change.AnswerTo = matchLabels(to.parts.keys)
+	case keyedByOption(fromKind) && keyedByOption(toKind):
+		change.AnswerFrom = optionLabels(fromKind, from.parts.correct)
+		change.AnswerTo = optionLabels(toKind, to.parts.correct)
 	}
 	return change
 }
 
-func optionLabels(positions []int) []string {
-	labels := make([]string, len(positions))
-	for i, position := range positions {
-		if position < 26 {
-			labels[i] = string(rune('A' + position))
-			continue
+// tfngValues name a tfng question's options, in their fixed order, in a
+// diff: the reader shows each value in its own language, not a letter.
+var tfngValues = [3]string{"true", "false", "not_given"}
+
+func keyedByOption(t questionsdomain.Type) bool {
+	return t.IsChoice() || t == questionsdomain.TFNG
+}
+
+// matchLabels names each item by its key and the key of the choice it is
+// matched to, as the editor draws them (D-063): "A → iii", or "A → –" when
+// the item is keyed to none.
+func matchLabels(keys []int) []string {
+	labels := make([]string, len(keys))
+	for i, key := range keys {
+		option := "–"
+		if key >= 0 {
+			option = matchkey.Option(key)
 		}
-		labels[i] = fmt.Sprint(position + 1)
+		labels[i] = matchkey.Item(i) + " → " + option
 	}
 	return labels
+}
+
+func optionLabels(kind questionsdomain.Type, positions []int) []string {
+	labels := make([]string, len(positions))
+	for i, position := range positions {
+		if kind == questionsdomain.TFNG && position < len(tfngValues) {
+			labels[i] = tfngValues[position]
+		} else {
+			labels[i] = optionLabel(position)
+		}
+	}
+	return labels
+}
+
+func optionLabel(position int) string {
+	if position < 26 {
+		return string(rune('A' + position))
+	}
+	return fmt.Sprint(position + 1)
 }
 
 func shortPrompt(prompt string) string {

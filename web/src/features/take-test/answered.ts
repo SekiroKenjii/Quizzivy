@@ -6,9 +6,10 @@ import type { DotState } from "./components/Navigator";
  * read this, so "đã trả lời" means one thing everywhere.
  *
  * A fill_blank needs EVERY blank filled, because grading is per blank (O-17),
- * and a matching every item paired. "Choose N" needs exactly N picks (T-R6.6),
- * as the student card's count does on the server. It takes the question
- * because `values` and `pairs` carry only what was typed or paired.
+ * and a matching every item paired. "Choose N" needs exactly N different picks
+ * (T-R6.6; a repeat counts once, as scoring and the student card's count on the
+ * server count it). It takes the question because `values` and `pairs` carry
+ * only what was typed or paired.
  */
 export function answered(
   question: StudentQuestion,
@@ -18,7 +19,7 @@ export function answered(
   switch (answer.type) {
     case "choice":
       return question.type === "multiple_choice" && question.selectCount != null
-        ? answer.optionIds.length === question.selectCount
+        ? new Set(answer.optionIds).size === question.selectCount
         : answer.optionIds.length > 0;
     case "true_false":
       return typeof answer.value === "boolean";

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslation } from "react-i18next";
+import type { TFunction } from "i18next";
 import { authStore } from "@/stores/auth";
 import { can, hasWorkspace } from "@/features/auth/permissions";
 import { useAuthStore } from "@/stores/auth";
@@ -16,6 +17,15 @@ import {
   type GradingQueueParams,
 } from "../../api";
 import { gradingKey, monitorKey, reviewKey } from "../../keys";
+import { gradeFieldMessage } from "../../gradeErrors";
+import {
+  markFields,
+  markOf,
+  markPoints,
+  markSignature,
+  markStarted,
+  type EssayMark,
+} from "../../essayMark";
 import {
   gradingItemKey,
   groupReadyPapers,
@@ -28,15 +38,31 @@ import {
 /**
  * GradingDraft retains the acknowledged mark separately from the current
  * comment and score intent; `filled` marks a score laid by `fill` rather than
- * by a score button, which writes at once.
+ * by a score button, which writes at once. An essay's `mark` holds its band or
+ * its criteria; `points` is the score that mark derives, null until it is
+ * complete, and `acknowledged.mark` the saved mark's signature.
  */
 export interface GradingDraft {
   item: GradingQueueItem;
   points: number | null;
   comment: string;
-  acknowledged: { points: number; comment: string } | null;
+  acknowledged: { points: number; comment: string; mark?: string | undefined } | null;
   filled?: boolean;
+  mark?: EssayMark;
 }
+
+/** FieldError is a refused save's message for the marks of one answer, by its item key. */
+export interface FieldError {
+  key: string;
+  message: string;
+}
+
+const essay = (item: GradingQueueItem) => item.type === "essay";
+const rubricOf = (item: GradingQueueItem) => item.rubric ?? [];
+const signature = (item: GradingQueueItem, draft: GradingDraft) =>
+  essay(item) && draft.mark ? markSignature(rubricOf(item), draft.mark) : undefined;
+const halfMarked = (item: GradingQueueItem, draft: GradingDraft | undefined) =>
+  essay(item) && draft?.mark !== undefined && markStarted(rubricOf(item), draft.mark);
 
 /** FinishState retains explicit completion recovery independently of pending queue membership. */
 export interface FinishState {
@@ -52,11 +78,22 @@ export interface CheckFinish {
   next: AttemptListRow | null;
 }
 
+/** markFirst is what Save & next says when the answer has no mark yet. */
+function markFirst(item: GradingQueueItem, t: TFunction) {
+  if (essay(item))
+    return t(
+      rubricOf(item).length ? "grading.pickCriteriaFirst" : "grading.pickBandFirst",
+    );
+  const count = scoreOptions(item.points).length;
+  return t(count ? "grading.pickFirstKeys" : "grading.pickFirst", { n: count });
+}
+
 function ungradedHere(draft: GradingDraft | undefined, item: GradingQueueItem) {
   return (
     !draft ||
     (draft.acknowledged === null &&
       draft.points === null &&
+      !halfMarked(item, draft) &&
       draft.comment.trim() === (item.comment ?? "").trim())
   );
 }
@@ -93,18 +130,21 @@ function useOpenAnswerSync(
     retry: false,
   });
   if (!heldOpen || sync.data?.attempt.id !== heldOpen.attemptId) return;
-  const points = sync.data.answers[heldOpen.questionId]?.manualScore;
+  const answer = sync.data.answers[heldOpen.questionId];
+  const points = answer?.manualScore;
   if (points == null) return;
-  const remark = (sync.data.answers[heldOpen.questionId]?.graderComment ?? "").trim();
-  setDrafts({
-    ...drafts,
-    [gradingItemKey(heldOpen)]: {
-      item: heldOpen,
-      points,
-      comment: remark,
-      acknowledged: { points, comment: remark },
-    },
-  });
+  const remark = (answer?.graderComment ?? "").trim();
+  const draft: GradingDraft = {
+    item: heldOpen,
+    points,
+    comment: remark,
+    acknowledged: { points, comment: remark },
+  };
+  if (essay(heldOpen)) {
+    draft.mark = markOf(answer ?? {});
+    draft.acknowledged = { ...draft.acknowledged!, mark: signature(heldOpen, draft) };
+  }
+  setDrafts({ ...drafts, [gradingItemKey(heldOpen)]: draft });
 }
 
 function commentUnsettled(item: GradingQueueItem, draft: GradingDraft | undefined) {
@@ -117,6 +157,7 @@ function commentUnsettled(item: GradingQueueItem, draft: GradingDraft | undefine
 }
 
 function scoreUnsettled(item: GradingQueueItem, draft: GradingDraft | undefined) {
+  if (halfMarked(item, draft)) return true;
   if (!draft?.filled || draft.points === null) return false;
   return draft.points !== (draft.acknowledged?.points ?? item.score);
 }
@@ -155,6 +196,7 @@ export function useGradingQueue(params: GradingQueueParams) {
   const waitingNext = useRef(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldError, setFieldError] = useState<FieldError | null>(null);
   const [drafts, setDrafts] = useState<Record<string, GradingDraft>>({});
   const [finishes, setFinishes] = useState<Record<string, FinishState>>({});
   const [finishReady, setFinishReady] = useState<FinishState["item"] | null>(null);
@@ -260,6 +302,12 @@ export function useGradingQueue(params: GradingQueueParams) {
     ? unsavedScore || commentUnsettled(selected, draft)
     : false;
   const notify = (cause: unknown) => failureMessage(cause, t("grading.saveFailed"));
+  const report = (cause: unknown, item: GradingQueueItem | undefined) => {
+    const field = item ? gradeFieldMessage(cause, item.questionId, t) : null;
+    if (field !== null && item)
+      setFieldError({ key: gradingItemKey(item), message: field });
+    else setError(notify(cause));
+  };
   const ungraded = (item: GradingQueueItem) =>
     item.score === null && drafts[gradingItemKey(item)]?.acknowledged == null;
   const indexOf = (item: Pick<GradingQueueItem, "attemptId" | "questionId">) =>
@@ -282,14 +330,17 @@ export function useGradingQueue(params: GradingQueueParams) {
     lock.current = true;
     setBusy(true);
     setError(null);
+    setFieldError(null);
     return true;
   };
   const release = () => {
     lock.current = false;
     if (current()) setBusy(false);
   };
-  const draftFor = (item: GradingQueueItem): GradingDraft =>
-    drafts[gradingItemKey(item)] ?? {
+  const draftFor = (item: GradingQueueItem): GradingDraft => {
+    const saved = drafts[gradingItemKey(item)];
+    if (saved) return saved;
+    const draft: GradingDraft = {
       item,
       points: item.score,
       comment: item.comment ?? "",
@@ -298,14 +349,30 @@ export function useGradingQueue(params: GradingQueueParams) {
           ? null
           : { points: item.score, comment: item.comment ?? "" },
     };
+    if (essay(item)) {
+      draft.mark = markOf(item);
+      if (draft.acknowledged)
+        draft.acknowledged = { ...draft.acknowledged, mark: signature(item, draft) };
+    }
+    return draft;
+  };
+  const acknowledge = (item: GradingQueueItem, next: GradingDraft) => ({
+    points: next.points!,
+    comment: next.comment.trim(),
+    ...(essay(item) ? { mark: signature(item, next) } : {}),
+  });
   const write = async (item: GradingQueueItem, next: GradingDraft) => {
     if (next.points === null || !current()) return null;
+    const marks =
+      essay(item) && next.mark
+        ? markFields(rubricOf(item), next.mark)
+        : { points: next.points };
     const score = await gradeAttempt(
       item.attemptId,
       [
         {
           questionId: item.questionId,
-          points: next.points,
+          ...marks,
           comment: next.comment.trim() || null,
         },
       ],
@@ -314,10 +381,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     if (!current()) return null;
     setDrafts((previous) => ({
       ...previous,
-      [gradingItemKey(item)]: {
-        ...next,
-        acknowledged: { points: next.points!, comment: next.comment.trim() },
-      },
+      [gradingItemKey(item)]: { ...next, acknowledged: acknowledge(item, next) },
     }));
     invalidate(item, false);
     return score;
@@ -325,24 +389,38 @@ export function useGradingQueue(params: GradingQueueParams) {
   const flush = async (item: GradingQueueItem, next = draftFor(item)) => {
     if (next.points === null) return null;
     const ack = next.acknowledged;
-    if (ack?.points === next.points && ack.comment === next.comment.trim()) return null;
+    if (
+      ack?.points === next.points &&
+      ack.comment === next.comment.trim() &&
+      ack.mark === signature(item, next)
+    )
+      return null;
     return write(item, next);
   };
   const pickScore = async (item: GradingQueueItem, points: number) => {
-    if (!Number.isFinite(points) || points < 0 || points > item.points || !acquire())
+    if (
+      essay(item) ||
+      !Number.isFinite(points) ||
+      points < 0 ||
+      points > item.points ||
+      !acquire()
+    )
       return;
     setFinishReady(null);
     const next = { ...draftFor(item), points, filled: false };
     setDrafts((previous) => ({ ...previous, [gradingItemKey(item)]: next }));
     setPicked(gradingItemKey(item));
+    await save(item, next);
+  };
+  const save = async (item: GradingQueueItem, next: GradingDraft) => {
     const result = (async () => {
       try {
         const saved = await write(item, next);
         return saved && current()
-          ? { ...next, acknowledged: { points, comment: next.comment.trim() } }
+          ? { ...next, acknowledged: acknowledge(item, next) }
           : null;
       } catch (cause) {
-        if (current()) setError(notify(cause));
+        if (current()) report(cause, item);
         return null;
       } finally {
         release();
@@ -350,6 +428,22 @@ export function useGradingQueue(params: GradingQueueParams) {
     })();
     scoreSave.current = { key: gradingItemKey(item), result };
     await result;
+  };
+  /**
+   * pickBand sets an essay's band or one of its criteria. A complete mark
+   * saves at once, as a score button does; a rubric still missing a criterion
+   * waits in the draft, which `unsavedScore` reports, and saves nothing.
+   */
+  const pickBand = async (item: GradingQueueItem, mark: EssayMark) => {
+    if (!essay(item) || !current() || lock.current) return;
+    setFinishReady(null);
+    setFieldError(null);
+    const points = markPoints(rubricOf(item), mark, item.points);
+    const next = { ...draftFor(item), mark, points, filled: false };
+    setDrafts((previous) => ({ ...previous, [gradingItemKey(item)]: next }));
+    setPicked(gradingItemKey(item));
+    if (points === null || !acquire()) return;
+    await save(item, next);
   };
   const comment = (item: GradingQueueItem, value: string) => {
     if (!current() || lock.current) return;
@@ -361,6 +455,7 @@ export function useGradingQueue(params: GradingQueueParams) {
   };
   const fill = (item: GradingQueueItem, points: number, value: string) => {
     if (
+      essay(item) ||
       !Number.isFinite(points) ||
       points < 0 ||
       points > item.points ||
@@ -390,7 +485,7 @@ export function useGradingQueue(params: GradingQueueParams) {
         setFinishReady(null);
       }
     } catch (cause) {
-      if (current()) setError(notify(cause));
+      if (current()) report(cause, selected);
     } finally {
       release();
     }
@@ -400,18 +495,22 @@ export function useGradingQueue(params: GradingQueueParams) {
     try {
       if (selected) {
         const next = draftFor(selected);
+        if (halfMarked(selected, next)) {
+          setError(t("grading.pickCriteriaFirst"));
+          return;
+        }
         if (
           next.points === null &&
           next.comment.trim() !== (selected.comment ?? "").trim()
         ) {
-          setError(t("grading.pickFirst"));
+          setError(t(essay(selected) ? "grading.pickBandFirst" : "grading.pickFirst"));
           return;
         }
         await flush(selected);
       }
       if (current()) action();
     } catch (cause) {
-      if (current()) setError(notify(cause));
+      if (current()) report(cause, selected);
     } finally {
       release();
     }
@@ -494,10 +593,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     try {
       const nextDraft = savedDraft ?? draftFor(item);
       if (nextDraft.points === null) {
-        const count = scoreOptions(item.points).length;
-        const message = t(count ? "grading.pickFirstKeys" : "grading.pickFirst", {
-          n: count,
-        });
+        const message = markFirst(item, t);
         setError(message);
         toast.error(message);
         return;
@@ -515,7 +611,7 @@ export function useGradingQueue(params: GradingQueueParams) {
       }
       if (current() && following) setPicked(gradingItemKey(following));
     } catch (cause) {
-      if (current()) setError(notify(cause));
+      if (current()) report(cause, item);
     } finally {
       release();
     }
@@ -628,6 +724,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     savedCount,
     busy,
     error,
+    fieldError,
     finishes,
     finishReady,
     completed,
@@ -639,6 +736,7 @@ export function useGradingQueue(params: GradingQueueParams) {
     readyGroups,
     readyPapers,
     pickScore,
+    pickBand,
     comment,
     fill,
     select,

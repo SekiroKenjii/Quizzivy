@@ -126,6 +126,10 @@ func countValue(word string) int {
 
 var imperative = regexp.MustCompile(`(?i)^[^\pL]*(?:choose|circle|find|read|complete|write|rewrite|finish|identify|decide|match|fill|give|put|listen|mark|use|make|supply|change|select|underline|pick|answer|look|arrange|combine|correct|each of the following|chọn|tìm|đọc|hoàn thành|viết|điền|sắp xếp|nối)\b`)
 
+// headingLegend matches the lines of the IELTS answer legend that follow a question-range heading without an
+// imperative: "Do the following statements agree…", "In boxes 1-4 on your answer sheet, write", "TRUE if…".
+var headingLegend = regexp.MustCompile(`(?i)^[^\pL]*(?:do the (?:following )?statements\b|in boxes\b|on your answer sheet\b|(?:true|false|not given|yes|no)\s+if\b)`)
+
 func isInstruction(text string) bool {
 	text = strings.TrimSpace(text)
 	first := strings.IndexFunc(text, unicode.IsLetter)

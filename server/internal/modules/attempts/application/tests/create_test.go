@@ -244,7 +244,7 @@ func maintenanceWindow(t *testing.T, pool *pgxpool.Pool, startsAt, endsAt time.T
 		t.Fatal(err)
 	}
 	t.Cleanup(func() {
-		_, _ = pool.Exec(context.Background(), `DELETE FROM app.maintenance_windows WHERE id = $1::uuid`, id)
+		cleanUp(t, pool, `DELETE FROM app.maintenance_windows WHERE id = $1::uuid`, id)
 	})
 }
 

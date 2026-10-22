@@ -7797,6 +7797,8 @@ export interface components {
             blanks?: components["schemas"]["StudentBlank"][];
             /** @description `matching` only, as on `StudentQuestion`. */
             matchItems?: components["schemas"]["StudentMatchItem"][];
+            /** @description `multiple_choice` only, as on `StudentQuestion`: a "choose N" counts as answered with exactly N different picks. Present under every review policy: the rule was on the paper. */
+            selectCount?: components["schemas"]["SelectCount"];
             points: components["schemas"]["Points"];
             /** @description What the student submitted. `null` if unanswered, or removed under the retention policy. */
             answer: components["schemas"]["Answer"] | null;
@@ -8182,7 +8184,7 @@ export interface components {
          *     | `added` | in `to` only; `questionNumber` and `questionId` are its place in `to` | `prompt` |
          *     | `removed` | in `from` only; `questionNumber` and `questionId` are its place in `from` | `prompt` |
          *     | `changed` | in both; `questionNumber` and `questionId` are its place in `to` | `fields` |
-         *     | `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice question; none otherwise |
+         *     | `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice, TFNG or matching question; none otherwise |
          *     | `points` | none: the test's total changed; no `questionNumber`, no `questionId` | `pointsFrom`, `pointsTo` |
          *
          *     A question that changed in its words and in its key is reported twice,
@@ -8216,9 +8218,17 @@ export interface components {
             /** @description The question's prompt as plain text, cut to 200 characters with `…` in place of the rest. */
             prompt?: string;
             fields?: components["schemas"]["DiffField"][];
-            /** @description The labels (`A`, `B`, …) of the correct options in `from`, in order. */
+            /**
+             * @description The labels (`A`, `B`, …) of the correct options in `from`, in order.
+             *     For a TFNG question, the value of the correct option instead:
+             *     `true`, `false` or `not_given`, which the reader names in its own
+             *     language. For a matching question, one label per item in order:
+             *     the item's key, an arrow and the key of the choice it is keyed to,
+             *     as the editor draws them (D-063, `A → iii`), or `–` in place of
+             *     the choice when it is keyed to none.
+             */
             answerFrom?: string[];
-            /** @description The labels of the correct options in `to`, in order. */
+            /** @description The labels of the correct options in `to`, in order, as in `answerFrom`. */
             answerTo?: string[];
             pointsFrom?: components["schemas"]["Points"];
             pointsTo?: components["schemas"]["Points"];

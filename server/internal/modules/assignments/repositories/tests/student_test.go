@@ -7,6 +7,7 @@ import (
 	"errors"
 	"quizzivy/internal/platform/db"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -736,6 +737,14 @@ func liveCount(t *testing.T, store *repositories.Postgres, w world, assignmentID
 	return only(t, all, assignmentID).LiveAnsweredCount
 }
 
+// countOf prints a live count for a failure message: its value, or "none".
+func countOf(n *int) string {
+	if n == nil {
+		return "none"
+	}
+	return strconv.Itoa(*n)
+}
+
 func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
@@ -776,7 +785,7 @@ func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
 
 	got := liveCount(t, store, w, a.ID)
 	if got == nil || *got != 0 {
-		t.Fatalf("with only an empty choice saved the count is %v, want 0", got)
+		t.Fatalf("with only an empty choice saved the count is %s, want 0", countOf(got))
 	}
 	want := 0
 	for _, c := range cases {
@@ -795,7 +804,7 @@ func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
 		}
 		got := liveCount(t, store, w, a.ID)
 		if got == nil || *got != want {
-			t.Fatalf("%s: the count is %v, want %d", c.name, got, want)
+			t.Fatalf("%s: the count is %s, want %d", c.name, countOf(got), want)
 		}
 	}
 }
@@ -819,7 +828,7 @@ func TestTheLiveCountIsAbsentWithoutALiveAttempt(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := liveCount(t, store, w, fresh.ID); got == nil || *got != 1 {
-		t.Fatalf("a live attempt with one answer counts %v, want 1", got)
+		t.Fatalf("a live attempt with one answer counts %s, want 1", countOf(got))
 	}
 
 	if _, err := pool.Exec(ctx,
@@ -886,7 +895,7 @@ func TestTheLiveCountFollowsTheNavigatorsRuleForTheNewTypes(t *testing.T) {
 	a := createFor(t, store, w, legalInput(w))
 	attempt := sitAttempt(t, pool, w, a.ID, "in_progress", "0.00", false)
 
-	const o1, o2, i1, i2 = "\x00o1", "\x00o2", "\x00i1", "\x00i2"
+	const o1, o2, o3, i1, i2 = "\x00o1", "\x00o2", "\x00o3", "\x00i1", "\x00i2"
 	cases := []struct {
 		name    string
 		kind    string
@@ -895,6 +904,9 @@ func TestTheLiveCountFollowsTheNavigatorsRuleForTheNewTypes(t *testing.T) {
 	}{
 		{"choose two with one pick", "choose_two", `{"type":"choice","optionIds":["` + o1 + `"]}`, false},
 		{"choose two with two picks", "choose_two", `{"type":"choice","optionIds":["` + o1 + `","` + o2 + `"]}`, true},
+		{"choose two with three picks", "choose_two", `{"type":"choice","optionIds":["` + o1 + `","` + o2 + `","` + o3 + `"]}`, false},
+		{"choose two with one pick twice", "choose_two", `{"type":"choice","optionIds":["` + o1 + `","` + o1 + `"]}`, false},
+		{"choose two with a repeated pick", "choose_two", `{"type":"choice","optionIds":["` + o1 + `","` + o2 + `","` + o1 + `"]}`, true},
 		{"tfng with a pick", "tfng", `{"type":"choice","optionIds":["` + o1 + `"]}`, true},
 		{"matching with no pairs", "matching", `{"type":"matching","pairs":{}}`, false},
 		{"matching with one item of two", "matching", `{"type":"matching","pairs":{"` + i1 + `":"` + o1 + `"}}`, false},
@@ -907,7 +919,7 @@ func TestTheLiveCountFollowsTheNavigatorsRuleForTheNewTypes(t *testing.T) {
 	want := 0
 	for _, c := range cases {
 		question, options, items := askNewTypeInAttempt(t, pool, attempt, c.kind)
-		payload := strings.NewReplacer(o1, options[0], o2, options[1], i1, itemAt(items, 0), i2, itemAt(items, 1)).Replace(c.payload)
+		payload := strings.NewReplacer(o1, options[0], o2, options[1], o3, options[2], i1, itemAt(items, 0), i2, itemAt(items, 1)).Replace(c.payload)
 		if _, err := pool.Exec(ctx, `
 			INSERT INTO app.attempt_answers (attempt_id, question_id, payload)
 			VALUES ($1::uuid, $2::uuid, $3::jsonb)`, attempt, question, payload); err != nil {
@@ -917,7 +929,7 @@ func TestTheLiveCountFollowsTheNavigatorsRuleForTheNewTypes(t *testing.T) {
 			want++
 		}
 		if got := liveCount(t, store, w, a.ID); got == nil || *got != want {
-			t.Fatalf("%s: the count is %v, want %d", c.name, got, want)
+			t.Fatalf("%s: the count is %s, want %d", c.name, countOf(got), want)
 		}
 	}
 }
@@ -957,7 +969,7 @@ func askNewTypeInAttempt(t *testing.T, pool *pgxpool.Pool, attemptID, kind strin
 		t.Fatal(err)
 	}
 	if kind == "essay" {
-		return question, []string{"none", "none"}, nil
+		return question, []string{"none", "none", "none"}, nil
 	}
 	options := make([]string, 3)
 	for i := range options {
@@ -1021,16 +1033,22 @@ func TestACompletedCardCarriesThePapersBandOnlyWhenTheScoreIsShown(t *testing.T)
 	if err != nil {
 		t.Fatal(err)
 	}
+	found := 0
 	for _, c := range sections.Completed {
 		switch c.ID {
 		case shown.ID:
+			found++
 			if c.Score == nil || c.Score.Band == nil || *c.Score.Band != 6.5 {
 				t.Errorf("shown card score %+v, want band 6.5", c.Score)
 			}
 		case quiet.ID:
+			found++
 			if c.Score != nil {
 				t.Errorf("score and band shown although review.showScore is off: %+v", *c.Score)
 			}
 		}
+	}
+	if found != 2 {
+		t.Errorf("%d of the two cards are among the completed ones", found)
 	}
 }

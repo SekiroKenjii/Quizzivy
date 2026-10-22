@@ -9189,6 +9189,10 @@
             },
             "description": "`matching` only, as on `StudentQuestion`."
           },
+          "selectCount": {
+            "$ref": "#/components/schemas/SelectCount",
+            "description": "`multiple_choice` only, as on `StudentQuestion`: a \"choose N\" counts as answered with exactly N different picks. Present under every review policy: the rule was on the paper."
+          },
           "points": {
             "$ref": "#/components/schemas/Points"
           },
@@ -10270,7 +10274,7 @@
       },
       "DiffChangeKind": {
         "type": "string",
-        "description": "What one change reports. A question is never reported twice under one\nkind. An edit to the shared material of a group, or to a section,\nreaches each of its questions as one `changed` entry (field `context`\nor `section`), so `Test.unpublishedChanges` counts it once per\nquestion.\n\n| Kind | The question | `params` |\n|---|---|---|\n| `added` | in `to` only; `questionNumber` and `questionId` are its place in `to` | `prompt` |\n| `removed` | in `from` only; `questionNumber` and `questionId` are its place in `from` | `prompt` |\n| `changed` | in both; `questionNumber` and `questionId` are its place in `to` | `fields` |\n| `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice question; none otherwise |\n| `points` | none: the test's total changed; no `questionNumber`, no `questionId` | `pointsFrom`, `pointsTo` |\n\nA question that changed in its words and in its key is reported twice,\nonce as `changed` and once as `answer`. Moving a question to another\nplace in the paper is not a change.\n",
+        "description": "What one change reports. A question is never reported twice under one\nkind. An edit to the shared material of a group, or to a section,\nreaches each of its questions as one `changed` entry (field `context`\nor `section`), so `Test.unpublishedChanges` counts it once per\nquestion.\n\n| Kind | The question | `params` |\n|---|---|---|\n| `added` | in `to` only; `questionNumber` and `questionId` are its place in `to` | `prompt` |\n| `removed` | in `from` only; `questionNumber` and `questionId` are its place in `from` | `prompt` |\n| `changed` | in both; `questionNumber` and `questionId` are its place in `to` | `fields` |\n| `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice, TFNG or matching question; none otherwise |\n| `points` | none: the test's total changed; no `questionNumber`, no `questionId` | `pointsFrom`, `pointsTo` |\n\nA question that changed in its words and in its key is reported twice,\nonce as `changed` and once as `answer`. Moving a question to another\nplace in the paper is not a change.\n",
         "enum": [
           "added",
           "removed",
@@ -10320,18 +10324,18 @@
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 3
+              "maxLength": 16
             },
-            "description": "The labels (`A`, `B`, …) of the correct options in `from`, in order."
+            "description": "The labels (`A`, `B`, …) of the correct options in `from`, in order.\nFor a TFNG question, the value of the correct option instead:\n`true`, `false` or `not_given`, which the reader names in its own\nlanguage. For a matching question, one label per item in order:\nthe item's key, an arrow and the key of the choice it is keyed to,\nas the editor draws them (D-063, `A → iii`), or `–` in place of\nthe choice when it is keyed to none.\n"
           },
           "answerTo": {
             "type": "array",
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 3
+              "maxLength": 16
             },
-            "description": "The labels of the correct options in `to`, in order."
+            "description": "The labels of the correct options in `to`, in order, as in `answerFrom`."
           },
           "pointsFrom": {
             "$ref": "#/components/schemas/Points"

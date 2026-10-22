@@ -12,7 +12,12 @@ import {
   pickCandidate,
   restore,
   exclude,
+  selectCountChoices,
+  selectCountMismatch,
+  setMaxWords,
   setPrompt,
+  setSelectCount,
+  validMaxWords,
   validPoints,
 } from "@/features/imports/draft";
 import {
@@ -379,5 +384,110 @@ describe("round-three rules", () => {
   it("keeps a single-choice prompt whatever its gaps", () => {
     const q = question({ id: "q", label: "1" });
     expect(setPrompt(q, gaps(BLANK_LIMIT + 1)).prompt).toEqual(gaps(BLANK_LIMIT + 1));
+  });
+});
+
+describe("TFNG, Choose N and word limits", () => {
+  const tfng = question({
+    id: "t",
+    label: "1",
+    type: "tfng",
+    options: [
+      option("t-t", "T", "True"),
+      option("t-f", "F", "False"),
+      option("t-ng", "NG", "Not given"),
+    ],
+    answer: { state: "conflict", optionIds: [], evidence: [] },
+  });
+
+  it("reads a tfng key as TRUE / FALSE / NOT GIVEN, T / F / NG or the Vietnamese words", () => {
+    expect(candidateOptions(tfng, value("NOT GIVEN"))).toEqual(["t-ng"]);
+    expect(candidateOptions(tfng, value("ng."))).toEqual(["t-ng"]);
+    expect(candidateOptions(tfng, value("Không  có thông tin"))).toEqual(["t-ng"]);
+    expect(candidateOptions(tfng, value("True"))).toEqual(["t-t"]);
+    expect(candidateOptions(tfng, value("Sai"))).toEqual(["t-f"]);
+    expect(candidateOptions(tfng, value("Yes"))).toBeNull();
+    expect(candidateOptions(tfng, value("A"))).toBeNull();
+    expect(pickCandidate(tfng, value("NG"))?.answer).toMatchObject({
+      state: "known",
+      optionIds: ["t-ng"],
+    });
+  });
+
+  it("seeds a question converted to tfng with True, False and Not given in that order", () => {
+    const keyed = question({ id: "q", label: "1" });
+    const converted = changeType(keyed, "tfng");
+    expect(converted.options.map((o) => o.label)).toEqual(["T", "F", "NG"]);
+    expect(converted.options.map((o) => contentPlainText(o.content))).toEqual([
+      "True",
+      "False",
+      "Not given",
+    ]);
+    expect(converted.answer).toMatchObject({ state: "unknown", optionIds: [] });
+    expect(dropsAnswerData(keyed, converted)).toBe(true);
+  });
+
+  it("keeps a tfng question's own options and key when it comes back to tfng", () => {
+    const known = {
+      ...tfng,
+      answer: { state: "known" as const, optionIds: ["t-ng"], evidence: [] },
+    };
+    const back = changeType(changeType(known, "single_choice"), "tfng");
+    expect(back.options).toEqual(known.options);
+    expect(back.answer.optionIds).toEqual(["t-ng"]);
+  });
+
+  it("keeps Choose N only on a multiple choice and a word limit only on a short answer", () => {
+    const two = setSelectCount(
+      question({ id: "m", label: "2", type: "multiple_choice" }),
+      2,
+    );
+    expect(two.selectCount).toBe(2);
+    expect(changeType(two, "single_choice")).not.toHaveProperty("selectCount");
+    expect(setSelectCount(two, null)).not.toHaveProperty("selectCount");
+    const limited = setMaxWords(
+      question({ id: "s", label: "3", type: "short_answer", options: [] }),
+      2,
+    );
+    expect(limited.maxWords).toBe(2);
+    expect(changeType(limited, "fill_blank")).not.toHaveProperty("maxWords");
+    expect(setMaxWords(limited, null)).not.toHaveProperty("maxWords");
+  });
+
+  it("offers Choose N from two up to one less than the options, at most seven", () => {
+    expect(selectCountChoices(question({ id: "m", label: "1" }))).toEqual([2, 3]);
+    const many = question({
+      id: "m",
+      label: "1",
+      options: "ABCDEFGH".split("").map((l) => option(`m-${l}`, l, l)),
+    });
+    expect(selectCountChoices(many)).toEqual([2, 3, 4, 5, 6, 7]);
+  });
+
+  it("flags a Choose N key with another number of marked options", () => {
+    const two = setSelectCount(
+      question({ id: "m", label: "1", type: "multiple_choice" }),
+      2,
+    );
+    expect(selectCountMismatch(two)).toBe(true);
+    expect(
+      selectCountMismatch({
+        ...two,
+        answer: { ...two.answer, optionIds: ["m-a", "m-b"] },
+      }),
+    ).toBe(false);
+    expect(
+      selectCountMismatch({
+        ...two,
+        answer: { state: "unknown", optionIds: [], evidence: [] },
+      }),
+    ).toBe(false);
+  });
+
+  it("accepts a word limit from 1 to 100, or none", () => {
+    for (const ok of ["", " ", "1", "100", " 7 "])
+      expect(validMaxWords(ok), ok).toBe(true);
+    for (const bad of ["0", "101", "2.5", "two", "-1"])
+      expect(validMaxWords(bad), bad).toBe(false);
   });
 });

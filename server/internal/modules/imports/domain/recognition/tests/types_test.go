@@ -356,3 +356,24 @@ func TestTheKeyOnlyTFNGRuleLeavesOtherKeyedSectionsAlone(t *testing.T) {
 		}
 	}
 }
+
+func TestAYesNoNotGivenPartIsNotTFNG(t *testing.T) {
+	d := recognize(t, tfngPaper("Do the statements agree with the views of the writer? Write YES, NO or NOT GIVEN."), key(lines("I.\t1. YES\t2. NO\t3. NOT GIVEN\t4. YES")))
+	for _, q := range d.Questions() {
+		if q.Type == "tfng" {
+			t.Fatalf("YES / NO / NOT GIVEN is not tfng: %+v", q)
+		}
+	}
+	d = recognize(t, textExam(
+		"Part 1. Write YES, NO or NOT GIVEN.",
+		"1. Parks are worth their cost.",
+		"Answer: YES",
+		"2. Roads matter more.",
+		"Answer: Not given",
+	))
+	for _, label := range []string{"1", "2"} {
+		if q := question(t, d, label); q.Type != "short_answer" {
+			t.Fatalf("pasted YES / NO / NOT GIVEN %s stays short answer: %+v", label, q)
+		}
+	}
+}

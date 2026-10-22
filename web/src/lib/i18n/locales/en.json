@@ -4352,7 +4352,9 @@
     "voided": "This attempt was voided, so it isn't graded.",
     "keyTo": "–",
     "keySep": "·",
-    "keyEnter": "Enter"
+    "keyEnter": "Enter",
+    "wordCount_one": "{{count}} word",
+    "wordCount_other": "{{count}} words"
   },
   "timeline": {
     "loadFailed": "Couldn't load this attempt's timeline.",
@@ -5184,7 +5186,9 @@
       "answer": "Answer",
       "points": "Points",
       "blanks": "Blank answers",
-      "sample": "Sample answer"
+      "sample": "Sample answer",
+      "selectCount": "Answers to choose",
+      "maxWords": "Word limit"
     },
     "severity": {
       "blocking": "Needs action",
@@ -5390,6 +5394,13 @@
       "pointsInvalid": "Points must be a positive number with at most two decimals.",
       "markOneHint": "Mark one correct answer",
       "markManyHint": "Mark every correct answer",
+      "markCountHint": "Mark exactly {{count}} correct answers",
+      "selectCountAny": "Any number, marked all or nothing",
+      "selectCountValue": "Choose {{count}}",
+      "selectCountMismatch": "Mark exactly {{count}} options correct, the number to choose.",
+      "maxWordsHint": "Leave empty for no limit. Students see the limit, and a longer answer is flagged, never cut.",
+      "maxWordsInvalid": "Enter a whole number from 1 to 100, or leave it empty.",
+      "tfngOption": { "T": "True", "F": "False", "NG": "Not given" },
       "markCorrect": "Option {{label}} is correct",
       "editOption": "Edit",
       "editOptionNamed": "Edit option {{label}}",

@@ -2,6 +2,7 @@ package recognition
 
 import (
 	"quizzivy/internal/modules/imports/domain"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -156,7 +157,11 @@ func paragraphLines(source string, b *domain.EvidenceBlock) []*line {
 		if i < len(runes) && runes[i] != '\n' {
 			continue
 		}
-		if visible(runes[start:i]) {
+		switch {
+		case !visible(runes[start:i]):
+		case len(out) > 0 && continuesInstruction(out[len(out)-1], runes[start:i]):
+			out[len(out)-1].append(b, runes, start, i, ' ')
+		default:
 			l := &line{source: source}
 			l.append(b, runes, start, i, ' ')
 			out = append(out, l)
@@ -167,6 +172,43 @@ func paragraphLines(source string, b *domain.EvidenceBlock) []*line {
 		out[0].numbering = b.Numbering
 	}
 	return out
+}
+
+// continuesInstruction reports whether the text after a soft line break (Shift+Enter) inside one paragraph carries
+// on the instruction l began. The break is layout when l reads as an instruction or a heading that has not ended
+// its sentence and the tail opens nothing of its own (a question, an option, a section or a key).
+func continuesInstruction(l *line, tail []rune) bool {
+	text := strings.TrimSpace(l.String())
+	if text == "" || strings.ContainsRune(".?!:;", []rune(text)[len([]rune(text))-1]) || opensStructure(tail) || capsTitle(tail) {
+		return false
+	}
+	if _, end, ok := roman(l.text); ok && visible(l.text[end:]) {
+		return true
+	}
+	return namedSection.MatchString(text) || rangeHeading(text) || isInstruction(text)
+}
+
+// capsTitle reports whether text is an upper-case title of two words or more that names nothing an instruction
+// counts or lists ("THE HISTORY OF TEA", not "NOT GIVEN." or "TWO WORDS"): a passage title, not the rest of the line.
+func capsTitle(text []rune) bool {
+	plain := strings.TrimSpace(matchable(text))
+	return len(strings.Fields(plain)) >= 2 && strings.ToUpper(plain) == plain && plain != strings.ToLower(plain) && !instructionWord.MatchString(plain)
+}
+
+var instructionWord = regexp.MustCompile(`(?i)\b(?:true|false|not given|yes|no|words?|letters?|answers?|numbers?|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b`)
+
+func opensStructure(text []rune) bool {
+	plain := strings.TrimSpace(matchable(text))
+	if _, ok := questionLabel(text); ok {
+		return true
+	}
+	if optionStart(text) {
+		return true
+	}
+	if _, _, ok := roman(text); ok {
+		return true
+	}
+	return namedSection.MatchString(plain) || rangeHeading(plain) || keyHeading.MatchString(plain) || answerOnly.MatchString(plain)
 }
 
 func rowLines(source string, row []*domain.EvidenceBlock) []*line {

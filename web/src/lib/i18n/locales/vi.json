@@ -4352,7 +4352,9 @@
     "voided": "Lượt làm này đã bị huỷ nên không chấm.",
     "keyTo": "–",
     "keySep": "·",
-    "keyEnter": "Enter"
+    "keyEnter": "Enter",
+    "wordCount_one": "{{count}} từ",
+    "wordCount_other": "{{count}} từ"
   },
   "timeline": {
     "loadFailed": "Không tải được diễn biến của lượt làm này.",
@@ -5184,7 +5186,9 @@
       "answer": "Đáp án",
       "points": "Điểm",
       "blanks": "Đáp án các chỗ trống",
-      "sample": "Đáp án mẫu"
+      "sample": "Đáp án mẫu",
+      "selectCount": "Số đáp án cần chọn",
+      "maxWords": "Giới hạn số từ"
     },
     "severity": {
       "blocking": "Cần xử lý",
@@ -5390,6 +5394,13 @@
       "pointsInvalid": "Điểm phải là số dương, tối đa hai chữ số thập phân.",
       "markOneHint": "Chọn một đáp án đúng",
       "markManyHint": "Chọn mọi đáp án đúng",
+      "markCountHint": "Chọn đúng {{count}} đáp án đúng",
+      "selectCountAny": "Không cố định, đúng hết mới có điểm",
+      "selectCountValue": "Chọn {{count}}",
+      "selectCountMismatch": "Cần đánh dấu đúng {{count}} phương án, bằng số đáp án cần chọn.",
+      "maxWordsHint": "Để trống nếu không giới hạn. Học sinh thấy giới hạn này; câu trả lời dài hơn chỉ bị đánh dấu, không bị cắt.",
+      "maxWordsInvalid": "Nhập số nguyên từ 1 đến 100, hoặc để trống.",
+      "tfngOption": { "T": "Đúng", "F": "Sai", "NG": "Không có thông tin" },
       "markCorrect": "Lựa chọn {{label}} là đáp án đúng",
       "editOption": "Sửa",
       "editOptionNamed": "Sửa lựa chọn {{label}}",

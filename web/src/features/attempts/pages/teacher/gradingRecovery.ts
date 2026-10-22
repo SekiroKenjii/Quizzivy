@@ -199,3 +199,18 @@ export function paperCheck(review: AttemptReview): PaperCheck {
       (review.attempt.status === "submitted" || review.attempt.status === "timed_out"),
   };
 }
+
+/**
+ * pageKey says a keydown belongs to the grading page's own keys: focus is not
+ * in a field, a dialog, a menu or the ready card, and no text is being
+ * composed. The page's score keys and the card's band keys both ask it.
+ */
+export function pageKey(event: KeyboardEvent) {
+  if (event.isComposing) return false;
+  return !(
+    event.target instanceof Element &&
+    event.target.closest(
+      "input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=textbox], [role=dialog], [role=menu], [role=listbox], [data-grading-ready]",
+    )
+  );
+}

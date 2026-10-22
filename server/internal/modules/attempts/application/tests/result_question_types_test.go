@@ -121,4 +121,27 @@ func TestAnAllEssayPaperShowsItsBandOnlyWithTheScore(t *testing.T) {
 			t.Errorf("%+v: rubric criteria %+v", tc, rubric.Criteria)
 		}
 	}
+	setReview(t, pool, world{assignment: assignment}, true, true, true)
+	for _, phase := range []struct {
+		name  string
+		set   string
+		shown bool
+	}{
+		{"before an after-close release", `review_release = 'after_close', closes_at = now() + interval '1 hour', closed_at = NULL`, false},
+		{"once the close has passed", `review_release = 'after_close', closed_at = now() - interval '1 minute'`, true},
+	} {
+		if _, err := pool.Exec(ctx, `UPDATE app.assignments SET `+phase.set+` WHERE id = $1::uuid`, assignment); err != nil {
+			t.Fatal(err)
+		}
+		result, err := svc.Queries.Result.Handle(ctx, query.Result{AttemptID: p.attempt, StudentID: p.student})
+		if err != nil {
+			t.Fatalf("%s: %v", phase.name, err)
+		}
+		rubric, plain := byID(result)[p.rubric], byID(result)[p.plain]
+		got := result.Score != nil && is(result.Score.Band, 7) && is(plain.Band, 7) && len(rubric.Criteria) == 4
+		hidden := result.Score == nil && plain.Band == nil && rubric.Band == nil && rubric.Criteria == nil
+		if (phase.shown && !got) || (!phase.shown && !hidden) {
+			t.Errorf("%s: score %+v, plain band %v, rubric band %v criteria %+v", phase.name, result.Score, plain.Band, rubric.Band, rubric.Criteria)
+		}
+	}
 }
