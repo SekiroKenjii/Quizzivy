@@ -596,8 +596,8 @@ func gradeRefusal(ctx context.Context, refused *domain.GradeShapeError) openapi.
 			"Only an essay is graded on a band."))
 	case domain.NeedsBand:
 		resp = httpapi.Error(ctx, openapi.GRADENEEDSBAND, httpx.Text(ctx,
-			"Bài luận này được chấm bằng một band, không phải điểm số.",
-			"This essay is graded on a band, not in points."))
+			"Hãy chấm bài luận này bằng một band, không kèm điểm số hay tiêu chí.",
+			"Give this essay one band, with no points or criteria."))
 	case domain.CriteriaIncomplete:
 		resp = httpapi.Error(ctx, openapi.GRADECRITERIAINCOMPLETE, httpx.Text(ctx,
 			"Hãy chấm band cho từng tiêu chí của bài luận này, mỗi tiêu chí một lần.",
@@ -626,6 +626,8 @@ func gradeItemMessage(ctx context.Context, reason string) string {
 	switch reason {
 	case "above_ceiling":
 		return httpx.Text(ctx, "Điểm vượt quá điểm tối đa của câu.", "The score is above the question's maximum.")
+	case "repeated":
+		return httpx.Text(ctx, "Câu này có mặt nhiều lần trong một lần lưu.", "This question appears more than once in one save.")
 	case "unanswered":
 		return httpx.Text(ctx, "Học viên không trả lời câu này.", "The student did not answer this question.")
 	default:

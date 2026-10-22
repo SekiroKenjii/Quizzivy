@@ -2140,7 +2140,10 @@ export interface paths {
         /**
          * Save manual grades
          * @description Saved per call rather than as one giant submit, so a half-graded attempt
-         *     survives a refresh. `points` is rejected above the question's ceiling.
+         *     survives a refresh. `points` is rejected above the question's ceiling,
+         *     and a question named by more than one item is rejected: both are 400
+         *     `VALIDATION_FAILED` with `details` keyed by the question's id. The
+         *     refusals are answered in this order: 409, then 422, then 400.
          *
          *     An item for an `essay` takes a `band` when the question has no rubric
          *     criteria, or `criteria` naming every one of them, and no `points`: the

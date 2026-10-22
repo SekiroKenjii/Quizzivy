@@ -119,9 +119,14 @@ func (p gradingPaper) misshapen(items []domain.GradeItem) error {
 
 func (p gradingPaper) invalid(items []domain.GradeItem) []domain.GradeItemError {
 	var invalid []domain.GradeItemError
+	seen := make(map[string]bool, len(items))
 	for _, it := range items {
 		sl, ok := p[it.QuestionID]
+		repeated := seen[it.QuestionID]
+		seen[it.QuestionID] = true
 		switch {
+		case repeated:
+			invalid = append(invalid, domain.GradeItemError{QuestionID: it.QuestionID, Reason: "repeated"})
 		case !ok:
 			invalid = append(invalid, domain.GradeItemError{QuestionID: it.QuestionID, Reason: "not_on_paper"})
 		case !sl.answered:
