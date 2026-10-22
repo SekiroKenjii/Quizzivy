@@ -360,6 +360,9 @@ func checkPaper() []domain.PaperQuestion {
 		paper[i] = domain.PaperQuestion{ID: fmt.Sprintf("q%d", i+1), Number: i + 1, Type: prompts.SingleChoice, Prompt: fmt.Sprintf("Question %d", i+1)}
 	}
 	paper[2].Options = []domain.Option{{ID: "o3a", Text: "They benefit residents’ health", Correct: true}, {ID: "o3b", Text: "They are cheap"}}
+	paper[3].Type = prompts.Tfng
+	paper[3].Options = []domain.Option{{ID: "o4a", Text: "True"}, {ID: "o4b", Text: "False", Correct: true}, {ID: "o4c", Text: "Not given"}}
+	paper[5].Type = prompts.ShortAnswer
 	paper[4].Type = prompts.FillBlank
 	paper[4].Blanks = []domain.Blank{{ID: "bl5", Accepted: []string{"public green space"}}}
 	paper[7].Type = prompts.MultipleChoice
@@ -372,8 +375,10 @@ func TestTheCheckSchemaCarriesTheDecksFindingsAndEachFixKeepsOrLosesItsPayload(t
 	in := prompts.CheckInput{Questions: checkPaper(), Checks: []string{prompts.CheckKey, prompts.CheckClarity, prompts.CheckGiveaway, prompts.CheckLanguage}, Language: domain.English}
 	var rows []map[string]any
 	for _, f := range deckChecks {
-		fix := map[string]any{"kind": "none", "description": f.Fix, "label": f.FixLabel, "option": "", "blank": 0, "text": ""}
+		fix := map[string]any{"kind": "none", "description": f.Fix, "label": f.FixLabel, "option": "", "blank": 0, "words": 0, "text": ""}
 		switch f.Q {
+		case 4:
+			fix["kind"], fix["option"] = "tfng_answer", "C"
 		case 3:
 			fix["kind"], fix["option"], fix["text"] = "option_text", "B", "They benefit residents’ wellbeing and local house prices."
 		case 5:
@@ -381,7 +386,7 @@ func TestTheCheckSchemaCarriesTheDecksFindingsAndEachFixKeepsOrLosesItsPayload(t
 		case 8:
 			fix["kind"], fix["option"], fix["text"] = "option_text", "D", "fewer people"
 		case 6:
-			fix["kind"], fix["text"] = "explanation", "Write NO MORE THAN THREE WORDS."
+			fix["kind"], fix["words"] = "word_limit", 3
 		}
 		rows = append(rows, map[string]any{"question": f.Q, "severity": severity[f.Sev], "issue": f.Issue, "fix": fix})
 	}
@@ -418,13 +423,16 @@ func TestTheCheckSchemaCarriesTheDecksFindingsAndEachFixKeepsOrLosesItsPayload(t
 	if f := byNumber[8].Fix; f.Kind != prompts.FixOptionText || f.OptionID != "o8d" {
 		t.Errorf("Q8's fix = %+v", f)
 	}
-	if f := byNumber[6].Fix; f.Kind != prompts.FixExplanation || f.OptionID != "" || f.BlankID != "" {
-		t.Errorf("Q6's fix = %+v", f)
+	if f := byNumber[6].Fix; f.Kind != prompts.FixWordLimit || f.MaxWords != 3 || f.Text != "Write NO MORE THAN THREE WORDS." || f.Label != "Add word limit" || f.OptionID != "" || f.BlankID != "" {
+		t.Errorf("Q6's fix = %+v, want the deck's word limit of three as a one-click fix", f)
 	}
-	if f := byNumber[4].Fix; f.Kind != prompts.FixNone || f.Description != "Change the answer to Not given." || f.Label != "" {
-		t.Errorf("Q4's fix = %+v, want advice only", f)
+	if f := byNumber[4].Fix; f.Kind != prompts.FixTfngAnswer || f.OptionID != "o4c" || f.Text != "Not given" || f.Label != "Change to Not given" || f.Description != "Change the answer to Not given." {
+		t.Errorf("Q4's fix = %+v, want the deck's Change to Not given as a one-click fix", f)
 	}
-	if byNumber[4].QuestionID != "q4" || byNumber[4].Type != prompts.SingleChoice || byNumber[4].Title != "Question 4" {
+	if f := byNumber[2].Fix; f.Kind != prompts.FixNone || f.Label != "" {
+		t.Errorf("Q2's fix = %+v, want advice only: a matching heading has no write", f)
+	}
+	if byNumber[4].QuestionID != "q4" || byNumber[4].Type != prompts.Tfng || byNumber[4].Title != "Question 4" {
 		t.Errorf("Q4 = %+v", byNumber[4])
 	}
 }
@@ -432,21 +440,30 @@ func TestTheCheckSchemaCarriesTheDecksFindingsAndEachFixKeepsOrLosesItsPayload(t
 func TestACheckKeepsAFixOnlyWhenItsWriteExists(t *testing.T) {
 	paper := checkPaper()
 	paper[2].Rich = true
+	paper[6].Type, paper[6].MaxWords = prompts.ShortAnswer, 2
 	in := prompts.CheckInput{Questions: paper, Checks: []string{prompts.CheckKey}}
 	fixes := map[string]map[string]any{
-		"an option that does not exist": {"question": 1, "kind": "option_text", "option": "F", "text": "x"},
-		"an option already so":          {"question": 3, "kind": "option_text", "option": "B", "text": "they are cheap"},
-		"a rich question":               {"question": 3, "kind": "option_text", "option": "B", "text": "They are costly"},
-		"a blank on a choice question":  {"question": 1, "kind": "accepted_answer", "blank": 1, "text": "x"},
-		"a blank that is not there":     {"question": 5, "kind": "accepted_answer", "blank": 2, "text": "x"},
-		"an answer already accepted":    {"question": 5, "kind": "accepted_answer", "blank": 1, "text": "Public Green Space"},
-		"an unknown kind":               {"question": 1, "kind": "delete", "text": "x"},
-		"no text":                       {"question": 1, "kind": "explanation", "text": " "},
+		"an option that does not exist":   {"question": 1, "kind": "option_text", "option": "F", "text": "x"},
+		"an option already so":            {"question": 3, "kind": "option_text", "option": "B", "text": "they are cheap"},
+		"a rich question":                 {"question": 3, "kind": "option_text", "option": "B", "text": "They are costly"},
+		"a blank on a choice question":    {"question": 1, "kind": "accepted_answer", "blank": 1, "text": "x"},
+		"a blank that is not there":       {"question": 5, "kind": "accepted_answer", "blank": 2, "text": "x"},
+		"an answer already accepted":      {"question": 5, "kind": "accepted_answer", "blank": 1, "text": "Public Green Space"},
+		"an unknown kind":                 {"question": 1, "kind": "delete", "text": "x"},
+		"no text":                         {"question": 1, "kind": "explanation", "text": " "},
+		"a new key on a choice question":  {"question": 1, "kind": "tfng_answer", "option": "C"},
+		"the key a tfng already has":      {"question": 4, "kind": "tfng_answer", "option": "B"},
+		"a tfng option that is not there": {"question": 4, "kind": "tfng_answer", "option": "D"},
+		"a tfng label rewritten":          {"question": 4, "kind": "option_text", "option": "C", "text": "Unknown"},
+		"a word limit on a choice":        {"question": 1, "kind": "word_limit", "words": 3},
+		"a word limit of none":            {"question": 6, "kind": "word_limit", "words": 0},
+		"a word limit past the most":      {"question": 6, "kind": "word_limit", "words": 101},
+		"the word limit it has":           {"question": 7, "kind": "word_limit", "words": 2},
 	}
 	var rows []map[string]any
 	for name, f := range fixes {
-		fix := map[string]any{"kind": f["kind"], "description": name, "label": "Do it", "option": "", "blank": 0, "text": ""}
-		for _, k := range []string{"option", "blank", "text"} {
+		fix := map[string]any{"kind": f["kind"], "description": name, "label": "Do it", "option": "", "blank": 0, "words": 0, "text": ""}
+		for _, k := range []string{"option", "blank", "words", "text"} {
 			if v, ok := f[k]; ok {
 				fix[k] = v
 			}
@@ -454,9 +471,9 @@ func TestACheckKeepsAFixOnlyWhenItsWriteExists(t *testing.T) {
 		rows = append(rows, map[string]any{"question": f["question"], "severity": "minor", "issue": name, "fix": fix})
 	}
 	rows = append(rows,
-		map[string]any{"question": 99, "severity": "minor", "issue": "A question that is not there", "fix": map[string]any{"kind": "none", "description": "d", "label": "", "option": "", "blank": 0, "text": ""}},
-		map[string]any{"question": 1, "severity": "minor", "issue": "  ", "fix": map[string]any{"kind": "none", "description": "d", "label": "", "option": "", "blank": 0, "text": ""}},
-		map[string]any{"question": 1, "severity": "terrible", "issue": "An unknown severity", "fix": map[string]any{"kind": "none", "description": "d", "label": "", "option": "", "blank": 0, "text": ""}},
+		map[string]any{"question": 99, "severity": "minor", "issue": "A question that is not there", "fix": map[string]any{"kind": "none", "description": "d", "label": "", "option": "", "blank": 0, "words": 0, "text": ""}},
+		map[string]any{"question": 1, "severity": "minor", "issue": "  ", "fix": map[string]any{"kind": "none", "description": "d", "label": "", "option": "", "blank": 0, "words": 0, "text": ""}},
+		map[string]any{"question": 1, "severity": "terrible", "issue": "An unknown severity", "fix": map[string]any{"kind": "none", "description": "d", "label": "", "option": "", "blank": 0, "words": 0, "text": ""}},
 	)
 	got, err := prompts.DecodeCheck(marshal(t, map[string]any{"findings": rows}), in)
 	if err != nil {
@@ -466,7 +483,7 @@ func TestACheckKeepsAFixOnlyWhenItsWriteExists(t *testing.T) {
 		t.Fatalf("%d findings, want the %d about a question of the paper with an issue and a known severity", len(got), len(fixes))
 	}
 	for _, f := range got {
-		if f.Fix.Kind != prompts.FixNone || f.Fix.OptionID != "" || f.Fix.BlankID != "" || f.Fix.Text != "" || f.Fix.Description == "" {
+		if f.Fix.Kind != prompts.FixNone || f.Fix.OptionID != "" || f.Fix.BlankID != "" || f.Fix.MaxWords != 0 || f.Fix.Text != "" || f.Fix.Description == "" {
 			t.Errorf("%q kept a fix: %+v", f.Issue, f.Fix)
 		}
 	}
