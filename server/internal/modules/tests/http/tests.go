@@ -205,15 +205,7 @@ func testRequest(ctx context.Context, id string) (domain.Request, bool) {
 }
 
 func testValidationError(ctx context.Context, invalid *domain.ValidationError) openapi.ErrorResponse {
-	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Dữ liệu đề không hợp lệ.", "The test data is not valid."))
-	details := map[string]interface{}{}
-	for _, f := range invalid.Fields {
-		if _, seen := details[f.Field]; !seen {
-			details[f.Field] = f.Message
-		}
-	}
-	resp.Error.Details = &details
-	return resp
+	return httpapi.Invalid(ctx, httpx.Text(ctx, "Dữ liệu đề không hợp lệ.", "The test data is not valid."), invalid)
 }
 
 func toUpdateInput(body openapi.UpdateTestJSONRequestBody) domain.UpdateInput {

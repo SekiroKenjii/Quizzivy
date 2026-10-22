@@ -8,20 +8,20 @@ import (
 
 // ValidateContent checks the prose profiles and exact companion text before writes and publication.
 func (in Input) ValidateContent() error {
-	var fields []FieldError
+	errs := &ValidationError{}
 	if !validPrompt(in) {
-		fields = append(fields, FieldError{Field: "promptContent", Message: "Nội dung có định dạng không hợp lệ hoặc không khớp văn bản."})
+		errs.AddIn("promptContent", "Nội dung có định dạng không hợp lệ hoặc không khớp văn bản.",
+			"The formatted text is not valid or does not match the plain text.")
 	}
 	if in.Type == FillBlank && hasProse(in.PromptContent) {
-		validateGapBindings(in, func(field, message string) {
-			fields = append(fields, FieldError{Field: field, Message: message})
-		})
+		validateGapBindings(in, errs)
 	}
 	if !validProse(in.ExplanationContent, in.Explanation) {
-		fields = append(fields, FieldError{Field: "explanationContent", Message: "Lời giải có định dạng không hợp lệ hoặc không khớp văn bản."})
+		errs.AddIn("explanationContent", "Lời giải có định dạng không hợp lệ hoặc không khớp văn bản.",
+			"The formatted explanation is not valid or does not match its plain text.")
 	}
-	if len(fields) > 0 {
-		return &ValidationError{Fields: fields}
+	if invalid := errs.OrNil(); invalid != nil {
+		return invalid
 	}
 	return nil
 }

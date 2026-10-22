@@ -1,5 +1,7 @@
 package domain
 
+import "quizzivy/internal/shared/validation"
+
 // Level identifies a question's optional proficiency level.
 type Level string
 
@@ -25,7 +27,7 @@ func validSkill(skill Skill) bool {
 // ValidateAuthoring bounds newly submitted choice options without capping stored content.
 func (in Input) ValidateAuthoring() error {
 	if in.Type.IsChoice() && len(in.Options) > 8 {
-		return &ValidationError{Fields: []FieldError{{Field: "options", Message: "Chỉ được có tối đa tám phương án."}}}
+		return validation.Refuse("options", "Chỉ được có tối đa tám phương án.", "A question can have at most eight options.")
 	}
 	return nil
 }

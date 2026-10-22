@@ -51,10 +51,9 @@ func preserveOptionContent(ctx context.Context, tx pgx.Tx, questionID string, op
 			continue
 		}
 		if !matched || old.Text != next.Text {
-			return &validation.Error{Fields: []validation.Field{{
-				Field:   fmt.Sprintf("options[%d].content", i),
-				Message: "Phương án đã có định dạng. Hãy tải lại câu hỏi trước khi sửa nội dung.",
-			}}}
+			return validation.Refuse(fmt.Sprintf("options[%d].content", i),
+				"Phương án đã có định dạng. Hãy tải lại câu hỏi trước khi sửa nội dung.",
+				"The option has formatting. Reload the question before you change its text.")
 		}
 		next.Content = old.Content
 	}
