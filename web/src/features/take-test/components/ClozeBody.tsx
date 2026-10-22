@@ -5,6 +5,7 @@ import { PAPER_SURFACE } from "@/components/shared/content/paperSurface";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { useLargerTestText } from "@/lib/testText";
 import { cn } from "@/lib/utils";
+import { PromptMedia } from "./PromptMedia";
 import { FlagToggle } from "./QuestionCard";
 import { answered } from "../answered";
 import { usePaper } from "../paper";
@@ -143,17 +144,19 @@ export function ClozeBody({
           })}
         </div>
       </div>
-      <GapCard
-        question={question}
-        number={open + 1}
-        filled={filled}
-        size={stop.positions.length}
-        ownPrompt={shared === null}
-        answer={answers[question.id]}
-        larger={larger}
-        disabled={locked}
-        onChoose={choose}
-      />
+      <PromptMedia assets={question.promptAssets}>
+        <GapCard
+          question={question}
+          number={open + 1}
+          filled={filled}
+          size={stop.positions.length}
+          ownPrompt={shared === null}
+          answer={answers[question.id]}
+          larger={larger}
+          disabled={locked}
+          onChoose={choose}
+        />
+      </PromptMedia>
       <p className="sr-only" aria-live="polite">
         {t("takeTest.cloze.gap", { n: open + 1 })}
       </p>

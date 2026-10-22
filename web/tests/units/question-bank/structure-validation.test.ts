@@ -312,3 +312,29 @@ describe("the R6 types and settings (T-R6.9a)", () => {
       expect(errors[key], key).toBeTruthy();
   });
 });
+
+test("refuses a prompt marker once the question has no audio of its own", () => {
+  const value = {
+    ...choice("single_choice", 1),
+    prompt: "Nghe.",
+    promptContent: {
+      format: "semantic_v1",
+      blocks: [
+        { type: "paragraph", content: [{ type: "text", text: "Nghe.", marks: [] }] },
+        { type: "audio" },
+      ],
+    } as never,
+  };
+
+  const refused = questionSchema.safeParse(value);
+  expect(refused.success).toBe(false);
+  expect(issueKey(refused.error!, "fallback")).toBe(
+    "questionEditor.errors.markerNeedsAudio",
+  );
+  expect(
+    questionSchema.safeParse({
+      ...value,
+      mediaAssetId: "018f0000-0000-7000-8000-0000000000c3",
+    }).success,
+  ).toBe(true);
+});

@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Link,
@@ -30,6 +30,8 @@ import { QuestionPromptAnswers } from "@/features/question-bank/components/Quest
 import { QuestionSettingsFields } from "@/features/question-bank/components/QuestionSettingsFields";
 import { QuestionTypeControl } from "@/features/question-bank/components/QuestionTypeControl";
 import { QuestionUsageBanner } from "@/features/question-bank/components/QuestionUsageBanner";
+import { useProseMedia } from "@/features/question-bank/useProseMedia";
+import { ProseMediaContext } from "@/components/shared/content/editor/proseMedia";
 import { aiReadsOf, type QuestionAi } from "@/features/question-bank/questionAi";
 import {
   blockingIssue,
@@ -167,17 +169,41 @@ function Editor({
     },
     onError: (cause) =>
       setError(
-        cause instanceof ApiError ? cause.message : t("questionEditor.saveFailed"),
+        cause instanceof ApiError
+          ? (contentRefusal(cause) ?? cause.message)
+          : t("questionEditor.saveFailed"),
       ),
   });
 
   const blocked = blockingIssue(values, "questionEditor.saveFailed");
   const canSave = blocked === null && (dirty || question === null) && !save.isPending;
 
-  function change(next: QuestionValues) {
+  function update(next: QuestionValues) {
     setValues(next);
     setDirty(true);
   }
+
+  const contentAssets = useMemo(
+    () =>
+      new Map(
+        (question?.contentAssets ?? []).map((file) => [file.id.toLowerCase(), file]),
+      ),
+    [question?.contentAssets],
+  );
+  const refresh = () => {
+    void onRefreshAsset().then((fresh) => {
+      if (fresh) setAsset(fresh);
+    });
+  };
+  const media = useProseMedia({
+    value: values,
+    onChange: update,
+    asset,
+    onAssetChange: setAsset,
+    assets: contentAssets,
+    onRefresh: refresh,
+  });
+  const change = media.change;
 
   function submit() {
     setError(null);
@@ -251,44 +277,44 @@ function Editor({
 
       {question === null ? null : <QuestionUsageBanner question={question} />}
 
-      <div className="grid items-start gap-4.5 @min-[900px]/qe:grid-cols-[minmax(0,1fr)_300px]">
-        <div data-field-size="page" className={CARD}>
-          <QuestionTypeControl value={values} onChange={change} />
-          <QuestionPromptAnswers
-            value={values}
-            promptLabel={t("questionEditor.question")}
-            ai={ai}
-            onChange={change}
-          />
-          <ExplanationField value={values} ai={ai} onChange={change} />
-        </div>
-        <StickyAside
-          aria-label={t("questionEditor.settings")}
-          className="@min-[900px]/qe:sticky-column min-w-0"
-        >
-          <div className={CARD}>
-            <div className="flex flex-col gap-3">
-              <p className={GROUP_LABEL}>{t("questionEditor.settingsLabel")}</p>
-              <QuestionSettingsFields value={values} onChange={change} />
-            </div>
-            <hr className="border-border" />
-            <div className="flex flex-col gap-3">
-              <p className={GROUP_LABEL}>{t("questionEditor.mediaLabel")}</p>
-              <QuestionMediaField
-                value={values}
-                asset={asset}
-                onChange={change}
-                onAssetChange={setAsset}
-                onRefresh={() => {
-                  void onRefreshAsset().then((fresh) => {
-                    if (fresh) setAsset(fresh);
-                  });
-                }}
-              />
-            </div>
+      <ProseMediaContext value={media.host}>
+        <div className="grid items-start gap-4.5 @min-[900px]/qe:grid-cols-[minmax(0,1fr)_300px]">
+          <div data-field-size="page" className={CARD}>
+            <QuestionTypeControl value={values} onChange={change} />
+            <QuestionPromptAnswers
+              value={values}
+              promptLabel={t("questionEditor.question")}
+              ai={ai}
+              onChange={change}
+            />
+            <ExplanationField value={values} ai={ai} onChange={change} />
           </div>
-        </StickyAside>
-      </div>
+          <StickyAside
+            aria-label={t("questionEditor.settings")}
+            className="@min-[900px]/qe:sticky-column min-w-0"
+          >
+            <div className={CARD}>
+              <div className="flex flex-col gap-3">
+                <p className={GROUP_LABEL}>{t("questionEditor.settingsLabel")}</p>
+                <QuestionSettingsFields value={values} onChange={change} />
+              </div>
+              <hr className="border-border" />
+              <div className="flex flex-col gap-3">
+                <p className={GROUP_LABEL}>{t("questionEditor.mediaLabel")}</p>
+                <QuestionMediaField
+                  value={values}
+                  asset={asset}
+                  onChange={change}
+                  onAssetChange={setAsset}
+                  onRefresh={refresh}
+                  onMedia={media.media}
+                />
+              </div>
+            </div>
+          </StickyAside>
+        </div>
+      </ProseMediaContext>
+      {media.dialogs}
 
       <ConfirmDialog
         open={blocker.state === "blocked" || leaveThen !== null}
@@ -311,4 +337,10 @@ function Editor({
       />
     </div>
   );
+}
+
+function contentRefusal(cause: ApiError): string | null {
+  const reason =
+    cause.details?.["promptContent"] ?? cause.details?.["explanationContent"];
+  return typeof reason === "string" ? reason : null;
 }

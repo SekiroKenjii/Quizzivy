@@ -18,7 +18,9 @@ import {
   Pilcrow,
   type LucideIcon,
 } from "lucide-react";
-import type { EditorProfile } from "./profile";
+import { holdsGaps, type EditorProfile } from "./profile";
+import type { ProseField } from "../questionContent";
+import type { ProseMediaHost } from "./proseMedia";
 import { editorShortcut, type Shortcut } from "./shortcuts";
 import { useRovingToolbar } from "./roving";
 import { ToolButton } from "./ToolButton";
@@ -36,7 +38,10 @@ type ButtonTool = {
   run: () => void;
 };
 
-type Tool = ButtonTool | { key: "link"; link: true };
+type Tool =
+  | ButtonTool
+  | { key: "link"; link: true }
+  | { key: "insertImage" | "insertAudio"; media: "image" | "audio" };
 
 type ToolGroup = { key: string; tools: Tool[] };
 
@@ -47,17 +52,21 @@ const OPTION_GROUPS = new Set(["marks", "history"]);
  * the table row while the caret is in a table. It subscribes only to the
  * selection state its controls display. "Insert gap" shows only in a profile
  * that holds gaps, and the option profile keeps the marks and the history.
+ * Given `media`, a question's prompt or explanation also has "Image" and
+ * "Audio" after "Link" (DG-109).
  */
 export function ContentToolbar({
   editor,
   label,
   profile = "document",
   gapLabel,
+  media,
 }: Readonly<{
   gapLabel?: (() => string) | undefined;
   editor: Editor;
   label: string;
   profile?: EditorProfile;
+  media?: Readonly<{ host: ProseMediaHost; field: ProseField }> | undefined;
 }>) {
   const { t } = useTranslation();
   const state = useEditorState({
@@ -78,7 +87,7 @@ export function ContentToolbar({
       redo: e.can().redo(),
     }),
   });
-  const gaps = profile === "prompt" || profile === "document";
+  const gaps = holdsGaps(profile);
   const allGroups: ToolGroup[] = [
     {
       key: "marks",
@@ -164,6 +173,12 @@ export function ContentToolbar({
       key: "insert",
       tools: [
         { key: "link", link: true },
+        ...(media
+          ? [
+              { key: "insertImage" as const, media: "image" as const },
+              { key: "insertAudio" as const, media: "audio" as const },
+            ]
+          : []),
         {
           key: "insertTable",
           icon: Table2,
@@ -213,7 +228,7 @@ export function ContentToolbar({
   const roving = useRovingToolbar(
     groups.flatMap((group) =>
       group.tools
-        .filter((tool) => "link" in tool || !tool.disabled)
+        .filter((tool) => !("run" in tool) || !tool.disabled)
         .map((tool) => tool.key),
     ),
   );
@@ -239,6 +254,17 @@ export function ContentToolbar({
                 tabIndex: roving.tabIndexFor(tool.key),
                 onFocus: () => roving.remember(tool.key),
               };
+              if ("media" in tool)
+                return media ? (
+                  <media.host.Menu
+                    key={tool.key}
+                    editor={editor}
+                    kind={tool.media}
+                    field={media.field}
+                    host={media.host}
+                    {...common}
+                  />
+                ) : null;
               if ("link" in tool)
                 return (
                   <LinkPopover

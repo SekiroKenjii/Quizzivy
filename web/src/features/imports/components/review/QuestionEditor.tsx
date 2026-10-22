@@ -72,7 +72,7 @@ import { Provenance } from "./Provenance";
 
 const ContentEditor = lazy(() =>
   import("@/components/shared/content/editor/ContentEditor").then((module) => ({
-    default: module.ContentEditor,
+    default: module.ContentEditor<SemanticContent>,
   })),
 );
 

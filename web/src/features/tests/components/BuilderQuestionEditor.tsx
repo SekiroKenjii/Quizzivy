@@ -15,6 +15,8 @@ import {
 import { Input } from "@/components/ui/input";
 import type { MediaAsset } from "@/features/media/api";
 import { QuestionMediaField } from "@/features/question-bank/components/QuestionMediaField";
+import { useProseMedia } from "@/features/question-bank/useProseMedia";
+import { ProseMediaContext } from "@/components/shared/content/editor/proseMedia";
 import { ExplanationField } from "@/features/question-bank/components/ExplanationField";
 import { QuestionPromptAnswers } from "@/features/question-bank/components/QuestionPromptAnswers";
 import { QUESTION_TYPE_ICONS } from "@/features/question-bank/components/questionTypeIcons";
@@ -60,9 +62,10 @@ export function BuilderQuestionEditor({
   clearPromptOnFocus,
   actions,
   ai,
-  onChange,
+  onChange: update,
   onAssetChange,
   onRefresh,
+  assets,
 }: Readonly<{
   value: QuestionValues;
   asset: MediaAsset | null;
@@ -73,89 +76,103 @@ export function BuilderQuestionEditor({
   onChange: (value: QuestionValues) => void;
   onAssetChange: (asset: MediaAsset | null) => void;
   onRefresh?: (() => void) | undefined;
+  assets?: ReadonlyMap<string, MediaAsset> | undefined;
 }>) {
   const { t } = useTranslation();
+  const media = useProseMedia({
+    value,
+    onChange: update,
+    asset,
+    onAssetChange,
+    assets,
+    onRefresh,
+  });
+  const onChange = media.change;
   return (
-    <div className="flex min-w-0 flex-col">
-      <div className="flex min-w-0 items-center gap-2.5 border-b px-4 py-3">
-        <h2 className="shrink-0 text-[13px] font-semibold whitespace-nowrap">
-          {number === null
-            ? t("builder.editor.question")
-            : t("builder.editor.questionNumber", { number })}
-        </h2>
-        <TypeMenu value={value} onChange={onChange} />
-        <label className="text-muted-fg ml-auto flex shrink-0 items-center gap-2 text-[12.5px] whitespace-nowrap">
-          {t("questionEditor.points")}
-          <Input
-            type="number"
-            min={0.01}
-            step={0.5}
-            value={value.points}
-            aria-invalid={value.points <= 0}
-            className="h-7.5 w-12 rounded-[7px] px-0.5 text-center lg:text-[13px]"
-            onChange={(event) =>
-              onChange({ ...value, points: Number(event.target.value) })
-            }
-          />
-        </label>
-        <RowMenu label={t("builder.editor.more")}>
-          <DropdownMenuItem onSelect={actions.onDuplicate}>
-            <Copy aria-hidden="true" />
-            {t("builder.editor.duplicate")}
-          </DropdownMenuItem>
-          <DropdownMenuItem onSelect={actions.onMove}>
-            <FolderInput aria-hidden="true" />
-            {t("builder.editor.move")}
-          </DropdownMenuItem>
-          {actions.onMoveIntoGroup ? (
-            <DropdownMenuItem onSelect={actions.onMoveIntoGroup}>
-              <Layers aria-hidden="true" />
-              {t("builder.moveIntoGroup")}
-            </DropdownMenuItem>
-          ) : null}
-          <DropdownMenuSeparator />
-          <DropdownMenuItem variant="destructive" onSelect={actions.onDelete}>
-            <Trash2 aria-hidden="true" />
-            {t("builder.editor.delete")}
-          </DropdownMenuItem>
-        </RowMenu>
-      </div>
-      {value.points <= 0 ? (
-        <p role="alert" className="text-danger-ink border-b px-4 py-2 text-xs">
-          {t("questionEditor.pointsError")}
-        </p>
-      ) : null}
-
-      <div className="flex min-w-0 flex-col gap-4.5 px-4 py-4.5">
-        <QuestionPromptAnswers
-          value={value}
-          clearPromptOnFocus={clearPromptOnFocus}
-          ai={ai}
-          onChange={onChange}
-        />
-
-        <QuestionMediaField
-          value={value}
-          asset={asset}
-          onChange={onChange}
-          onAssetChange={onAssetChange}
-          onRefresh={onRefresh}
-        />
-
-        <details className="group/more border-t pt-3.5">
-          <summary className="cursor-pointer rounded-[6px] text-[13px] font-medium">
-            {t("builder.editor.moreOptions")}
-          </summary>
-          <div className="mt-3 flex flex-col gap-3.5">
-            <ExplanationField value={value} ai={ai} onChange={onChange} />
-            <TagsField
-              tags={value.tags}
-              onChange={(tags) => onChange({ ...value, tags })}
+    <ProseMediaContext value={media.host}>
+      <div className="flex min-w-0 flex-col">
+        <div className="flex min-w-0 items-center gap-2.5 border-b px-4 py-3">
+          <h2 className="shrink-0 text-[13px] font-semibold whitespace-nowrap">
+            {number === null
+              ? t("builder.editor.question")
+              : t("builder.editor.questionNumber", { number })}
+          </h2>
+          <TypeMenu value={value} onChange={onChange} />
+          <label className="text-muted-fg ml-auto flex shrink-0 items-center gap-2 text-[12.5px] whitespace-nowrap">
+            {t("questionEditor.points")}
+            <Input
+              type="number"
+              min={0.01}
+              step={0.5}
+              value={value.points}
+              aria-invalid={value.points <= 0}
+              className="h-7.5 w-12 rounded-[7px] px-0.5 text-center lg:text-[13px]"
+              onChange={(event) =>
+                onChange({ ...value, points: Number(event.target.value) })
+              }
             />
-          </div>
-        </details>
+          </label>
+          <RowMenu label={t("builder.editor.more")}>
+            <DropdownMenuItem onSelect={actions.onDuplicate}>
+              <Copy aria-hidden="true" />
+              {t("builder.editor.duplicate")}
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={actions.onMove}>
+              <FolderInput aria-hidden="true" />
+              {t("builder.editor.move")}
+            </DropdownMenuItem>
+            {actions.onMoveIntoGroup ? (
+              <DropdownMenuItem onSelect={actions.onMoveIntoGroup}>
+                <Layers aria-hidden="true" />
+                {t("builder.moveIntoGroup")}
+              </DropdownMenuItem>
+            ) : null}
+            <DropdownMenuSeparator />
+            <DropdownMenuItem variant="destructive" onSelect={actions.onDelete}>
+              <Trash2 aria-hidden="true" />
+              {t("builder.editor.delete")}
+            </DropdownMenuItem>
+          </RowMenu>
+        </div>
+        {value.points <= 0 ? (
+          <p role="alert" className="text-danger-ink border-b px-4 py-2 text-xs">
+            {t("questionEditor.pointsError")}
+          </p>
+        ) : null}
+
+        <div className="flex min-w-0 flex-col gap-4.5 px-4 py-4.5">
+          <QuestionPromptAnswers
+            value={value}
+            clearPromptOnFocus={clearPromptOnFocus}
+            ai={ai}
+            onChange={onChange}
+          />
+
+          <QuestionMediaField
+            value={value}
+            asset={asset}
+            onChange={onChange}
+            onAssetChange={onAssetChange}
+            onMedia={media.media}
+            onRefresh={onRefresh}
+          />
+
+          <details className="group/more border-t pt-3.5">
+            <summary className="cursor-pointer rounded-[6px] text-[13px] font-medium">
+              {t("builder.editor.moreOptions")}
+            </summary>
+            <div className="mt-3 flex flex-col gap-3.5">
+              <ExplanationField value={value} ai={ai} onChange={onChange} />
+              <TagsField
+                tags={value.tags}
+                onChange={(tags) => onChange({ ...value, tags })}
+              />
+            </div>
+          </details>
+        </div>
+        {media.dialogs}
       </div>
-    </div>
+    </ProseMediaContext>
   );
 }
 

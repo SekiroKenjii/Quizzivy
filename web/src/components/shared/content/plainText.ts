@@ -1,4 +1,9 @@
-import type { ContentBlock, ContentDocument, ContentInline } from "./model";
+import type {
+  ContentDocument,
+  ContentInline,
+  ProseBlock,
+  ProseDocument,
+} from "./model";
 
 function inlineText(node: ContentInline): string {
   switch (node.type) {
@@ -13,7 +18,7 @@ function inlineText(node: ContentInline): string {
   }
 }
 
-function blockText(node: ContentBlock): string {
+function blockText(node: ProseBlock): string {
   switch (node.type) {
     case "paragraph":
     case "heading":
@@ -29,13 +34,26 @@ function blockText(node: ContentBlock): string {
     case "image":
       return node.alt;
     case "audio":
-      return node.label;
+      return "label" in node ? node.label : "";
   }
 }
 
-/** contentPlainText projects validated content without adding asset URLs or answer metadata. */
-export function contentPlainText(document: ContentDocument): string {
-  return document.format === "legacy_markdown_v1"
-    ? document.markdown
-    : document.blocks.map(blockText).join("\n\n");
+function isMedia(node: ProseBlock): boolean {
+  return node.type === "image" || node.type === "audio";
+}
+
+/**
+ * contentPlainText projects validated content without adding asset URLs or
+ * answer metadata. An image projects to its alt text and a question's audio
+ * to nothing, and a media block that projects to nothing adds no separator
+ * (`question-media-v1.json`); an empty paragraph still keeps its own.
+ */
+export function contentPlainText(document: ContentDocument | ProseDocument): string {
+  if (document.format === "legacy_markdown_v1") return document.markdown;
+  return document.blocks
+    .flatMap((node) => {
+      const text = blockText(node);
+      return text === "" && isMedia(node) ? [] : [text];
+    })
+    .join("\n\n");
 }

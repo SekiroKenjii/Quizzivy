@@ -1,9 +1,6 @@
 import i18n from "@/lib/i18n";
 import { contentPlainText } from "@/components/shared/content/plainText";
-import {
-  formProse,
-  isQuestionPromptContent,
-} from "@/components/shared/content/questionContent";
+import { isQuestionPromptContent } from "@/components/shared/content/questionContent";
 import {
   groupIssue,
   groupRoom,
@@ -232,7 +229,7 @@ it("starts a group's new question with its prompt stored as rich text", () => {
   expect(input.prompt).toBe(i18n.t("builder.starterPrompt"));
   expect(isQuestionPromptContent(input.promptContent)).toBe(true);
   expect(
-    contentPlainText(formProse(input.promptContent)!),
+    contentPlainText(input.promptContent!),
     "the document projects to its text",
   ).toBe(input.prompt);
 });

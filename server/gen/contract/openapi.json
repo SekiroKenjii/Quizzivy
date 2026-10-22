@@ -4255,6 +4255,13 @@
               "null"
             ]
           },
+          "contentAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAsset"
+            },
+            "description": "The media the frozen `promptContent` and `explanationContent` show\n(DG-109), signed for the grader as `AdminQuestion.contentAssets`\nis (D-077), once each, prompt first. Absent when they show none; a\nfile that cannot be loaded is left out.\n"
+          },
           "sharedContext": {
             "$ref": "#/components/schemas/SharedReviewContext"
           }
@@ -8682,7 +8689,7 @@
             "items": {
               "$ref": "#/components/schemas/MediaAsset"
             },
-            "description": "The media `promptContent` and `explanationContent` show (DG-109),\nsigned for the editor, once each, prompt first. Absent when they\nshow none; a file that cannot be loaded is left out, as `media` is.\n"
+            "description": "The media `promptContent` and `explanationContent` show (DG-109),\nsigned for the editor, once each, prompt first. Absent when they\nshow none; a file that cannot be loaded is left out, as `media` is.\nThe attempt review and grade-by-question readers sign the frozen\nversion's media here too, so a grader sees what the student saw\n(D-077).\n"
           },
           "mediaAlt": {
             "type": [
