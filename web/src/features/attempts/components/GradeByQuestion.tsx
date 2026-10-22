@@ -1,6 +1,6 @@
 import { ReviewGroup } from "@/features/media";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
-import { useRef, useState } from "react";
+import { useId, useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { ArrowRight, Check, Eye, Minus, Plus } from "lucide-react";
@@ -23,8 +23,17 @@ import {
 } from "../api";
 import { answersKey, monitorKey, reviewKey } from "../keys";
 import { gradeFieldMessage } from "../gradeErrors";
-import { handMarked, markBand, markFields, markOf, type EssayMark } from "../essayMark";
-import { EssayBands } from "./BandScale";
+import {
+  handMarked,
+  markBand,
+  markFields,
+  markOf,
+  markSignature,
+  type EssayMark,
+} from "../essayMark";
+import { useUnsavedSection } from "@/features/settings/unsavedSection";
+import { pointsSignature, useFocusWithin, useSavedSync } from "../savedSync";
+import { EssayBands, GradedElsewhere } from "./BandScale";
 import type { GradeMarks } from "./GradingCard";
 
 /**
@@ -58,6 +67,8 @@ export function GradeByQuestion({
   const answers = useQuery({
     queryKey: answersKey(assignmentId, questionId),
     queryFn: ({ signal }) => listAnswersForQuestion(assignmentId, questionId, signal),
+    // Another tab or teacher may grade these papers meanwhile.
+    refetchOnWindowFocus: "always",
   });
 
   const grade = useMutation({
@@ -298,18 +309,22 @@ export function GradeByQuestion({
                     />
                   ))
                 )}
-                <p
-                  className={cn(
-                    "text-muted-foreground text-xs",
-                    data.question.type === "essay" && "hidden",
-                  )}
-                >
-                  <Trans
-                    i18nKey="byQuestion.keys"
-                    values={{ max: data.question.points, modifier: commandKeyLabel() }}
-                    components={{ down: <KeyGlyph name="down" /> }}
-                  />
-                </p>
+                {data.question.type === "essay" ? (
+                  <p className="text-muted-foreground hidden text-xs min-[768px]:block">
+                    {t("grading.bandKeys")}
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-xs">
+                    <Trans
+                      i18nKey="byQuestion.keys"
+                      values={{
+                        max: data.question.points,
+                        modifier: commandKeyLabel(),
+                      }}
+                      components={{ down: <KeyGlyph name="down" /> }}
+                    />
+                  </p>
+                )}
               </div>
             </div>
           )
@@ -343,9 +358,17 @@ function AnswerRow({
   onMove: (delta: -1 | 1) => void;
 }>) {
   const { t } = useTranslation();
-  const [points, setPoints] = useState(
-    row.manualScore == null ? "" : String(row.manualScore),
+  const labelId = useId();
+  const savedPoints = row.manualScore == null ? "" : String(row.manualScore);
+  const [points, setPoints] = useState(savedPoints);
+  const [holding, hold] = useFocusWithin();
+  const sync = useSavedSync(
+    savedPoints,
+    rubric === null ? pointsSignature(points) : savedPoints,
+    () => setPoints(savedPoints),
+    holding,
   );
+  useUnsavedSection(`g04:${row.attemptId}`, sync.dirty);
   const value = Number(points);
   const valid =
     points.trim() !== "" && Number.isFinite(value) && value >= 0 && value <= max;
@@ -364,7 +387,9 @@ function AnswerRow({
     <Card className={cn("gap-0", blank && "opacity-70")}>
       <CardContent className="space-y-3 py-4">
         <div className="flex items-center gap-2">
-          <span className="text-sm font-medium">{label}</span>
+          <span id={labelId} className="text-sm font-medium">
+            {label}
+          </span>
           {row.attemptNo > 1 && (
             <span className="text-muted-foreground text-xs">
               {t("byQuestion.attemptNo", { n: row.attemptNo })}
@@ -402,6 +427,7 @@ function AnswerRow({
         {!blank && rubric !== null && (
           <EssayRowMarks
             row={row}
+            owner={labelId}
             rubric={rubric}
             error={error}
             pending={pending}
@@ -409,8 +435,11 @@ function AnswerRow({
             onSave={(marks) => onSave(marks, false)}
           />
         )}
+        {!blank && rubric === null && sync.elsewhere && (
+          <GradedElsewhere onShow={() => setPoints(savedPoints)} />
+        )}
         {!blank && rubric === null && (
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2" {...hold}>
             <Button
               variant="outline"
               size="icon-xs"
@@ -469,9 +498,11 @@ function AnswerRow({
  * EssayRowMarks marks one paper's essay in G-04: its band, or a band per
  * rubric criterion with the derived band, and Save once the mark is complete.
  * Before that Save looks paused (R6-00) and, if pressed, says what is missing.
+ * Its scales are named after the row (`owner`) as well as the criterion.
  */
 function EssayRowMarks({
   row,
+  owner,
   rubric,
   error,
   pending,
@@ -479,6 +510,7 @@ function EssayRowMarks({
   onSave,
 }: Readonly<{
   row: QuestionAnswerRow;
+  owner: string;
   rubric: Rubric;
   error: string | null;
   pending: boolean;
@@ -486,23 +518,40 @@ function EssayRowMarks({
   onSave: (marks: GradeMarks) => void;
 }>) {
   const { t } = useTranslation();
-  const [mark, setMark] = useState<EssayMark>(() => markOf(row));
+  const savedMark = markOf(row);
+  const [mark, setMark] = useState<EssayMark>(savedMark);
   const [missing, setMissing] = useState<string | null>(null);
   const complete = markBand(rubric, mark) !== null;
+  const reset = () => {
+    setMark(savedMark);
+    setMissing(null);
+  };
+  const [holding, hold] = useFocusWithin();
+  const { dirty, elsewhere } = useSavedSync(
+    markSignature(rubric, savedMark),
+    markSignature(rubric, mark),
+    reset,
+    holding,
+  );
+  useUnsavedSection(`g04:${row.attemptId}:marks`, dirty);
   return (
     <div
       className="space-y-3"
+      {...hold}
       ref={(el) => inputRef(el?.querySelector<HTMLElement>("[data-score]") ?? null)}
     >
       <EssayBands
         rubric={rubric}
         mark={mark}
         error={error ?? missing}
+        owner={owner}
+        keysHint={false}
         onChange={(next) => {
           setMissing(null);
           setMark(next);
         }}
       />
+      {elsewhere && <GradedElsewhere onShow={reset} />}
       <div className="flex justify-end">
         <Button
           size="sm"

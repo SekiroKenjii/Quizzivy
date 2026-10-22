@@ -4326,7 +4326,8 @@
     "pendingNote_one": "{{count}} câu cần bạn chấm.",
     "pendingNote_other": "{{count}} câu cần bạn chấm.",
     "noQuestions": "Đề này không có câu hỏi nào.",
-    "questionMeta": "Câu {{n}} · {{type}} · {{points}} điểm",
+    "questionMeta_one": "Câu {{n}} · {{type}} · {{count}} điểm",
+    "questionMeta_other": "Câu {{n}} · {{type}} · {{count}} điểm",
     "sampleAnswer": "Đáp án mẫu — chỉ bạn nhìn thấy",
     "attemptOf": "lượt {{n}}/{{total}}",
     "submittedAt": "nộp {{time}}",
@@ -4345,7 +4346,8 @@
       "partial": "Đúng một phần",
       "pending": "Chờ chấm",
       "unanswered": "Chưa trả lời",
-      "removed": "Đã xoá"
+      "removed": "Đã xoá",
+      "banded": "Chấm theo band"
     },
     "studentAnswer": "Bài làm của học viên",
     "unanswered": "Học viên không trả lời câu này.",
@@ -4373,7 +4375,8 @@
     "overLimit": "Vượt giới hạn từ ({{words}}/{{max}} từ)",
     "notMatched": "Chưa nối",
     "matchedTo": "Nối với {{choice}}",
-    "matchKey": "Đáp án: {{choice}}",
+    "matchKey": "Đáp án đúng: {{choice}}",
+    "matchedRight": "Nối với {{choice}} · đúng",
     "essayBand": "Band {{band}}",
     "chooseCount": "Chọn {{n}} · đúng {{correct}}/{{n}} lựa chọn",
     "chooseOver": "Chọn {{n}} · đã chọn {{picked}}, quá {{n}} nên không lựa chọn nào được tính",
@@ -4529,7 +4532,8 @@
     "verdict": {
       "correct": "Đúng",
       "wrong": "Sai",
-      "partial": "Đúng một phần"
+      "partial": "Đúng một phần",
+      "banded": "Chấm theo band"
     },
     "points": "{{earned}} / {{total}}",
     "waiting": "Chờ chấm",

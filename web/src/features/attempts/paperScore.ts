@@ -6,7 +6,7 @@ import type { AttemptScore } from "./api";
 
 /**
  * paperScoreText is how a roster, the attempt sheet and the review header
- * write a paper's score: "6.0 band" when the server gives the paper a band
+ * write a paper's score: "Band 6.0" when the server gives the paper a band
  * (every scored question is a graded essay), otherwise "27/30".
  */
 export function paperScoreText(
