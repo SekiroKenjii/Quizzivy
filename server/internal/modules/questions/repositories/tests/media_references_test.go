@@ -8,9 +8,11 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"strings"
 	"testing"
 	"time"
 
+	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/modules/questions/repositories"
 	"quizzivy/internal/platform/db"
@@ -83,13 +85,101 @@ func TestWriteMediaReferencesMakesTheRowsWhatTheProseNames(t *testing.T) {
 	}
 }
 
-// TestTheBankRefusesMediaAndClearsReferencesInTheContentsTransaction shows
-// the bank write runs the reference write: an update with plain prose clears
-// rows the question held, and a write with media is refused with the field
-// error until R6-13 (D-064 ruling 7) and leaves nothing behind.
-func TestTheBankRefusesMediaAndClearsReferencesInTheContentsTransaction(t *testing.T) {
+// TestTheBankWriteStoresProseMediaItsWriterMayUse is R6-13's bank half of
+// D-064: a write may show media in its prompt and explanation, each asset
+// checked as the question-media attach path checks one, under its lock in the
+// write's transaction. Another teacher's asset is refused exactly as a
+// missing one is (ruling 5), a block naming the other kind is refused, the
+// prompt's audio marker needs the question's own audio (ruling 3), and an
+// update that omits its prose keeps the stored media (composedProse).
+func TestTheBankWriteStoresProseMediaItsWriterMayUse(t *testing.T) {
+	ctx, _, tx, owner, foreign := metadataBank(t)
+	repo := repositories.NewPostgres(db.NewContext(tx)).WithMedia(adapters.QuestionMedia{})
+	image, audio := altAsset(t, tx, owner, "image"), altAsset(t, tx, owner, "audio")
+	theirs := altAsset(t, tx, foreign, "image")
+	audioKind := "audio"
+	explained := "Look."
+	write := func(id string, in domain.Input) (domain.Question, error) {
+		in.Type, in.Points, in.Tags = domain.ShortAnswer, "1", []string{}
+		if in.Prompt == "" {
+			in.Prompt = "Look."
+		}
+		write := domain.WriteInput{ID: id, ActorID: owner, Now: time.Now(), Input: in}
+		if in.MediaAssetID != nil {
+			write.MediaAssetKind = &audioKind
+		}
+		if id == "" {
+			return repo.Create(ctx, write)
+		}
+		return repo.Update(ctx, write)
+	}
+	refused := func(err error, field string, wrongKind bool) bool {
+		var prose *domain.ProseMediaError
+		return errors.As(err, &prose) && prose.Field == field && prose.WrongKind == wrongKind && errors.Is(err, domain.ErrMediaNotFound)
+	}
+
+	q, err := write("", domain.Input{PromptContent: prose(lookParagraph, imageBlock(image)),
+		Explanation: &explained, ExplanationContent: prose(lookParagraph, fmt.Sprintf(`{"type":"audio","assetId":%q}`, audio))})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := mediaReferences(t, tx, q.ID), []string{"explanation:audio:" + audio, "prompt:image:" + image}; !slices.Equal(got, want) {
+		t.Fatalf("references %v, want %v", got, want)
+	}
+
+	_, theirErr := write("", domain.Input{PromptContent: prose(lookParagraph, imageBlock(theirs))})
+	_, missingErr := write("", domain.Input{PromptContent: prose(lookParagraph, imageBlock("01935000-0000-7000-8000-0000000000ff"))})
+	if !refused(theirErr, "promptContent", false) || !refused(missingErr, "promptContent", false) || theirErr.Error() != missingErr.Error() {
+		t.Fatalf("another teacher's image answered %v, a missing one %v: want the same refusal", theirErr, missingErr)
+	}
+	if _, err := write(q.ID, domain.Input{PromptContent: prose(lookParagraph), Explanation: &explained, ExplanationContent: prose(lookParagraph, imageBlock(theirs))}); !refused(err, "explanationContent", false) {
+		t.Fatalf("another teacher's image in an explanation answered %v", err)
+	}
+	if _, err := write("", domain.Input{PromptContent: prose(lookParagraph, imageBlock(audio))}); !refused(err, "promptContent", true) {
+		t.Fatalf("an image block naming a recording answered %v", err)
+	}
+
+	marker := prose(`{"type":"audio"}`, lookParagraph)
+	var invalid *domain.ValidationError
+	if _, err := write("", domain.Input{PromptContent: marker}); !errors.As(err, &invalid) || invalid.Fields[0].Field != "promptContent" {
+		t.Fatalf("a marker without the question's audio answered %v", err)
+	}
+	policy := &domain.AudioPolicy{AllowSeek: true, ShowTranscriptAfterSubmit: false}
+	placed, err := write("", domain.Input{PromptContent: marker, MediaAssetID: &audio, Audio: policy})
+	if err != nil {
+		t.Fatalf("a marker with the question's audio, in one write: %v", err)
+	}
+	if got := mediaReferences(t, tx, placed.ID); len(got) != 0 {
+		t.Fatalf("the marker names no asset, yet left %v", got)
+	}
+	if _, err := write(placed.ID, domain.Input{}); !errors.As(err, &invalid) || invalid.Fields[0].Field != "promptContent" {
+		t.Fatalf("dropping the audio under a kept marker answered %v", err)
+	}
+
+	kept, err := write(q.ID, domain.Input{Explanation: &explained})
+	if err != nil {
+		t.Fatalf("an update omitting its prose: %v", err)
+	}
+	if !strings.Contains(string(kept.PromptContent), image) || !strings.Contains(string(kept.ExplanationContent), audio) {
+		t.Fatalf("the omitted prose lost its media: %s / %s", kept.PromptContent, kept.ExplanationContent)
+	}
+	if got := mediaReferences(t, tx, q.ID); len(got) != 2 {
+		t.Fatalf("the omitted prose kept references %v", got)
+	}
+
+	bare := repositories.NewPostgres(db.NewContext(tx))
+	if _, err := bare.Create(ctx, domain.WriteInput{ActorID: owner, Now: time.Now(), Input: domain.Input{Type: domain.ShortAnswer, Prompt: "Look.", Points: "1", Tags: []string{},
+		PromptContent: prose(lookParagraph, imageBlock(image))}}); err == nil || errors.Is(err, domain.ErrMediaNotFound) {
+		t.Fatalf("a store without media locks answered %v", err)
+	}
+}
+
+// TestTheBankClearsReferencesInTheContentsTransaction shows the bank write
+// runs the reference write: an update with plain prose clears rows the
+// question held.
+func TestTheBankClearsReferencesInTheContentsTransaction(t *testing.T) {
 	ctx, _, tx, owner, _ := metadataBank(t)
-	repo := repositories.NewPostgres(db.NewContext(tx))
+	repo := repositories.NewPostgres(db.NewContext(tx)).WithMedia(adapters.QuestionMedia{})
 	image := altAsset(t, tx, owner, "image")
 	write := func(id string, prompt json.RawMessage) (domain.Question, error) {
 		in := domain.WriteInput{ID: id, ActorID: owner, Now: time.Now(),
@@ -99,27 +189,21 @@ func TestTheBankRefusesMediaAndClearsReferencesInTheContentsTransaction(t *testi
 		}
 		return repo.Update(ctx, in)
 	}
-
-	var invalid *domain.ValidationError
-	if _, err := write("", prose(lookParagraph, imageBlock(image))); !errors.As(err, &invalid) || invalid.Fields[0].Field != "promptContent" {
-		t.Fatalf("a create with an image answered %v, want the promptContent field error", err)
-	}
-	if n := countRows(t, tx, `SELECT count(*) FROM app.question_media_references WHERE media_asset_id = $1`, image); n != 0 {
-		t.Fatalf("the refused create left %d references", n)
-	}
-
-	q, err := write("", prose(lookParagraph))
+	q, err := write("", prose(lookParagraph, imageBlock(image)))
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(ctx, `INSERT INTO app.question_media_references (question_id, field, media_asset_id, media_asset_kind) VALUES ($1, 'prompt', $2, 'image')`, q.ID, image); err != nil {
-		t.Fatal(err)
+	if got := mediaReferences(t, tx, q.ID); len(got) != 1 {
+		t.Fatalf("references %v", got)
 	}
 	if _, err := write(q.ID, prose(lookParagraph)); err != nil {
 		t.Fatal(err)
 	}
 	if got := mediaReferences(t, tx, q.ID); len(got) != 0 {
 		t.Fatalf("an update whose prose names no media kept %v", got)
+	}
+	if n := countRows(t, tx, `SELECT count(*) FROM app.question_media_references WHERE media_asset_id = $1`, image); n != 0 {
+		t.Fatalf("%d references left", n)
 	}
 }
 

@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/content"
 	"quizzivy/internal/shared/matchkey"
 	"strconv"
 )
@@ -239,6 +240,19 @@ func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, 
 	if errors.As(err, &invalid) {
 		return httpapi.Invalid(ctx, httpx.Text(ctx, "Dữ liệu câu hỏi không hợp lệ.", "The question data is not valid."), invalid), true
 	}
+	var prose *domain.ProseMediaError
+	if errors.As(err, &prose) {
+		detail := httpx.Text(ctx, "Một hình ảnh hoặc âm thanh trong nội dung không tồn tại hoặc đã bị xoá.",
+			"An image or audio in the text does not exist or has been deleted.")
+		if prose.WrongKind {
+			detail = httpx.Text(ctx, "Tệp trong nội dung không đúng loại: hình ảnh cần tệp hình ảnh, âm thanh cần tệp âm thanh.",
+				"A file in the text is the wrong kind: an image needs an image file and audio needs an audio file.")
+		}
+		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
+			httpx.Text(ctx, "Dữ liệu câu hỏi không hợp lệ.", "The question data is not valid."))
+		resp.Error.Details = &map[string]interface{}{prose.Field: detail}
+		return resp, true
+	}
 	if errors.Is(err, domain.ErrMediaNotFound) {
 		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
 			httpx.Text(ctx, "Không tìm thấy tệp đính kèm.", "The attachment was not found."))
@@ -383,7 +397,36 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 			out.Media = &api
 		}
 	}
-	return out, nil
+	return out, h.contentAssets(ctx, q, &out)
+}
+
+// contentAssets signs the media a question's prompt and explanation show
+// (DG-109) for the editor; a file that cannot be loaded is left out, as the
+// attachment is.
+func (h Questions) contentAssets(ctx context.Context, q domain.Question, out *openapi.AdminQuestion) error {
+	shown, err := content.QuestionMedia(q.PromptContent, q.ExplanationContent)
+	if err != nil || len(shown) == 0 || h.media == nil {
+		return nil
+	}
+	seen := make(map[string]bool, len(shown))
+	assets := []openapi.MediaAsset{}
+	for _, ref := range shown {
+		if seen[ref.ID] {
+			continue
+		}
+		seen[ref.ID] = true
+		asset, err := h.media.Get(ctx, ref.ID)
+		if err != nil {
+			continue
+		}
+		url, err := h.media.SignedURL(ctx, asset)
+		if err != nil {
+			return err
+		}
+		assets = append(assets, mediahttp.ToAPIMediaAsset(asset, url))
+	}
+	out.ContentAssets = &assets
+	return nil
 }
 
 // TagQuestions implements A-06's bulk "Gắn thẻ".

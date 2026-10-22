@@ -163,19 +163,22 @@ func TestEveryNewRefusalSpeaksEnglishToo(t *testing.T) {
 	}
 }
 
-func TestTheMediaRefusalNamesMedia(t *testing.T) {
+func TestMediaOutsideTheRulesIsRefusedOnItsField(t *testing.T) {
 	prompt := essayWithRubric()
-	prompt.PromptContent = json.RawMessage(`{"format":"semantic_v1","blocks":[{"type":"image","assetId":"01a04900-0000-7000-8000-000000000001","alt":"A map"}]}`)
+	prompt.PromptContent = json.RawMessage(`{"format":"semantic_v1","blocks":[{"type":"audio","assetId":"01a04900-0000-7000-8000-000000000001"}]}`)
 	explanation := essayWithRubric()
 	explanation.Explanation = text("")
 	explanation.ExplanationContent = json.RawMessage(`{"format":"semantic_v1","blocks":[{"type":"audio","assetId":"01a04900-0000-7000-8000-000000000001","label":"Track 1"}]}`)
-	for name, in := range map[string]domain.Input{"an image in the prompt": prompt, "audio in the explanation": explanation} {
+	for name, tc := range map[string]struct {
+		in    domain.Input
+		field string
+	}{"audio naming an asset in the prompt": {prompt, "promptContent"}, "a labelled audio in the explanation": {explanation, "explanationContent"}} {
 		var invalid *domain.ValidationError
-		if !errors.As(in.Validate(nil), &invalid) {
+		if !errors.As(tc.in.Validate(nil), &invalid) {
 			t.Fatalf("%s was accepted", name)
 		}
-		if got := invalid.Fields[0].English; !strings.Contains(got, "Images and audio") {
-			t.Errorf("%s: the refusal says %q, want it to name images and audio", name, got)
+		if f := invalid.Fields[0]; f.Field != tc.field || f.Message == "" || f.English == "" {
+			t.Errorf("%s: refused as %+v, want %s in vi and en", name, f, tc.field)
 		}
 	}
 }

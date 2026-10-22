@@ -92,6 +92,10 @@ func copySnapshotQuestion(ctx context.Context, tx pgx.Tx, sourceID, actorID stri
 	if err := copySnapshotTypeChildren(ctx, tx, sourceID, id); err != nil {
 		return "", err
 	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.question_media_references (question_id, field, media_asset_id, media_asset_kind)
+  SELECT $2, field, media_asset_id, media_asset_kind FROM app.test_version_question_media_references WHERE test_version_question_id = $1`, sourceID, id); err != nil {
+		return "", err
+	}
 	if err := rebindCopiedGaps(ctx, tx, id); err != nil {
 		return "", err
 	}
@@ -106,7 +110,7 @@ func rebindCopiedGaps(ctx context.Context, tx pgx.Tx, questionID string) error {
 	if len(raw) == 0 {
 		return nil
 	}
-	document, err := content.ParseQuestionPrompt(raw)
+	document, err := content.ParsePromptWithMedia(raw)
 	if err != nil || len(document.GapIDs()) == 0 {
 		return err
 	}

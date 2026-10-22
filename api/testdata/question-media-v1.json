@@ -565,5 +565,78 @@
    ]
   },
   "valid": false
+ },
+ {
+  "name": "a whitespace-only alt is refused: empty is how an image is marked decorative",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "x",
+       "marks": []
+      }
+     ]
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "   "
+    },
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "y",
+       "marks": []
+      }
+     ]
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an explanation image refuses a whitespace-only alt too",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "\t\n"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an alt with text around spaces is kept as written",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": " A map "
+    }
+   ]
+  },
+  "valid": true,
+  "plainText": " A map ",
+  "assets": [
+   {
+    "id": "01935000-0000-7000-8000-00000000000a",
+    "kind": "image"
+   }
+  ],
+  "placesAudio": false
  }
 ]

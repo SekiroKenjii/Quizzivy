@@ -166,6 +166,7 @@ func resultQuestion(q domain.Question, extras map[string]resultExtra, plays map[
 	if ex, ok := extras[q.ID]; ok {
 		rq.Explanation, rq.Transcript = ex.explanation, ex.transcript
 		rq.ExplanationContent = ex.explanationContent
+		rq.ExplanationAssets = shownAssets(nil, ex.explanationContent)
 		rq.CorrectOptions, rq.CorrectAnswers = ex.correctOptions, ex.correctAnswers
 		rq.Skill, rq.CorrectMatches = ex.skill, ex.correctMatches
 	}

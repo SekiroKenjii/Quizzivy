@@ -11,8 +11,8 @@ import (
 
 // MediaReferenceFields names the prose fields whose media are rows of app.question_media_references (00154).
 const (
-	PromptField      = "prompt"
-	ExplanationField = "explanation"
+	PromptField      = content.PromptField
+	ExplanationField = content.ExplanationField
 )
 
 // WriteMediaReferences makes a question's media reference rows exactly the
@@ -21,36 +21,21 @@ const (
 // sweep never disagree with the stored JSON. The prompt's audio marker names no
 // asset and has no row. Content that fails the media rules is an error, never
 // read as naming nothing. It neither authorizes nor locks the assets: the
-// write's validation does that before it runs (R6-13).
+// write's lockProseMedia does that before it runs.
 func WriteMediaReferences(ctx context.Context, tx pgx.Tx, questionID string, prompt, explanation json.RawMessage) error {
-	var fields, ids, kinds []string
-	for _, prose := range []struct {
-		field string
-		raw   json.RawMessage
-		parse func([]byte) (content.Document, error)
-	}{
-		{PromptField, prompt, content.ParsePromptWithMedia},
-		{ExplanationField, explanation, content.ParseExplanationWithMedia},
-	} {
-		raw := nullableContent(prose.raw)
-		if len(raw) == 0 {
-			continue
-		}
-		document, err := prose.parse(raw)
-		if err != nil {
-			return fmt.Errorf("questions: media references: %s: %w", prose.field, err)
-		}
-		for _, asset := range document.Assets() {
-			fields = append(fields, prose.field)
-			ids = append(ids, asset.ID)
-			kinds = append(kinds, asset.Kind)
-		}
+	refs, err := content.QuestionMedia(prompt, explanation)
+	if err != nil {
+		return fmt.Errorf("questions: media references: %w", err)
 	}
 	if _, err := tx.Exec(ctx, `DELETE FROM app.question_media_references WHERE question_id = $1`, questionID); err != nil {
 		return fmt.Errorf("questions: clear media references: %w", err)
 	}
-	if len(ids) == 0 {
+	if len(refs) == 0 {
 		return nil
+	}
+	fields, ids, kinds := make([]string, len(refs)), make([]string, len(refs)), make([]string, len(refs))
+	for i, ref := range refs {
+		fields[i], ids[i], kinds[i] = ref.Field, ref.ID, ref.Kind
 	}
 	if _, err := tx.Exec(ctx, `
 		INSERT INTO app.question_media_references (question_id, field, media_asset_id, media_asset_kind)
