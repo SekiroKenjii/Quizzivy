@@ -1,4 +1,5 @@
 import type { Answer, StudentQuestion } from "./api";
+import { chooseOption } from "./choice";
 import { questionShowing } from "./panes";
 import { questionKind } from "./questionType";
 import { openAfterChoice, stepBack, stepOn, type Stop } from "./stops";
@@ -90,17 +91,4 @@ function typingIn(target: EventTarget | null): boolean {
       '[role="slider"], [role="menu"], [role="listbox"], [role="combobox"]',
     ) !== null
   );
-}
-
-function chooseOption(
-  question: StudentQuestion,
-  current: Answer | undefined,
-  optionId: string,
-): Answer {
-  if (question.type === "multiple_choice") {
-    const chosen = new Set(current?.type === "choice" ? current.optionIds : []);
-    if (!chosen.delete(optionId)) chosen.add(optionId);
-    return { type: "choice", optionIds: [...chosen] };
-  }
-  return { type: "choice", optionIds: [optionId] };
 }
