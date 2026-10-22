@@ -171,12 +171,17 @@ function Body({
         <div className="space-y-2">
           {question.type === "multiple_choice" && question.selectCount != null && (
             <p className="text-muted-foreground text-xs">
-              {t("review.chooseCount", {
-                n: question.selectCount,
-                correct: (question.options ?? []).filter(
-                  (option) => option.isCorrect && chosen.has(option.id),
-                ).length,
-              })}
+              {chosen.size > question.selectCount
+                ? t("review.chooseOver", {
+                    n: question.selectCount,
+                    picked: chosen.size,
+                  })
+                : t("review.chooseCount", {
+                    n: question.selectCount,
+                    correct: (question.options ?? []).filter(
+                      (option) => option.isCorrect && chosen.has(option.id),
+                    ).length,
+                  })}
             </p>
           )}
           {(question.options ?? []).map((option, index) => {

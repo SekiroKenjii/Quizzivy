@@ -156,6 +156,13 @@ function commentUnsettled(item: GradingQueueItem, draft: GradingDraft | undefine
   return comment !== saved || (draft.points === null && comment !== "");
 }
 
+/** withoutPartials is the drafts without the part-marked rubrics, which no save can write. */
+function withoutPartials(drafts: Record<string, GradingDraft>) {
+  return Object.fromEntries(
+    Object.entries(drafts).filter(([, entry]) => !halfMarked(entry.item, entry)),
+  );
+}
+
 /** markUnsaved says an essay's complete mark is not the one its last save wrote, as after a refused save. */
 function markUnsaved(item: GradingQueueItem, draft: GradingDraft | undefined) {
   if (!essay(item) || !draft?.mark || draft.points === null) return false;
@@ -522,8 +529,8 @@ export function useGradingQueue(params: GradingQueueParams) {
   };
   /**
    * saveAndGo saves `item`'s comment and score, if it has unsaved ones, and
-   * then runs the held leave, if any, and `action`. A refused save keeps the
-   * page and says why.
+   * then runs `action` and the held leave, if any. A refused save keeps the
+   * page and every draft, and says why.
    */
   const saveAndGo = async (item: GradingQueueItem | undefined, action?: () => void) => {
     if (!acquire()) return;
@@ -536,8 +543,8 @@ export function useGradingQueue(params: GradingQueueParams) {
       if (item) await flush(item);
       if (!current()) return;
       setHeldLeave(null);
-      heldLeave?.();
       action?.();
+      heldLeave?.();
     } catch (cause) {
       if (current()) report(cause, item);
     } finally {
@@ -557,21 +564,20 @@ export function useGradingQueue(params: GradingQueueParams) {
     await saveAndGo(selected, action);
   };
   /**
-   * discard drops every part-marked rubric's bands, then leaves as `leave`
-   * does: the open answer's comment and score, unless it is one of those
-   * rubrics, are saved first.
+   * discard leaves as `leave` does, dropping every part-marked rubric's
+   * bands and comment, which no save can write: the open answer's comment
+   * and score, unless it is one of those rubrics, are saved first, and the
+   * bands go only once that save succeeds.
    */
   const discard = async (action?: () => void) => {
     if (!current() || lock.current) return;
     setError(null);
     const open =
       selected && !halfMarked(selected, draftFor(selected)) ? selected : undefined;
-    setDrafts((previous) =>
-      Object.fromEntries(
-        Object.entries(previous).filter(([, entry]) => !halfMarked(entry.item, entry)),
-      ),
-    );
-    await saveAndGo(open, action);
+    await saveAndGo(open, () => {
+      setDrafts(withoutPartials);
+      action?.();
+    });
   };
   /** keepMarking closes the leave question and keeps the part-marked rubric. */
   const keepMarking = () => setHeldLeave(null);

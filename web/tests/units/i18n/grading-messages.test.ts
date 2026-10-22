@@ -125,7 +125,7 @@ const expected = {
     pickBandFirst: "Chọn band trước (phím 3–9).",
     pickCriteriaFirst: "Hãy cho band ở mọi tiêu chí trước.",
     leavePartialBody:
-      "Bộ tiêu chí chưa cho đủ band thì không lưu được, nên rời trang sẽ bỏ band của mọi bộ tiêu chí còn dở. Nhận xét và điểm khác vẫn được lưu trước khi rời.",
+      "Bộ tiêu chí chưa cho đủ band thì không lưu được, nên rời trang sẽ bỏ band và nhận xét của mọi bài luận còn chấm dở. Nhận xét và điểm của câu trả lời đang mở vẫn được lưu trước khi rời.",
     dropBandsAndLeave: "Bỏ band dở và rời đi",
     gradeError: {
       GRADE_NEEDS_BAND: "Chọn band cho bài luận này.",
@@ -269,7 +269,7 @@ const expected = {
     pickBandFirst: "Pick a band first (keys 3–9).",
     pickCriteriaFirst: "Give every criterion a band first.",
     leavePartialBody:
-      "A rubric without a band on every criterion can’t be saved, so leaving drops the bands on any rubric left part-marked. Other comments and scores are saved before you go.",
+      "A rubric without a band on every criterion can’t be saved, so leaving drops the bands and comment of any essay left part-marked. The open answer’s comment and score are saved before you go.",
     dropBandsAndLeave: "Drop those bands and leave",
     gradeError: {
       GRADE_NEEDS_BAND: "Choose a band for this essay.",

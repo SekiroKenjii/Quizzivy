@@ -270,7 +270,7 @@ it("asks before leaving a part-marked rubric, and leaves without its bands", asy
   const dialog = await screen.findByRole("dialog");
   expect(dialog).toHaveTextContent("Leave with an unsaved score?");
   expect(dialog).toHaveTextContent(
-    "A rubric without a band on every criterion can’t be saved, so leaving drops the bands on any rubric left part-marked. Other comments and scores are saved before you go.",
+    "A rubric without a band on every criterion can’t be saved, so leaving drops the bands and comment of any essay left part-marked. The open answer’s comment and score are saved before you go.",
   );
   await user.click(
     within(dialog).getByRole("button", { name: "Drop those bands and leave" }),
@@ -296,7 +296,7 @@ it("still asks when the part-marked rubric is no longer the open answer", async 
   );
   await act(async () => void router.navigate("/teacher"));
   expect(await screen.findByRole("dialog")).toHaveTextContent(
-    "rubric left part-marked",
+    "any essay left part-marked",
   );
   await user.click(screen.getByRole("button", { name: "Stay" }));
   expect(screen.queryByText("Overview")).toBeNull();
@@ -376,4 +376,39 @@ it("drops only the part-marked bands: the open answer's comment is saved before 
     { items: [{ questionId: other, band: 7, comment: null }] },
     { items: [{ questionId: other, band: 7, comment: "Clear overview." }] },
   ]);
+});
+
+it("keeps the part-marked bands when the open answer's save is refused", async () => {
+  const other = "018f0000-0000-7000-8000-00000000dd99";
+  queue = [
+    { ...essay, rubric },
+    { ...essay, questionId: other, questionNumber: 2 },
+  ];
+  const user = userEvent.setup({ delay: null });
+  const router = mount();
+  const task = await screen.findByRole("group", { name: "Task achievement" });
+  await user.click(within(task).getByRole("button", { name: "Give band 6.0" }));
+  (document.activeElement as HTMLElement | null)?.blur();
+  await user.keyboard("j");
+  await screen.findByRole("group", { name: "Band" });
+  // A comment with no band cannot be saved.
+  await user.type(screen.getByLabelText(/^Comment/), "Needs a band.");
+  await act(async () => void router.navigate("/teacher"));
+  const dialog = await screen.findByRole("dialog");
+  await user.click(
+    within(dialog).getByRole("button", { name: "Drop those bands and leave" }),
+  );
+  expect(
+    await within(dialog).findByText("Pick a band first (keys 3–9)."),
+  ).toBeVisible();
+  expect(screen.queryByText("Overview")).toBeNull();
+  await user.click(within(dialog).getByRole("button", { name: "Stay" }));
+  (document.activeElement as HTMLElement | null)?.blur();
+  await user.keyboard("k");
+  const back = await screen.findByRole("group", { name: "Task achievement" });
+  expect(within(back).getByRole("button", { name: "Give band 6.0" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(grades).toEqual([]);
 });

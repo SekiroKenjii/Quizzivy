@@ -82,6 +82,28 @@ it("shows Choose N's picks against the key", () => {
   expect(screen.getByText("correct answer")).toBeVisible();
 });
 
+it("says an over-picked Choose N counts none of its picks", () => {
+  const choose = question({
+    type: "multiple_choice",
+    selectCount: 2,
+    options: [
+      option(20, "Rent rises", true),
+      option(21, "Fewer buses", true),
+      option(22, "New parks", false),
+    ],
+  });
+  render(
+    <AnswerReview
+      question={choose}
+      answer={{ answer: { type: "choice", optionIds: [id(20), id(21), id(22)] } }}
+    />,
+  );
+  expect(
+    screen.getByText("Choose 2 · 3 picked, more than 2, so none count"),
+  ).toBeVisible();
+  expect(screen.queryByText(/picks correct/)).toBeNull();
+});
+
 it("shows matching as pairs against the key", () => {
   const matching = question({
     type: "matching",

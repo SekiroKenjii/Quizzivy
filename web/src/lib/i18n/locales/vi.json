@@ -4324,6 +4324,7 @@
     "matchKey": "Đáp án: {{choice}}",
     "essayBand": "Band {{band}}",
     "chooseCount": "Chọn {{n}} · đúng {{correct}}/{{n}} lựa chọn",
+    "chooseOver": "Chọn {{n}} · đã chọn {{picked}}, quá {{n}} nên không lựa chọn nào được tính",
     "paperBand": "Band {{band}}"
   },
   "timeline": {
