@@ -810,6 +810,16 @@ the generated marker would fail staticcheck's SA1019 where the server sets it. R
 contract change after R5. The `join_codes.rotated` notification kind stays while stored rows
 still render. Remove it once the notification prune has deleted the last row of that kind.
 
+### O-R6.1 — Should a student see marks before the teacher presses Finish grading? · owner (D-071)
+**Today:** marks show as they land. Once the result is released and the score is shown, a student
+sees `earned`, each question's score and, on an all-essay paper, the band, while `pendingManual`
+counts the questions still to grade. Finish grading changes none of them.
+**Open:** whether any mark should wait for Finish grading. It is one switch over `earned`, the
+per-question scores and the band together. Gating the band alone would hide nothing, because
+`earned` on an all-essay paper is the bands converted to points. Changing it also changes
+production behaviour that predates R6, so it is the owner's call. Raised as QC-R6RS-4; T-R6.8b
+keeps today's behaviour (D-071).
+
 ---
 
 ## Answered during planning
