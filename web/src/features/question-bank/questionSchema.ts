@@ -10,8 +10,19 @@ import { z } from "zod";
 import type { components } from "@/lib/api/schema";
 import { comparePlaceholders, hasMismatch } from "./placeholders";
 
-/** MAX_OPTIONS is the most options a choice question takes, as the contract's maxItems. */
+/** MAX_OPTIONS is the most options a choice question takes; the domain's cap. */
 export const MAX_OPTIONS = 8;
+
+/** The bounds R6 holds the new types to (76-r6.md, DG-113), as the server's domain does. */
+export const MAX_MATCH_OPTIONS = 12;
+export const MIN_MATCH_ITEMS = 2;
+export const MAX_MATCH_ITEMS = 20;
+export const MAX_MATCH_ITEM_LENGTH = 500;
+export const MAX_RUBRIC_CRITERIA = 6;
+export const MAX_RUBRIC_LABEL = 80;
+export const MIN_SELECT_COUNT = 2;
+export const MAX_SELECT_COUNT = 7;
+export const MAX_WORDS_LIMIT = 100;
 
 /** Form input validation for §7's question editor. */
 const audioPolicySchema = z.object({
@@ -70,6 +81,30 @@ const blankSchema = z
     ...(gapId === undefined ? {} : { gapId }),
   }));
 
+const matchItemSchema = z.object({
+  id: z.uuid().nullable(),
+  text: z
+    .string()
+    .refine((text) => text.trim().length > 0, "questionEditor.errors.matchItemRequired")
+    .refine(
+      (text) => [...text].length <= MAX_MATCH_ITEM_LENGTH,
+      "questionEditor.errors.matchItemTooLong",
+    ),
+  /** The 0-based index into `options`; -1 while the teacher has not chosen one. */
+  correctOption: z.number().int(),
+});
+
+const rubricCriterionSchema = z.object({
+  id: z.uuid().nullable(),
+  label: z
+    .string()
+    .refine((text) => text.trim().length > 0, "questionEditor.errors.criterionRequired")
+    .refine(
+      (text) => [...text].length <= MAX_RUBRIC_LABEL,
+      "questionEditor.errors.criterionTooLong",
+    ),
+});
+
 export const questionSchema = z
   .object({
     type: z.enum([
@@ -99,7 +134,9 @@ export const questionSchema = z
     mediaAlt: z.string().nullable().default(null),
     audio: audioPolicySchema.nullable(),
     transcript: z.string().nullable(),
-    options: z.array(optionSchema).max(MAX_OPTIONS, "questionEditor.errors.maxOptions"),
+    options: z
+      .array(optionSchema)
+      .max(MAX_MATCH_OPTIONS, "questionEditor.errors.maxMatchOptions"),
     blanks: z.array(blankSchema),
     points: z
       .number()
@@ -108,6 +145,11 @@ export const questionSchema = z
       .multipleOf(0.01, "questionEditor.errors.pointPrecision"),
     explanation: z.string().nullable(),
     sampleAnswer: z.string().nullable(),
+    selectCount: z.number().int().nullable().exactOptional(),
+    maxWords: z.number().int().nullable().exactOptional(),
+    matchAllowReuse: z.boolean().nullable().exactOptional(),
+    matchItems: z.array(matchItemSchema).exactOptional(),
+    rubric: z.array(rubricCriterionSchema).exactOptional(),
     tags: z.array(z.string().min(1)),
   })
   .superRefine((value, context) => {
@@ -143,6 +185,7 @@ const CHOICE_TYPES = new Set<string>([
   "single_choice",
   "multiple_choice",
   "true_false",
+  "tfng",
 ]);
 
 function deckBlocker(values: QuestionValues): string | null {
@@ -157,14 +200,41 @@ function deckBlocker(values: QuestionValues): string | null {
     );
     if (unanswered) return `${errors}.answerRequired`;
   }
-  if (CHOICE_TYPES.has(values.type)) {
-    if (values.options.length < 2) return `${errors}.twoOptions`;
-    if (values.options.some((option) => option.text.trim() === ""))
-      return `${errors}.optionRequired`;
-    if (!values.options.some((option) => option.isCorrect))
-      return `${errors}.correctRequired`;
+  if (CHOICE_TYPES.has(values.type)) return choiceBlocker(values);
+  if (values.type === "matching") return matchingBlocker(values);
+  return null;
+}
+
+function choiceBlocker(values: QuestionValues): string | null {
+  const errors = "questionEditor.errors";
+  if (values.options.length < 2) return `${errors}.twoOptions`;
+  if (values.options.some((option) => option.text.trim() === ""))
+    return `${errors}.optionRequired`;
+  if (!values.options.some((option) => option.isCorrect))
+    return `${errors}.correctRequired`;
+  if (values.type === "multiple_choice" && values.selectCount != null) {
+    const ticked = values.options.filter((option) => option.isCorrect).length;
+    if (ticked !== values.selectCount) return `${errors}.selectCountTicks`;
   }
   return null;
+}
+
+function matchingBlocker(values: QuestionValues): string | null {
+  const errors = "questionEditor.errors";
+  const items = values.matchItems ?? [];
+  if (items.length < MIN_MATCH_ITEMS) return `${errors}.matchTwoItems`;
+  if (items.some((item) => item.text.trim() === ""))
+    return `${errors}.matchItemRequired`;
+  if (values.options.length < 2) return `${errors}.twoOptions`;
+  if (values.options.some((option) => option.text.trim() === ""))
+    return `${errors}.optionRequired`;
+  if (items.some((item) => !inRange(item.correctOption, values.options.length)))
+    return `${errors}.matchItemUnset`;
+  return null;
+}
+
+function inRange(index: number, length: number): boolean {
+  return Number.isInteger(index) && index >= 0 && index < length;
 }
 
 /**
@@ -182,12 +252,22 @@ export function blockingIssue(values: QuestionValues, fallback: string): string 
 
 export type QuestionType = QuestionValues["type"];
 
-function validateStructure(
-  value: Pick<QuestionValues, "type" | "options" | "blanks" | "prompt"> & {
-    promptContent?: QuestionValues["promptContent"];
-  },
-  context: z.RefinementCtx,
-) {
+type StructureInput = Pick<
+  QuestionValues,
+  | "type"
+  | "options"
+  | "blanks"
+  | "prompt"
+  | "selectCount"
+  | "maxWords"
+  | "matchAllowReuse"
+  | "matchItems"
+  | "rubric"
+> & {
+  promptContent?: QuestionValues["promptContent"];
+};
+
+function validateStructure(value: StructureInput, context: z.RefinementCtx) {
   const issue = (path: string, key: string) =>
     context.addIssue({
       code: "custom",
@@ -196,12 +276,14 @@ function validateStructure(
     });
   if (value.promptContent != null && !isQuestionPromptContent(value.promptContent))
     return;
-  const choice = ["single_choice", "multiple_choice", "true_false"].includes(
-    value.type,
-  );
-  if (choice) {
+  if (["single_choice", "multiple_choice", "true_false"].includes(value.type)) {
     validateChoice(value, issue);
+  } else if (value.type === "tfng") {
+    validateTfng(value, issue);
+  } else if (value.type === "matching") {
+    validateMatching(value, issue);
   } else if (value.options.length) issue("options", "unexpectedOptions");
+  validateTypeFields(value, issue);
   if (value.type !== "fill_blank") {
     if (value.blanks.length) issue("blanks", "unexpectedBlanks");
     if (value.promptContent && questionGaps(value.promptContent).length)
@@ -209,6 +291,133 @@ function validateStructure(
     return;
   }
   validateBlankStructure(value, issue);
+}
+
+/**
+ * validateTypeFields holds each R6 setting to the one type it belongs to and
+ * to the bounds the server's domain holds it to: "choose exactly N" on a
+ * multiple choice, the word limit on a short answer, the reuse switch on a
+ * matching question (which needs it) and the rubric on an essay.
+ */
+function validateTypeFields(
+  value: StructureInput,
+  issue: (path: string, key: string) => void,
+) {
+  if (value.selectCount != null) {
+    if (value.type !== "multiple_choice") issue("selectCount", "unexpectedTypeField");
+    else validateSelectCount(value.selectCount, value.options, issue);
+  }
+  if (value.maxWords != null) validateMaxWords(value.type, value.maxWords, issue);
+  if (value.type === "matching" && value.matchAllowReuse == null)
+    issue("matchAllowReuse", "matchReuseRequired");
+  if (value.type !== "matching") {
+    if (value.matchAllowReuse != null) issue("matchAllowReuse", "unexpectedTypeField");
+    if (value.matchItems?.length) issue("matchItems", "unexpectedTypeField");
+  }
+  if (value.type === "essay") validateRubric(value.rubric ?? [], issue);
+  else if (value.rubric?.length) issue("rubric", "unexpectedTypeField");
+}
+
+function validateMaxWords(
+  type: QuestionType,
+  maxWords: number,
+  issue: (path: string, key: string) => void,
+) {
+  if (type !== "short_answer") issue("maxWords", "unexpectedTypeField");
+  else if (!Number.isInteger(maxWords) || maxWords < 1 || maxWords > MAX_WORDS_LIMIT)
+    issue("maxWords", "maxWordsRange");
+}
+
+function validateSelectCount(
+  count: number,
+  options: QuestionValues["options"],
+  issue: (path: string, key: string) => void,
+) {
+  if (
+    !Number.isInteger(count) ||
+    count < MIN_SELECT_COUNT ||
+    count > MAX_SELECT_COUNT ||
+    count > options.length - 1
+  ) {
+    issue("selectCount", "selectCountRange");
+    return;
+  }
+  if (options.filter((option) => option.isCorrect).length !== count)
+    issue("options", "selectCountTicks");
+}
+
+function validateTfng(
+  value: Pick<QuestionValues, "options">,
+  issue: (path: string, key: string) => void,
+) {
+  if (value.options.length !== 3) issue("options", "tfngCount");
+  const correct = value.options.filter((option) => option.isCorrect).length;
+  if (correct === 0) issue("options", "correctRequired");
+  else if (correct > 1) issue("options", "oneCorrect");
+}
+
+/** MatchingProblems names what is wrong with a matching question's items and options. */
+export interface MatchingProblems {
+  /** The indexes of the items with no option chosen, or one that is gone. */
+  unset: ReadonlySet<number>;
+  /** Without reuse, the indexes of the items whose option an earlier item already took. */
+  taken: ReadonlySet<number>;
+  /** Without reuse, more items than options: some item cannot have its own. */
+  moreItemsThanOptions: boolean;
+}
+
+/**
+ * matchingProblems is the one reading of a matching question's keys that the
+ * schema and the matching editor share.
+ */
+export function matchingProblems(
+  value: Pick<QuestionValues, "options" | "matchItems" | "matchAllowReuse">,
+): MatchingProblems {
+  const items = value.matchItems ?? [];
+  const reuse = value.matchAllowReuse === true;
+  const unset = new Set<number>();
+  const taken = new Set<number>();
+  const seen = new Set<number>();
+  items.forEach((item, index) => {
+    if (!inRange(item.correctOption, value.options.length)) {
+      unset.add(index);
+      return;
+    }
+    if (!reuse && seen.has(item.correctOption)) taken.add(index);
+    seen.add(item.correctOption);
+  });
+  return {
+    unset,
+    taken,
+    moreItemsThanOptions: !reuse && items.length > value.options.length,
+  };
+}
+
+function validateMatching(
+  value: StructureInput,
+  issue: (path: string, key: string) => void,
+) {
+  const items = value.matchItems ?? [];
+  if (value.options.length < 2) issue("options", "twoOptions");
+  if (value.options.some((option) => option.isCorrect))
+    issue("options", "matchOptionCorrect");
+  if (items.length < MIN_MATCH_ITEMS) issue("matchItems", "matchTwoItems");
+  if (items.length > MAX_MATCH_ITEMS) issue("matchItems", "maxMatchItems");
+  const problems = matchingProblems(value);
+  if (problems.moreItemsThanOptions) issue("matchItems", "matchMoreItemsThanOptions");
+  if (problems.unset.size) issue("matchItems", "matchItemUnset");
+  if (problems.taken.size) issue("matchItems", "matchOptionTaken");
+}
+
+function validateRubric(
+  rubric: NonNullable<QuestionValues["rubric"]>,
+  issue: (path: string, key: string) => void,
+) {
+  if (rubric.length > MAX_RUBRIC_CRITERIA) issue("rubric", "maxCriteria");
+  const labels = rubric
+    .map((criterion) => criterion.label.trim().toLowerCase())
+    .filter((label) => label !== "");
+  if (new Set(labels).size !== labels.length) issue("rubric", "duplicateCriterion");
 }
 
 function validateBlankStructure(
@@ -287,6 +496,7 @@ function validateChoice(
 ) {
   const problems = choiceProblems(value);
   if (problems.tooFew) issue("options", "twoOptions");
+  if (problems.tooMany) issue("options", "maxOptions");
   if (value.type === "true_false" && value.options.length !== 2)
     issue("options", "trueFalseCount");
   if (problems.noneCorrect) issue("options", "correctRequired");
