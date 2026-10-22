@@ -14,6 +14,7 @@ import (
 	mediahttp "quizzivy/internal/modules/media/http"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/content"
 	"quizzivy/internal/shared/validation"
 	"time"
 
@@ -74,16 +75,24 @@ func (h Attempts) GetAssignmentMonitor(ctx context.Context, request openapi.GetA
 }
 
 func toAPIScore(sc domain.Score) *openapi.AttemptScore {
-	return &openapi.AttemptScore{Earned: sc.Earned, Total: sc.Total, PendingManual: sc.PendingManual}
+	out := &openapi.AttemptScore{Earned: sc.Earned, Total: sc.Total, PendingManual: sc.PendingManual, Band: sc.Band}
+	if sc.GradedBy != nil {
+		out.GradedBy = &struct {
+			Name string `json:"name"`
+		}{Name: *sc.GradedBy}
+	}
+	return out
 }
 
 type reviewAnswer = struct {
-	Answer         *openapi.Answer `json:"answer"`
-	AnswerRemoved  *bool           `json:"answerRemoved,omitempty"`
-	AutoScore      *openapi.Points `json:"autoScore,omitempty"`
-	GraderComment  *string         `json:"graderComment,omitempty"`
-	ManualScore    *openapi.Points `json:"manualScore,omitempty"`
-	RequiresManual *bool           `json:"requiresManual,omitempty"`
+	Answer         *openapi.Answer          `json:"answer"`
+	AnswerRemoved  *bool                    `json:"answerRemoved,omitempty"`
+	AutoScore      *openapi.Points          `json:"autoScore,omitempty"`
+	Band           *openapi.Band            `json:"band,omitempty"`
+	Criteria       *[]openapi.CriterionBand `json:"criteria,omitempty"`
+	GraderComment  *string                  `json:"graderComment,omitempty"`
+	ManualScore    *openapi.Points          `json:"manualScore,omitempty"`
+	RequiresManual *bool                    `json:"requiresManual,omitempty"`
 }
 
 // GetAttemptForReview backs G-03. This is the one response that carries the
@@ -159,7 +168,7 @@ func toAPIReviewAnswers(stored map[string]domain.ReviewAnswer) (map[string]revie
 	answers := make(map[string]reviewAnswer, len(stored))
 	for id, a := range stored {
 		entry := reviewAnswer{
-			AutoScore: a.AutoScore, ManualScore: a.ManualScore,
+			AutoScore: a.AutoScore, ManualScore: a.ManualScore, Band: a.Band, Criteria: toAPICriteria(a.Criteria),
 			GraderComment: a.GraderComment, RequiresManual: httpapi.Ptr(a.RequiresManual),
 		}
 		switch {
@@ -209,6 +218,8 @@ func (h Attempts) ListAnswersForQuestion(ctx context.Context, request openapi.Li
 			StudentName:   it.StudentName,
 			AttemptNo:     it.AttemptNo,
 			ManualScore:   it.ManualScore,
+			Band:          it.Band,
+			Criteria:      toAPICriteria(it.Criteria),
 			GraderComment: it.GraderComment,
 		}
 		switch {
@@ -311,8 +322,23 @@ func (h Attempts) toAPIReviewQuestion(ctx context.Context, q domain.ReviewQuesti
 	options := make([]openapi.AdminQuestionOption, len(q.Options))
 	for i, o := range q.Options {
 		options[i] = openapi.AdminQuestionOption{Id: httpapi.ParseUUID(o.ID), Ordinal: o.Ordinal, Text: o.Text, Content: o.Content, IsCorrect: o.IsCorrect}
+		if o.Key != "" {
+			options[i].Key = httpapi.Ptr(o.Key)
+		}
 	}
 	out.Options = &options
+	out.SelectCount, out.MaxWords, out.MatchAllowReuse = q.SelectCount, q.MaxWords, q.MatchAllowReuse
+	if q.Type == "matching" {
+		items := make([]openapi.AdminMatchItem, len(q.MatchItems))
+		for i, it := range q.MatchItems {
+			items[i] = openapi.AdminMatchItem{Id: httpapi.ParseUUID(it.ID), Ordinal: it.Ordinal, Key: it.Key, Text: it.Text, CorrectOptionId: httpapi.ParseUUID(it.CorrectOptionID)}
+		}
+		out.MatchItems = &items
+	}
+	if q.Type == domain.Essay {
+		rubric := toAPIRubric(q.Rubric)
+		out.Rubric = &rubric
+	}
 	blanks := make([]openapi.AdminQuestionBlank, len(q.Blanks))
 	for i, b := range q.Blanks {
 		blanks[i] = openapi.AdminQuestionBlank{
@@ -333,7 +359,55 @@ func (h Attempts) toAPIReviewQuestion(ctx context.Context, q domain.ReviewQuesti
 		media := mediahttp.ToAPIMediaAsset(asset, url)
 		out.Media = &media
 	}
-	return out, nil
+	return out, h.reviewContentAssets(ctx, q, &out)
+}
+
+// reviewContentAssets signs the media the frozen prompt and explanation show
+// (DG-109) for the grader, as the editor's reader does, so a review shows
+// what the student saw (D-077); a file that cannot be loaded is left out.
+func (h Attempts) reviewContentAssets(ctx context.Context, q domain.ReviewQuestion, out *openapi.AdminQuestion) error {
+	shown, err := content.QuestionMedia(q.PromptContent, q.ExplanationContent)
+	if err != nil || len(shown) == 0 || h.media == nil {
+		return nil
+	}
+	seen := make(map[string]bool, len(shown))
+	assets := make([]openapi.MediaAsset, 0, len(shown))
+	for _, ref := range shown {
+		if seen[ref.ID] {
+			continue
+		}
+		seen[ref.ID] = true
+		asset, err := h.media.Get(ctx, ref.ID)
+		if err != nil {
+			continue
+		}
+		url, err := h.media.SignedURL(ctx, asset)
+		if err != nil {
+			return err
+		}
+		assets = append(assets, mediahttp.ToAPIMediaAsset(asset, url))
+	}
+	out.ContentAssets = &assets
+	return nil
+}
+
+func toAPIRubric(rubric []domain.RubricCriterion) []openapi.RubricCriterion {
+	out := make([]openapi.RubricCriterion, len(rubric))
+	for i, c := range rubric {
+		out[i] = openapi.RubricCriterion{Id: httpapi.ParseUUID(c.ID), Ordinal: c.Ordinal, Label: c.Label}
+	}
+	return out
+}
+
+func toAPICriteria(given []domain.CriterionBand) *[]openapi.CriterionBand {
+	if len(given) == 0 {
+		return nil
+	}
+	out := make([]openapi.CriterionBand, len(given))
+	for i, c := range given {
+		out[i] = openapi.CriterionBand{CriterionId: httpapi.ParseUUID(c.CriterionID), Band: c.Band}
+	}
+	return &out
 }
 
 func toAPIIntegritySummary(sm domain.IntegritySummary) openapi.IntegritySummary {
@@ -503,14 +577,17 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 	if !ok {
 		return nil, httpx.ErrNotImplemented
 	}
-	items := make([]domain.GradeItem, len(request.Body.Items))
-	for i, it := range request.Body.Items {
-		items[i] = domain.GradeItem{QuestionID: it.QuestionId.String(), Points: it.Points, Comment: it.Comment}
-	}
-	score, err := h.app.Commands.Grade.Handle(ctx, command.Grade{AttemptID: request.Id.String(), GraderID: principal.UserID, Items: items, Scope: httpapi.ScopeFromContext(ctx)})
+	req, _ := attemptRequest(ctx)
+	score, err := h.app.Commands.Grade.Handle(ctx, command.Grade{
+		AttemptID: request.Id.String(), GraderID: principal.UserID, IP: req.IP, UserAgent: req.UserAgent,
+		Items: toGradeItems(request.Body), Scope: httpapi.ScopeFromContext(ctx),
+	})
 	var invalid *domain.GradeValidationError
 	var removed *domain.AnswerRemovedError
+	var shaped *domain.GradeShapeError
 	switch {
+	case errors.As(err, &shaped):
+		return openapi.GradeAttempt422JSONResponse(gradeRefusal(ctx, shaped)), nil
 	case errors.As(err, &removed):
 		resp := httpapi.Error(ctx, openapi.ANSWERREMOVED, httpx.Text(ctx,
 			"Câu trả lời đã được xoá theo chính sách lưu trữ của trung tâm, nên không thể chấm.",
@@ -532,11 +609,52 @@ func (h Attempts) GradeAttempt(ctx context.Context, request openapi.GradeAttempt
 	return openapi.GradeAttempt200JSONResponse(*toAPIScore(score)), nil
 }
 
+func toGradeItems(body *openapi.GradeAttemptJSONRequestBody) []domain.GradeItem {
+	items := make([]domain.GradeItem, len(body.Items))
+	for i, it := range body.Items {
+		items[i] = domain.GradeItem{QuestionID: it.QuestionId.String(), Points: it.Points, Band: it.Band, Comment: it.Comment}
+		if it.Criteria != nil {
+			items[i].Criteria = make([]domain.CriterionBand, len(*it.Criteria))
+			for j, c := range *it.Criteria {
+				items[i].Criteria[j] = domain.CriterionBand{CriterionID: c.CriterionId.String(), Band: c.Band}
+			}
+		}
+	}
+	return items
+}
+
+func gradeRefusal(ctx context.Context, refused *domain.GradeShapeError) openapi.ErrorResponse {
+	var resp openapi.ErrorResponse
+	switch refused.Shape {
+	case domain.BandNotAllowed:
+		resp = httpapi.Error(ctx, openapi.GRADEBANDNOTALLOWED, httpx.Text(ctx,
+			"Chỉ bài luận mới được chấm theo band.",
+			"Only an essay is graded on a band."))
+	case domain.NeedsBand:
+		resp = httpapi.Error(ctx, openapi.GRADENEEDSBAND, httpx.Text(ctx,
+			"Hãy chấm bài luận này bằng một band, không kèm điểm số hay tiêu chí.",
+			"Give this essay one band, with no points or criteria."))
+	case domain.CriteriaIncomplete:
+		resp = httpapi.Error(ctx, openapi.GRADECRITERIAINCOMPLETE, httpx.Text(ctx,
+			"Hãy chấm band cho từng tiêu chí của bài luận này, mỗi tiêu chí một lần.",
+			"Give a band for each of this essay's criteria, once each."))
+	default:
+		resp = httpapi.Error(ctx, openapi.GRADENEEDSPOINTS, httpx.Text(ctx,
+			"Câu này cần được chấm bằng điểm số.",
+			"This question needs a score in points."))
+	}
+	details := map[string]interface{}{"questionIds": refused.QuestionIDs}
+	resp.Error.Details = &details
+	return resp
+}
+
 func gradeValidationError(ctx context.Context, invalid *domain.GradeValidationError) openapi.ErrorResponse {
 	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Điểm không hợp lệ.", "The score is not valid."))
 	details := map[string]interface{}{}
 	for _, it := range invalid.Items {
-		details[it.QuestionID] = gradeItemMessage(ctx, it.Reason)
+		if _, named := details[it.QuestionID]; !named {
+			details[it.QuestionID] = gradeItemMessage(ctx, it.Reason)
+		}
 	}
 	resp.Error.Details = &details
 	return resp
@@ -546,6 +664,8 @@ func gradeItemMessage(ctx context.Context, reason string) string {
 	switch reason {
 	case "above_ceiling":
 		return httpx.Text(ctx, "Điểm vượt quá điểm tối đa của câu.", "The score is above the question's maximum.")
+	case "repeated":
+		return httpx.Text(ctx, "Câu này có mặt nhiều lần trong một lần lưu.", "This question appears more than once in one save.")
 	case "unanswered":
 		return httpx.Text(ctx, "Học viên không trả lời câu này.", "The student did not answer this question.")
 	default:

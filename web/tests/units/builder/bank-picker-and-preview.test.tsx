@@ -77,6 +77,9 @@ beforeEach(() => {
           true_false: 0,
           fill_blank: 0,
           short_answer: Math.max(0, matching.length - 1),
+          tfng: 0,
+          matching: 0,
+          essay: 0,
         },
         tags: [],
         bankTotal: BANK.length,
@@ -124,7 +127,7 @@ describe("Add from question bank", () => {
     expect(first).toHaveTextContent("Một đáp án · B1 · dùng trong 2 đề");
     expect(
       within(picker).getByText("Câu số 2").closest<HTMLElement>('[role="checkbox"]')!,
-    ).toHaveTextContent("Tự luận · dùng trong 1 đề");
+    ).toHaveTextContent("Trả lời ngắn · dùng trong 1 đề");
     const held = within(picker)
       .getByText("Câu số 3")
       .closest<HTMLElement>('[role="checkbox"]')!;

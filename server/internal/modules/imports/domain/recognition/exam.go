@@ -2,14 +2,20 @@ package recognition
 
 import (
 	"quizzivy/internal/modules/imports/domain"
+	"regexp"
+	"slices"
 	"strconv"
 	"strings"
+	"unicode"
 	"unicode/utf8"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 const (
-	maxTitle = 200
-	maxSkip  = 20
+	maxTitle      = 200
+	maxSkip       = 20
+	minProseWords = 5
 )
 
 type optionPart struct {
@@ -50,18 +56,27 @@ func (q *questionBuilder) instructionText() string {
 type groupBuilder struct {
 	id          string
 	label       string
-	instruction *segment
+	instruction []segment
+	heading     bool
+	first, last int
 	stimulus    []segment
 	questions   []*questionBuilder
 	accepting   bool
 	source      []domain.SourceRef
+	// prose holds the lines the instruction took after its first line, the heading's or the Roman section's, that
+	// read like a passage's sentence (proseLine, sectionProse): QC-R6GRM-2, QC-R6GRM-9, D-073.
+	prose []segment
+	// joined holds the instruction lines that may be a passage's sentence whatever follows them (vietnameseJoined,
+	// D-075).
+	joined []segment
 }
 
 func (g *groupBuilder) instructionText() string {
-	if g.instruction == nil {
-		return ""
+	texts := make([]string, 0, len(g.instruction))
+	for _, s := range g.instruction {
+		texts = append(texts, strings.TrimSpace(s.text()))
 	}
-	return strings.TrimSpace(g.instruction.text())
+	return strings.Join(texts, " ")
 }
 
 func (g *groupBuilder) admits(q *questionBuilder) bool {
@@ -71,12 +86,22 @@ func (g *groupBuilder) admits(q *questionBuilder) bool {
 	if g.label != "" {
 		return q.label.sub > 0 && q.label.parent() == g.label
 	}
+	if g.heading && q.label.sub == 0 && q.label.number >= g.first && q.label.number <= g.last {
+		return true
+	}
 	return q.label.sub == 0 && q.instruction == nil
 }
 
 type item struct {
 	question *questionBuilder
 	group    *groupBuilder
+}
+
+func (i item) questions() []*questionBuilder {
+	if i.group != nil {
+		return i.group.questions
+	}
+	return []*questionBuilder{i.question}
 }
 
 func (i item) instruction() string {
@@ -96,6 +121,12 @@ type sectionBuilder struct {
 	origin       domain.Origin
 	items        []item
 	source       []domain.SourceRef
+	// heading is the text of a Roman section heading with text after its numeral, while a broken line may still
+	// complete it (completesInstruction).
+	heading string
+	// instructs reports whether that heading is an instruction ("I. Choose the best answer."), not a title
+	// ("I. GRAMMAR", "I. ĐỌC HIỂU"): commandHeading.
+	instructs bool
 }
 
 type exam struct {
@@ -130,6 +161,7 @@ func parseExam(source string, lines []*line, rules examRules) *exam {
 		case e.keySection(l):
 		case e.titleLine(l):
 		case e.anotherPaper(l):
+		case e.rangeLine(l):
 		case e.sectionLine(l):
 		case e.questionLine(l):
 		case e.optionLine(l):
@@ -181,7 +213,7 @@ func (e *exam) titleLine(l *line) bool {
 		return false
 	}
 	text := strings.TrimSpace(l.String())
-	if e.rules.text && namedSection.MatchString(text) {
+	if (e.rules.text && namedSection.MatchString(text)) || rangeHeading(text) {
 		return false
 	}
 	if utf8.RuneCountInString(text) > maxTitle {
@@ -225,6 +257,205 @@ func (e *exam) sectionLine(l *line) bool {
 	return false
 }
 
+// rangeLine opens a group under a question-range heading ("Questions 1-4"). The heading, and the instruction lines
+// that follow it before the first question, are the group's instruction, so they reach every question it holds.
+func (e *exam) rangeLine(l *line) bool {
+	first, last, ok := headingRange(l.String())
+	if !ok {
+		return false
+	}
+	whole := segment{l, 0, len(l.text)}
+	if e.bareHeading() {
+		// Two headings with nothing between them ("Questions 1-13" / "Questions 1-4", or "1-2" / "3-4") share the
+		// instruction that follows: one group holds the questions either names, so neither heading is left over.
+		g := e.group
+		g.first, g.last = min(g.first, first), max(g.last, last)
+		g.instruction = append(g.instruction, whole)
+		g.source = append(g.source, whole.refs()...)
+		l.consumeAll()
+		return true
+	}
+	e.closeQuestion()
+	e.closeGroup()
+	e.ensureSection()
+	e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, heading: true, first: first, last: last, accepting: true, source: whole.refs()}
+	e.section.items = append(e.section.items, item{group: e.group})
+	l.consumeAll()
+	return true
+}
+
+// extendsHeading reports whether text belongs to the instruction under the open group's range heading: the group
+// has neither questions nor stimulus yet, and text is an instruction or a line of the IELTS answer legend. Any other
+// paragraph, a passage among them, ends the instruction, whatever punctuation the line before it lacks.
+func (e *exam) extendsHeading(text string) bool {
+	g := e.group
+	if g == nil || !g.heading || !g.accepting || len(g.questions) > 0 || len(g.stimulus) > 0 {
+		return false
+	}
+	return (isInstruction(text) && !e.passageAfterInstruction(text)) || headingLegend.MatchString(text) || e.carriesOnHeading(text)
+}
+
+// lastInstruction returns the last instruction line of the open structure when nothing but its instruction has come
+// yet: a heading's group past its bare heading, a group an instruction line opened, or a Roman section whose heading
+// carries the instruction.
+func (e *exam) lastInstruction() (string, bool) {
+	if g := e.group; g != nil {
+		if !g.accepting || len(g.questions) > 0 || len(g.stimulus) > 0 || len(g.instruction) == 0 || e.bareHeading() {
+			return "", false
+		}
+		return strings.TrimSpace(g.instruction[len(g.instruction)-1].text()), true
+	}
+	if s := e.section; s != nil && e.question == nil && len(s.items) == 0 && s.heading != "" {
+		return s.heading, true
+	}
+	return "", false
+}
+
+// openInstruction reports whether the open group holds an instruction and nothing under it yet: no questions and no
+// passage.
+func (e *exam) openInstruction() bool {
+	g := e.group
+	return g != nil && g.accepting && len(g.instruction) > 0 && len(g.questions) == 0 && len(g.stimulus) == 0
+}
+
+// passageAfterInstruction reports whether text, an imperative-led line straight after an instruction, reads as a
+// statement (readsAsStatement): it opens the passage, not a second instruction line. The first line of a structure
+// is never asked, so a real instruction is never lost to the grammar (QC-R6GRM-1, QC-R6GRM-5).
+func (e *exam) passageAfterInstruction(text string) bool {
+	_, ok := e.lastInstruction()
+	return ok && readsAsStatement(text)
+}
+
+// completesInstruction reports whether text completes the answer format the last instruction line began, broken
+// over a hard line ("Choose" / "TWO letters, A-E.", "Chọn" / "Đúng, Sai hoặc Không có thông tin"), in any layout
+// (QC-R6GRM-4, QC-R6GRM-7).
+func (e *exam) completesInstruction(text string) bool {
+	last, ok := e.lastInstruction()
+	return ok && completes(last, strings.TrimSpace(text))
+}
+
+// extendInstruction adds a line that completes the open structure's instruction to it.
+func (e *exam) extendInstruction(whole segment) {
+	if g := e.group; g != nil {
+		g.instruction = append(g.instruction, whole)
+		g.source = append(g.source, whole.refs()...)
+		return
+	}
+	s := e.section
+	text := strings.TrimSpace(s.title)
+	if s.instructions != "" {
+		text = s.instructions
+	}
+	text += " " + strings.TrimSpace(whole.text())
+	s.heading += " " + strings.TrimSpace(whole.text())
+	s.title, s.instructions = sectionTitle(text)
+	s.tasks = tasksOf(text)
+	s.source = append(s.source, whole.refs()...)
+}
+
+// carriesOnHeading reports whether text carries on the heading's last instruction line, which has not ended its
+// sentence, as text copied from a PDF breaks it over hard lines:
+//   - a lower-case line after a comma or straight after the heading ("In boxes 1-4 on your answer sheet," / "write"),
+//     one that is itself a command ("write no more than two words"), or one that opens with a preposition or
+//     conjunction ("Write NO MORE THAN TWO WORDS" / "from the passage for each answer.");
+//   - a line that completes an answer format the last instruction line began ("Choose" / "TWO letters, A-E.",
+//     "Chọn" / "Đúng, Sai hoặc Không có thông tin"); the heading itself begins none.
+//
+// A passage that opens in lower case after an unfinished instruction ("iPads and phones…") does not.
+func (e *exam) carriesOnHeading(text string) bool {
+	last := strings.TrimSpace(e.group.instruction[len(e.group.instruction)-1].text())
+	text = strings.TrimSpace(text)
+	if last == "" || text == "" || strings.ContainsRune(".?!", []rune(last)[len([]rune(last))-1]) {
+		return false
+	}
+	if startsLower(text) && (strings.HasSuffix(last, ",") || e.bareHeading() || imperative.MatchString(text) || continuesPhrase(text)) {
+		return true
+	}
+	return !e.bareHeading() && completes(last, text)
+}
+
+// formatRest matches what may follow the answer format a broken line completes: nothing, a full stop or colon, or a
+// comma and then nothing, a preposition, a letter range or a number (", in boxes 1-2…", ", A-E."). Anything else is a sentence of
+// its own ("A, B and C were the three rooms…"), so the line is a passage, not the rest of the instruction
+// (QC-R6GRM-8). A question mark ends a title such as "ĐÚNG HAY SAI?", not an instruction.
+var formatRest = regexp.MustCompile(`(?i)^\s*(?:[.;:]*$|[,;:]\s*(?:$|(?:in|on|for|from|using|to|with|trong|vào|cho)\s|[A-H](?:\s|[-–.,]|$)|\d))`)
+
+// completes reports whether text, on the line after last, completes an answer format that runs into it from last or
+// opens it, and goes on with nothing that reads as a sentence of its own (formatRest).
+func completes(last, text string) bool {
+	if last == "" || text == "" || strings.ContainsRune(".?!", []rune(last)[len([]rune(last))-1]) || answerFormat(last) {
+		return false
+	}
+	joined := norm.NFC.String(last + " " + text)
+	from := len(norm.NFC.String(last)) + 1
+	for _, pattern := range formatPatterns {
+		for _, m := range pattern.FindAllStringIndex(joined, -1) {
+			end := m[1]
+			if r, size := utf8.DecodeLastRuneInString(joined[m[0]:m[1]]); !unicode.IsLetter(r) {
+				end -= size
+			}
+			if m[0] <= from && end > from && formatRest.MatchString(joined[end:]) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+// proseLine reports whether text, a line the heading's instruction takes after its first line, reads like a
+// sentence of a passage rather than more of the instruction: a sentence of five words or more that names no answer
+// format, is no line of the IELTS legend and carries on no broken line. The grammar cannot tell "Choose your words
+// carefully, the old saying goes…" from an instruction (D-073), so the draft points the teacher at it instead.
+//
+// Straight under a bare heading, a line that reads as a statement (readsAsStatement) is still taken as the
+// instruction, since a real instruction must never be lost to the grammar, but it is pointed at too (QC-R6GRM-5).
+func (e *exam) proseLine(text string) bool {
+	if e.bareHeading() {
+		return readsAsStatement(text)
+	}
+	return prose(text) && !e.carriesOnHeading(text)
+}
+
+// prose reports whether text reads like a sentence of a passage rather than an instruction line: five words or more
+// that name no answer format and are no line of the IELTS legend.
+func prose(text string) bool {
+	return len(strings.Fields(text)) >= minProseWords && !answerFormat(text) && !headingLegend.MatchString(text)
+}
+
+// sectionProse reports whether text, an imperative-led line that opens the first group of a Roman section whose
+// heading is itself an instruction, reads like a passage's sentence (prose): the grammar cannot tell it from a second
+// instruction line, so the draft points at it as it does under a range heading (QC-R6GRM-9, D-073). Under a Roman
+// title ("I. GRAMMAR") the line is the instruction's first, which is never pointed at (QC-R6GRM-14).
+func (e *exam) sectionProse(text string) bool {
+	_, ok := e.lastInstruction()
+	return e.group == nil && ok && e.section.instructs && prose(text)
+}
+
+// bareHeading reports whether the open group is a range heading, or a run of them, with nothing under it yet.
+func (e *exam) bareHeading() bool {
+	g := e.group
+	if g == nil || !g.heading || len(g.questions) > 0 || len(g.stimulus) > 0 {
+		return false
+	}
+	return !slices.ContainsFunc(g.instruction, func(s segment) bool {
+		_, _, ok := headingRange(strings.TrimSpace(s.text()))
+		return !ok
+	})
+}
+
+// takeBareHeading removes the open bare heading's group, and the inferred part it alone made, and returns the
+// heading's segments.
+func (e *exam) takeBareHeading() []segment {
+	g, s := e.group, e.section
+	e.group = nil
+	s.items = slices.DeleteFunc(s.items, func(it item) bool { return it.group == g })
+	if s.origin == domain.InferredStructure && len(s.items) == 0 {
+		e.sections = slices.DeleteFunc(e.sections, func(other *sectionBuilder) bool { return other == s })
+		e.section = nil
+	}
+	return g.instruction
+}
+
 func (e *exam) romanInSequence(value int, rest []rune) bool {
 	if value == e.lastRoman+1 {
 		return true
@@ -236,16 +467,74 @@ func (e *exam) headingRest(l *line, end int) bool {
 	if !visible(l.text[end:]) {
 		return false
 	}
-	_, isOption := optionStart(l.text[end:])
+	isOption := optionStart(l.text[end:])
 	return !isOption
+}
+
+// headingLabel matches what may stand before the command of a Roman heading: a score in brackets ("(2 points)") or a
+// label ended by a colon or a dash ("READING:", "Phonetics -").
+var headingLabel = regexp.MustCompile(`^\s*(?:\([^)]*\)\s*)?(?:[^:–-]{1,40}(?::|\s[-–])\s*)?`)
+
+// headingScore matches a score in brackets that ends a Roman heading: "(1.0 point)", "(3,0 điểm)", "(2 points).".
+var headingScore = regexp.MustCompile(`(?i)\s*\(\s*\d+(?:[.,]\d+)?\s*(?:points?|pts?\.?|marks?|điểm|đ)?\s*\)\s*[.:]?\s*$`)
+
+// minCommandWords is the fewest words a Roman heading's command has when it reads as a sentence: "Read the passage
+// carefully", "Đọc đoạn văn sau". "Use of English" and "Đọc hiểu" have fewer. A heading all in capitals needs twice
+// as many, since a title in capitals runs to a few words ("ĐỌC HIỂU VĂN BẢN") and a command in capitals to a sentence
+// ("CHOOSE THE WORD WHOSE UNDERLINED PART IS PRONOUNCED DIFFERENTLY").
+const minCommandWords = 4
+
+// commandHeading reports whether rest, the text after a Roman numeral, is a command that reads as a sentence ("Read
+// the passage below carefully.", "READING: Read the passage and decide…", "(2 points) Read the passage…", "Choose the
+// best answer to complete each sentence (1.0 point)"). A score in brackets at either end and a label before a colon
+// or a dash are set aside; what is left is a command when it opens with an imperative, is a statement of no other
+// kind, and has at least minCommandWords words. A heading that only opens with a command word is
+// a title ("ĐỌC HIỂU (3,0 điểm):", "USE OF ENGLISH.", "Đọc hiểu.", "Use of English (2,0 điểm)."), and the line under
+// it is the instruction's first (QC-R6GRM-17, QC-R6GRM-19, QC-R6GRM-22, QC-R6GRM-23). A heading that names its
+// answer format is an instruction whatever its shape: answerFormat.
+func commandHeading(rest string) bool {
+	rest = strings.TrimSpace(headingScore.ReplaceAllString(rest, ""))
+	if sentenceCommand(rest) {
+		return true
+	}
+	after := strings.TrimSpace(rest[len(headingLabel.FindString(rest)):])
+	return after != rest && sentenceCommand(after)
+}
+
+// sentenceCommand reports whether text is a command of commandHeading's shape.
+func sentenceCommand(text string) bool {
+	if !isInstruction(text) || readsAsStatement(text) {
+		return false
+	}
+	words, lower := 0, false
+	for _, w := range strings.Fields(text) {
+		if strings.IndexFunc(w, unicode.IsLetter) >= 0 {
+			words++
+		}
+		lower = lower || strings.IndexFunc(w, unicode.IsLower) >= 0
+	}
+	return words >= minCommandWords && (lower || words >= 2*minCommandWords)
 }
 
 func (e *exam) openSection(l *line, ordinal int) {
 	e.closeQuestion()
+	var heading []segment
+	if e.bareHeading() {
+		// A range heading straight above a section heading names that section's questions: it joins the section's
+		// source rather than leaving an empty part or unassigned text behind.
+		heading = e.takeBareHeading()
+	}
 	e.closeGroup()
 	text := strings.TrimSpace(l.String())
 	s := &sectionBuilder{id: identity(e.source, l.pieces[0].block.ID, "section"), ordinal: ordinal, tasks: tasksOf(text), origin: domain.SourceExplicit, source: l.refs(0, len(l.text))}
+	for _, h := range heading {
+		s.source = append(h.refs(), s.source...)
+	}
 	s.title, s.instructions = sectionTitle(text)
+	if _, end, ok := e.rules.roman(l.text); ok && visible(l.text[end:]) {
+		s.heading = text
+		s.instructs = answerFormat(text) || commandHeading(matchable(l.text[end:]))
+	}
 	e.sections = append(e.sections, s)
 	e.section = s
 	e.explicit = true
@@ -353,7 +642,7 @@ func (e *exam) adoptParent(lb label) {
 	if q == nil || q.label.text != parent || len(q.options) > 0 {
 		return
 	}
-	g := &groupBuilder{id: identity(q.id, "group"), label: parent, instruction: q.instruction, stimulus: q.stem, accepting: true, source: q.source}
+	g := &groupBuilder{id: identity(q.id, "group"), label: parent, instruction: instructionOf(q), stimulus: q.stem, accepting: true, source: q.source}
 	s := q.section
 	for i := range s.items {
 		if s.items[i].question == q {
@@ -437,11 +726,35 @@ func (e *exam) textLine(l *line) {
 	case e.question != nil && len(e.question.options) == 0:
 		e.question.stem = append(e.question.stem, whole)
 		e.question.source = append(e.question.source, whole.refs()...)
-	case isInstruction(text) && !e.continuesStimulus(text):
+	case e.extendsHeading(text):
+		if e.proseLine(text) {
+			e.group.prose = append(e.group.prose, whole)
+		}
+		if vietnameseJoined(text) {
+			e.group.joined = append(e.group.joined, whole)
+		}
+		e.group.instruction = append(e.group.instruction, whole)
+		e.group.source = append(e.group.source, whole.refs()...)
+	case e.completesInstruction(text):
+		e.extendInstruction(whole)
+	case vietnameseJoined(text) && e.openInstruction():
+		// A line the grammar cannot read either way, after an instruction with nothing under it yet, joins that
+		// instruction rather than leaving it unassigned, and is pointed at (D-075, D-076).
+		e.group.instruction = append(e.group.instruction, whole)
+		e.group.joined = append(e.group.joined, whole)
+		e.group.source = append(e.group.source, whole.refs()...)
+	case isInstruction(text) && !e.continuesStimulus(text) && !e.passageAfterInstruction(text):
+		pointed := e.sectionProse(text)
 		e.closeQuestion()
 		e.closeGroup()
 		e.ensureSection()
-		e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: &whole, accepting: true, source: whole.refs()}
+		e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, accepting: true, source: whole.refs()}
+		if pointed {
+			e.group.prose = []segment{whole}
+		}
+		if vietnameseJoined(text) {
+			e.group.joined = []segment{whole}
+		}
 		e.section.items = append(e.section.items, item{group: e.group})
 	case e.group != nil && e.group.accepting && len(e.group.questions) == 0:
 		e.group.stimulus = append(e.group.stimulus, whole)
@@ -514,7 +827,7 @@ func (e *exam) dissolveEmptyGroup(g *groupBuilder) {
 	for i := range items {
 		if items[i].group == g {
 			e.section.items = append(items[:i], items[i+1:]...)
-			for _, s := range append(append([]segment{}, g.stimulus...), instructionSegments(g)...) {
+			for _, s := range append(append([]segment{}, g.stimulus...), g.instruction...) {
 				unconsume(s)
 			}
 			return
@@ -522,11 +835,11 @@ func (e *exam) dissolveEmptyGroup(g *groupBuilder) {
 	}
 }
 
-func instructionSegments(g *groupBuilder) []segment {
-	if g.instruction == nil {
+func instructionOf(q *questionBuilder) []segment {
+	if q.instruction == nil {
 		return nil
 	}
-	return []segment{*g.instruction}
+	return []segment{*q.instruction}
 }
 
 func unconsume(s segment) {
@@ -560,8 +873,8 @@ func (e *exam) splitByInstruction(items []item) []*sectionBuilder {
 		}
 		current := out[len(out)-1]
 		current.items = append(current.items, it)
-		if it.question != nil {
-			it.question.section = current
+		for _, q := range it.questions() {
+			q.section = current
 		}
 	}
 	return out
@@ -611,4 +924,15 @@ func (e *exam) rangeTitle(s *sectionBuilder) string {
 		return "Câu " + span
 	}
 	return span
+}
+
+// vietnameseLinks holds the Vietnamese prepositions and conjunctions a broken phrase carries on with ("… KHÔNG QUÁ
+// HAI TỪ" / "cho mỗi câu trả lời.").
+var vietnameseLinks = map[string]bool{"cho": true, "trong": true, "vào": true, "của": true, "với": true, "theo": true, "ở": true, "và": true, "hoặc": true}
+
+// continuesPhrase reports whether text opens with a preposition or a conjunction, so it carries on a phrase rather
+// than starting a sentence of its own.
+func continuesPhrase(text string) bool {
+	first, _, _ := strings.Cut(strings.ToLower(norm.NFC.String(text)), " ")
+	return functionWords[first] || vietnameseLinks[first]
 }

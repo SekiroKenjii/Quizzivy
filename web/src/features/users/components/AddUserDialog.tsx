@@ -307,7 +307,7 @@ export function AddUserDialog({
             type="submit"
             form={id}
             aria-disabled={pending || !valid || undefined}
-            className="aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50"
+            className="aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55"
           >
             {t("users.addUser.submit")}
           </Button>

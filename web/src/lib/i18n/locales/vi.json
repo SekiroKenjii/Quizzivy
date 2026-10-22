@@ -269,6 +269,9 @@
       "idle": "So sánh câu trả lời với các đáp án được chấp nhận. Bạn quyết định điểm.",
       "run": "Gợi ý điểm",
       "running": "Đang đọc câu trả lời…",
+      "idleEssay": "Đọc bài viết và gợi ý một band. Bạn quyết định band.",
+      "idleRubric": "Đọc bài viết và gợi ý band cho từng tiêu chí. Bạn quyết định các band.",
+      "runningEssay": "Đang đọc bài viết…",
       "confidence": {
         "high": "Độ tin cậy cao",
         "medium": "Độ tin cậy trung bình",
@@ -278,6 +281,7 @@
       "comment": "Nhận xét cho học viên:",
       "use": "Dùng điểm và nhận xét",
       "filled": "Đã điền điểm và nhận xét. Hãy kiểm tra lại, rồi bấm Lưu & câu tiếp theo.",
+      "filledBand": "Đã điền band và nhận xét. Hãy kiểm tra lại, rồi bấm Lưu & câu tiếp theo.",
       "off": "Gợi ý của AI đang tắt trong <settings>Cài đặt › Trợ lý AI</settings>."
     },
     "needsVersion": "Hãy phát hành đề trước khi tạo biến thể.",
@@ -406,6 +410,7 @@
       "assignment.updated": "Đã cập nhật bài giao",
       "attempt.extended": "Đã gia hạn lượt làm bài vì bảo trì",
       "attempt.flagged": "Đã gắn cờ lượt làm bài",
+      "attempt.graded": "Đã chấm điểm lượt làm bài",
       "attempt.reset": "Đã đặt lại lượt làm bài",
       "attempt.unflagged": "Đã bỏ cờ lượt làm bài",
       "attempt.voided": "Đã huỷ lượt làm bài",
@@ -1702,7 +1707,8 @@
       "score": "{{earned}} / {{total}}",
       "beingGraded": "Chờ chấm",
       "submitted": "Đã nộp",
-      "justNow": "Vừa xong"
+      "justNow": "Vừa xong",
+      "band": "Band {{band}}"
     },
     "classes": {
       "subtitle": "Giáo viên của bạn và bài tiếp theo ở từng lớp.",
@@ -2564,10 +2570,13 @@
     "tags": "Thẻ",
     "typeLabel": "Loại câu hỏi",
     "type": {
+      "essay": "Bài luận",
       "fill_blank": "Điền từ",
+      "matching": "Nối",
       "multiple_choice": "Nhiều đáp án",
-      "short_answer": "Tự luận",
+      "short_answer": "Trả lời ngắn",
       "single_choice": "Một đáp án",
+      "tfng": "Đúng/Sai/Không có thông tin",
       "true_false": "Đúng/Sai"
     },
     "newTitle": "Câu hỏi mới",
@@ -2584,6 +2593,7 @@
       "placeholderMismatch": "Ký hiệu chỗ trống chưa khớp.",
       "optionContent": "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản.",
       "questionContent": "Nội dung có định dạng không hợp lệ hoặc không khớp văn bản.",
+      "markerNeedsAudio": "Vị trí âm thanh trong nội dung cần tệp âm thanh của câu hỏi. Hãy thêm trong mục Media của câu hỏi hoặc gỡ vị trí này.",
       "pointPrecision": "Điểm chỉ được có tối đa hai chữ số thập phân.",
       "pointsTooLarge": "Điểm tối đa là 999999,99.",
       "trueFalseCount": "Câu đúng/sai phải có đúng hai phương án.",
@@ -2593,7 +2603,26 @@
       "duplicateBlank": "Số thứ tự chỗ trống bị trùng.",
       "blankOrdinal": "Số thứ tự chỗ trống phải từ 1 đến 32767.",
       "gapMismatch": "Mỗi chỗ trống trong nội dung phải có đúng một nhóm đáp án tương ứng.",
-      "maxOptions": "Câu hỏi có tối đa 8 lựa chọn."
+      "maxOptions": "Câu hỏi có tối đa 8 lựa chọn.",
+      "selectCountRange": "Học viên chọn từ 2 đến 7 đáp án, và ít hơn số đáp án đã cho.",
+      "selectCountTicks": "Đánh dấu số đáp án đúng bằng số đáp án học viên chọn.",
+      "maxWordsRange": "Giới hạn số từ là số nguyên từ 1 đến 100.",
+      "unexpectedTypeField": "Thiết lập này không dùng cho loại câu hỏi này.",
+      "tfngCount": "Câu Đúng/Sai/Không có thông tin phải có đúng ba phương án.",
+      "matchTwoItems": "Cần ít nhất hai mục.",
+      "maxMatchItems": "Câu nối có tối đa 20 mục.",
+      "matchItemRequired": "Điền nội dung cho mọi mục.",
+      "matchItemTooLong": "Nội dung mục không được dài quá 500 ký tự.",
+      "matchItemUnset": "Chọn lựa chọn đúng cho mọi mục.",
+      "matchOptionTaken": "Mỗi lựa chọn chỉ nối với một mục. Hãy chọn lựa chọn khác, hoặc cho phép dùng một lựa chọn nhiều lần.",
+      "matchMoreItemsThanOptions": "Số mục nhiều hơn số lựa chọn. Hãy thêm lựa chọn, hoặc cho phép dùng một lựa chọn nhiều lần.",
+      "matchOptionCorrect": "Lựa chọn của câu nối không được đánh dấu đúng.",
+      "matchReuseRequired": "Hãy chọn một lựa chọn có được dùng nhiều lần hay không.",
+      "criterionRequired": "Đặt tên cho mọi tiêu chí.",
+      "criterionTooLong": "Tên tiêu chí không được dài quá 80 ký tự.",
+      "duplicateCriterion": "Hai tiêu chí bị trùng tên.",
+      "maxCriteria": "Bài luận có tối đa sáu tiêu chí.",
+      "maxMatchOptions": "Câu nối có tối đa 12 lựa chọn."
     },
     "preview": "Học viên sẽ thấy",
     "removeBlankN": "Xoá chỗ trống {{n}}",
@@ -2631,7 +2660,10 @@
       "auto": "Chấm tự động khi học viên nộp bài.",
       "manual": "Chấm tay. Mỗi câu trả lời được đưa vào hàng chờ chấm.",
       "anyAccepted": "Câu trả lời đúng khi khớp với một đáp án được chấp nhận.",
-      "exactlyTicked": "Học viên phải chọn đúng các lựa chọn đã đánh dấu."
+      "exactlyTicked": "Học viên phải chọn đúng các lựa chọn đã đánh dấu.",
+      "band": "Bạn chấm theo band từ 3 đến 9.",
+      "itemShare": "Mỗi mục được phần điểm của mình.",
+      "perPick": "Mỗi lựa chọn đúng được phần điểm của mình."
     },
     "questionMedia": {
       "label": "Media của câu hỏi",
@@ -2705,7 +2737,57 @@
     "leaveTitle": "Rời đi mà không lưu?",
     "leaveBody": "Những thay đổi của câu hỏi này chưa được lưu.",
     "leave": "Rời đi",
-    "stay": "Ở lại"
+    "stay": "Ở lại",
+    "includeNotGiven": "Thêm “Không có thông tin”",
+    "includeNotGivenHint": "cho dạng Đúng / Sai / Không có thông tin kiểu IELTS",
+    "optionsHintCount_one": "đánh dấu {{count}} đáp án đúng",
+    "optionsHintCount_other": "đánh dấu {{count}} đáp án đúng",
+    "chooseExactly": "Học viên chọn đúng số đáp án",
+    "chooseExactlyCount": "Số đáp án học viên chọn",
+    "tickExactly_one": "Đánh dấu đủ {{count}} đáp án đúng, bằng số đáp án học viên chọn.",
+    "tickExactly_other": "Đánh dấu đủ {{count}} đáp án đúng, bằng số đáp án học viên chọn.",
+    "wordLimit": "Giới hạn số từ",
+    "wordLimitHint": "Không bắt buộc. Học viên thấy số từ khi gõ; câu trả lời dài hơn được đánh dấu, không bị cắt.",
+    "wordLimitPlaceholder": "Không giới hạn",
+    "matching": {
+      "items": "Các mục",
+      "itemsHint": "những gì học viên cần nối, kèm lựa chọn đúng",
+      "optionsHint": "danh sách học viên chọn",
+      "item": "Mục {{key}}",
+      "itemPlaceholder": "Nhập nội dung mục",
+      "option": "Lựa chọn {{key}}",
+      "optionPlaceholder": "Nhập lựa chọn",
+      "choose": "Chọn…",
+      "correctFor": "Lựa chọn đúng cho mục {{key}}",
+      "removeItem": "Xoá mục {{key}}",
+      "removeOption": "Xoá lựa chọn {{key}}",
+      "addItem": "Thêm mục",
+      "extra": "Thừa",
+      "extraTitle": "Không nối với mục nào, nên dùng làm phương án gây nhiễu",
+      "reuse": "Mỗi lựa chọn có thể dùng nhiều lần",
+      "maxItemsToast": "Tối đa {{count}} mục",
+      "minItemsToast": "Câu nối cần ít nhất {{count}} mục",
+      "minOptionsToast": "Câu nối cần ít nhất {{count}} lựa chọn"
+    },
+    "rubric": {
+      "label": "Tiêu chí chấm",
+      "hint": "tối đa {{count}}. Band là trung bình các tiêu chí, làm tròn đến 0,5.",
+      "none": "Chưa có tiêu chí: bạn cho band trực tiếp khi chấm.",
+      "criterion": "Tiêu chí {{n}}",
+      "placeholder": "Đặt tên tiêu chí",
+      "moveUp": "Đưa tiêu chí {{n}} lên",
+      "moveDown": "Đưa tiêu chí {{n}} xuống",
+      "remove": "Xoá tiêu chí {{n}}",
+      "add": "Thêm tiêu chí",
+      "preset": "Dùng tiêu chí IELTS Writing",
+      "maxToast": "Tối đa {{count}} tiêu chí",
+      "ielts": {
+        "taskResponse": "Hoàn thành yêu cầu đề bài",
+        "coherence": "Mạch lạc và liên kết",
+        "lexical": "Vốn từ vựng",
+        "grammar": "Độ đa dạng và chính xác ngữ pháp"
+      }
+    }
   },
   "builder": {
     "dragInstructions": "Bấm phím cách để nhấc mục, dùng phím mũi tên để chuyển, rồi bấm phím cách để thả hoặc Esc để huỷ.",
@@ -2915,7 +2997,8 @@
       "usedIn_one": "dùng trong {{count}} đề",
       "usedIn_other": "dùng trong {{count}} đề",
       "inTest": "Đã có trong đề"
-    }
+    },
+    "noCorrectAnswer": "Chưa có đáp án đúng"
   },
   "bank": {
     "filters": "Bộ lọc",
@@ -3116,6 +3199,9 @@
           "prompt": "nội dung câu hỏi",
           "options": "các lựa chọn",
           "blanks": "chỗ trống",
+          "items": "các mục cần nối",
+          "rubric": "tiêu chí chấm",
+          "rules": "quy tắc trả lời",
           "media": "tệp đính kèm",
           "points": "điểm",
           "explanation": "lời giải thích",
@@ -3867,6 +3953,7 @@
     "transcript": "Nội dung bài nghe"
   },
   "takeTest": {
+    "imageUnavailable": "Hình ảnh chưa tải được. Hãy thử lại.",
     "openPassage": "Mở ngữ liệu",
     "openRecording": "Mở bài nghe",
     "drawerHint": "Vuốt sang trái để quay lại câu hỏi",
@@ -3884,6 +3971,14 @@
     "answerPlaceholder": "Nhập câu trả lời",
     "wordCount_one": "{{count}} từ",
     "wordCount_other": "{{count}} từ",
+    "wordLimit_one": "{{words}}/{{count}} từ",
+    "wordLimit_other": "{{words}}/{{count}} từ",
+    "wordLimitOver_one": "{{words}}/{{count}} từ · quá số từ",
+    "wordLimitOver_other": "{{words}}/{{count}} từ · quá số từ",
+    "wordLimitHintOne": "Viết MỘT TỪ.",
+    "wordLimitHint": "Viết KHÔNG QUÁ {{words}} TỪ.",
+    "yourEssay": "Bài luận của bạn",
+    "essayPlaceholder": "Viết bài luận của bạn",
     "leave": "Thoát khỏi bài làm",
     "leaveTitle": "Thoát khỏi bài làm?",
     "leaveBody": "Câu trả lời của bạn đã được lưu, nhưng đồng hồ vẫn chạy. Hãy quay lại trước khi hết giờ.",
@@ -3943,10 +4038,10 @@
     "submitDialog": {
       "titleUnanswered": "Nộp bài khi còn {{n}} câu chưa trả lời?",
       "titleAll": "Nộp bài?",
-      "bodyUnanswered_one": "Câu chưa trả lời sẽ không có điểm. Bạn vẫn còn {{count}} phút.",
-      "bodyUnanswered_other": "Câu chưa trả lời sẽ không có điểm. Bạn vẫn còn {{count}} phút.",
-      "bodySoon": "Câu chưa trả lời sẽ không có điểm. Bạn còn chưa đầy một phút.",
-      "bodyOver": "Câu chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
+      "bodyUnanswered_one": "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Bạn vẫn còn {{count}} phút.",
+      "bodyUnanswered_other": "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Bạn vẫn còn {{count}} phút.",
+      "bodySoon": "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Bạn còn chưa đầy một phút.",
+      "bodyOver": "Chỗ trống, cặp nối và câu hỏi chưa trả lời sẽ không có điểm. Đã hết giờ làm bài.",
       "bodyAll": "Sau khi nộp, bạn không thể sửa câu trả lời.",
       "answered": "Đã trả lời",
       "flagged": "Đánh dấu",
@@ -3970,7 +4065,10 @@
       "multiple_choice": "Nhiều đáp án",
       "true_false": "Đúng/Sai",
       "fill_blank": "Điền từ",
-      "short_answer": "Tự luận"
+      "short_answer": "Trả lời ngắn",
+      "tfng": "Đúng/Sai/Không có thông tin",
+      "matching": "Nối",
+      "essay": "Bài luận"
     },
     "blankRuleInsensitive": "Không phân biệt hoa thường. Viết đúng chính tả.",
     "blankRuleSensitive": "Phân biệt hoa thường. Viết đúng chính tả.",
@@ -3979,6 +4077,27 @@
     "retrySave": "Thử lưu lại",
     "chooseMultiple": "Chọn các đáp án bạn cho là đúng. Bạn có thể chọn nhiều đáp án.",
     "chooseSingle": "Chọn một đáp án.",
+    "chooseCount": "Chọn {{words}} đáp án.",
+    "numberWord": {
+      "2": "hai",
+      "3": "ba",
+      "4": "bốn",
+      "5": "năm",
+      "6": "sáu",
+      "7": "bảy",
+      "8": "tám",
+      "9": "chín",
+      "10": "mười",
+      "11": "mười một"
+    },
+    "matching": {
+      "done": "Đã nối {{k}}/{{n}}",
+      "options": "Các lựa chọn",
+      "usedBy": "được nối với",
+      "item": "{{key}} {{text}}",
+      "chipUsed": "{{key}}, đã nối với {{by}}",
+      "moved": "{{key}} đã chuyển từ {{from}}"
+    },
     "viewSubmitted": "Xem bài đã nộp",
     "unknownType": "Câu {{n}} thuộc dạng câu hỏi mới mà trang này chưa hiển thị được. Hãy tải lại trang để làm câu này; các câu trả lời của bạn vẫn được giữ.",
     "reloadPage": "Tải lại trang",
@@ -4214,7 +4333,8 @@
     "pendingNote_one": "{{count}} câu cần bạn chấm.",
     "pendingNote_other": "{{count}} câu cần bạn chấm.",
     "noQuestions": "Đề này không có câu hỏi nào.",
-    "questionMeta": "Câu {{n}} · {{type}} · {{points}} điểm",
+    "questionMeta_one": "Câu {{n}} · {{type}} · {{points}} điểm",
+    "questionMeta_other": "Câu {{n}} · {{type}} · {{points}} điểm",
     "sampleAnswer": "Đáp án mẫu — chỉ bạn nhìn thấy",
     "attemptOf": "lượt {{n}}/{{total}}",
     "submittedAt": "nộp {{time}}",
@@ -4233,7 +4353,8 @@
       "partial": "Đúng một phần",
       "pending": "Chờ chấm",
       "unanswered": "Chưa trả lời",
-      "removed": "Đã xoá"
+      "removed": "Đã xoá",
+      "banded": "Chấm theo band"
     },
     "studentAnswer": "Bài làm của học viên",
     "unanswered": "Học viên không trả lời câu này.",
@@ -4255,7 +4376,18 @@
     "voided": "Lượt làm này đã bị huỷ nên không chấm.",
     "keyTo": "–",
     "keySep": "·",
-    "keyEnter": "Enter"
+    "keyEnter": "Enter",
+    "wordCount_one": "{{count}} từ",
+    "wordCount_other": "{{count}} từ",
+    "overLimit": "Vượt giới hạn từ ({{words}}/{{max}} từ)",
+    "notMatched": "Chưa nối",
+    "matchedTo": "Nối với {{choice}}",
+    "matchKey": "Đáp án đúng: {{choice}}",
+    "matchedRight": "Nối với {{choice}} · đúng",
+    "essayBand": "Band {{band}}",
+    "chooseCount": "Chọn {{n}} · đúng {{correct}}/{{n}} lựa chọn",
+    "chooseOver": "Chọn {{n}} · đã chọn {{picked}}, quá {{n}} nên không lựa chọn nào được tính",
+    "paperBand": "Band {{band}}"
   },
   "timeline": {
     "loadFailed": "Không tải được diễn biến của lượt làm này.",
@@ -4354,7 +4486,8 @@
       "of": "trên {{total}}",
       "soFar": "trên {{total}}, tạm tính",
       "grading": "đang chấm",
-      "withheld": "Điểm chưa được công bố"
+      "withheld": "Điểm chưa được công bố",
+      "band": "band"
     },
     "summary": {
       "graded": "Bạn trả lời đúng {{correct}}/{{total}} câu.",
@@ -4366,7 +4499,10 @@
       "pending": "Giáo viên đang chấm các câu tự luận của bạn. Điểm sẽ hiện ở đây khi chấm xong.",
       "pendingNotify": "Giáo viên đang chấm các câu tự luận của bạn. Bạn sẽ nhận được thông báo khi có điểm.",
       "withheld": "Bạn đã trả lời {{answered}}/{{total}} câu. Giáo viên chưa công bố điểm.",
-      "withheldUntil": "Bạn đã trả lời {{answered}}/{{total}} câu. Điểm được công bố khi bài đóng."
+      "withheldUntil": "Bạn đã trả lời {{answered}}/{{total}} câu. Điểm được công bố khi bài đóng.",
+      "band": "Bài đã được giáo viên chấm.",
+      "bandBy": "Bài đã được {{name}} chấm.",
+      "strongest": "{{criterion}} là phần bạn làm tốt nhất."
     },
     "tiles": {
       "auto": "Chấm tự động",
@@ -4403,7 +4539,8 @@
     "verdict": {
       "correct": "Đúng",
       "wrong": "Sai",
-      "partial": "Đúng một phần"
+      "partial": "Đúng một phần",
+      "banded": "Chấm theo band"
     },
     "points": "{{earned}} / {{total}}",
     "waiting": "Chờ chấm",
@@ -4415,13 +4552,16 @@
     "false": "Sai",
     "blank": "chỗ trống",
     "replayFreely": "Nghe lại thoải mái sau khi nộp",
+    "explanationAudio": "Âm thanh giải thích",
     "showTranscript": "Xem lời thoại",
     "noTranscript": "Lời thoại không được hiển thị.",
     "teacherComment": "Nhận xét của giáo viên",
+    "commentFrom": "Nhận xét của {{name}}",
     "cloze": {
       "questions": "Câu {{from}}–{{to}}",
       "chip": "Câu {{n}}, {{word}}"
-    }
+    },
+    "band": "Band {{band}}"
   },
   "queue": {
     "summary": {
@@ -4461,7 +4601,8 @@
     "graded": "Đã chấm {{done}}/{{total}}",
     "next": "Câu tiếp theo",
     "exit": "Chấm từng bài",
-    "meta": "Câu {{n}} · {{type}} · {{points}} điểm",
+    "meta_one": "Câu {{n}} · {{type}} · {{points}} điểm",
+    "meta_other": "Câu {{n}} · {{type}} · {{points}} điểm",
     "rubric": "Chấm ý",
     "namesHidden": "Tên học viên được ẩn cho tới khi bạn chấm xong câu này.",
     "showNames": "Hiện tên",
@@ -4596,7 +4737,36 @@
     "words_one": "{{count}} từ",
     "words_other": "{{count}} từ",
     "imagesLeftOut_one": "Đã bỏ {{count}} hình ảnh trong nội dung sao chép.",
-    "imagesLeftOut_other": "Đã bỏ {{count}} hình ảnh trong nội dung sao chép."
+    "imagesLeftOut_other": "Đã bỏ {{count}} hình ảnh trong nội dung sao chép.",
+    "media": {
+      "image": "Hình ảnh",
+      "audio": "Âm thanh",
+      "upload": "Tải lên từ thiết bị",
+      "library": "Chọn từ Media",
+      "libraryHint": "Các tệp bạn đã tải lên",
+      "imageLimits": "JPG, PNG hoặc WebP · tối đa 10 MB",
+      "audioLimits": "MP3 hoặc M4A · tối đa 50 MB và 5 phút",
+      "imageNote": "Bạn cũng có thể dán ({{shortcut}}) hoặc thả hình ảnh vào nội dung. Mỗi hình được lưu vào Media.",
+      "promptAudioNote": "Đây là âm thanh của câu hỏi: áp dụng giới hạn số lần nghe, và phát tại vị trí bạn đặt.",
+      "explanationAudioNote": "Học viên nghe đoạn này sau bài thi, cùng phần giải thích.",
+      "placeAudio": "Đặt âm thanh của câu hỏi tại đây",
+      "placeAudioHint": "Chuyển đến vị trí con trỏ",
+      "audioBlocked": "Câu hỏi đang dùng hình ảnh làm media. Hãy gỡ hình trong mục Media của câu hỏi để thêm âm thanh.",
+      "onlyImages": "Chỉ có thể dán hoặc thả hình ảnh vào nội dung. Dùng nút Âm thanh để thêm bản ghi.",
+      "refused": "Không thể thêm tệp vào đây: nội dung chứa tối đa 8 hình ảnh và bản ghi.",
+      "wrongType": "Định dạng tệp này không được hỗ trợ",
+      "unavailable": "Không tải được tệp này",
+      "removeImage": "Gỡ hình ảnh",
+      "removeAudio": "Gỡ âm thanh",
+      "alt": "Văn bản thay thế",
+      "altPlaceholder": "Văn bản thay thế: mô tả hình ảnh cho trình đọc màn hình",
+      "chooseFile": "Chọn tệp cho phần nội dung",
+      "altNudge": "Không có văn bản thay thế, trình đọc màn hình sẽ bỏ qua hình này. Chỉ để trống nếu hình chỉ để trang trí.",
+      "questionAudio": "Âm thanh của câu hỏi",
+      "questionAudioHint": "{{name}} · phát tại đây theo giới hạn số lần nghe của câu hỏi",
+      "questionAudioMissing": "Câu hỏi chưa có âm thanh. Hãy thêm trong mục Media của câu hỏi hoặc gỡ mục này.",
+      "pasteOnItsOwn": "Dán hoặc thả riêng từng hình ảnh để tải lên."
+    }
   },
   "groups": {
     "titleLabel": "Tên nhóm câu hỏi",
@@ -5070,7 +5240,8 @@
       "multiple_choice": "Nhiều đáp án",
       "true_false": "Đúng/Sai",
       "fill_blank": "Điền từ",
-      "short_answer": "Tự luận",
+      "short_answer": "Trả lời ngắn",
+      "tfng": "Đúng / Sai / Không có thông tin",
       "unsupported": "Chưa hỗ trợ"
     },
     "origin": {
@@ -5086,7 +5257,9 @@
       "answer": "Đáp án",
       "points": "Điểm",
       "blanks": "Đáp án các chỗ trống",
-      "sample": "Đáp án mẫu"
+      "sample": "Đáp án mẫu",
+      "selectCount": "Số đáp án cần chọn",
+      "maxWords": "Giới hạn số từ"
     },
     "severity": {
       "blocking": "Cần xử lý",
@@ -5176,6 +5349,10 @@
         "OPTION_LABEL_REFERENCE": {
           "title": "Lựa chọn nhắc đến lựa chọn khác",
           "help": "Lựa chọn này nhắc đến chữ cái của lựa chọn khác, ví dụ “Cả A và B”; nếu thứ tự lựa chọn bị trộn, câu sẽ sai. Hãy sửa nội dung lựa chọn, hoặc xác nhận nếu bạn sẽ không trộn thứ tự lựa chọn của câu này."
+        },
+        "PASSAGE_IN_INSTRUCTION": {
+          "title": "Phần hướng dẫn này có thể chứa bài đọc",
+          "help": "Nếu một đoạn trong hướng dẫn này là bài đọc, hãy chuyển đoạn đó vào Bài đọc của phần này."
         },
         "COLORED_TEXT_IN_CONTENT": {
           "title": "Có chữ màu trong nội dung câu",
@@ -5287,11 +5464,21 @@
       "excludeConfirm": "Loại",
       "restore": "Đưa lại vào đề",
       "typeChangeTitle": "Đổi dạng câu?",
-      "typeChangeBody": "Chuyển từ {{from}} sang {{to}} sẽ bỏ một phần lựa chọn hoặc đáp án hiện có. Bằng chứng trong tài liệu vẫn được giữ.",
+      "typeChangeBody": "Chuyển từ {{from}} sang {{to}} sẽ bỏ một phần lựa chọn, đáp án hoặc thiết lập đáp án hiện có. Bằng chứng trong tài liệu vẫn được giữ.",
       "typeChangeConfirm": "Đổi dạng câu",
       "pointsInvalid": "Điểm phải là số dương, tối đa hai chữ số thập phân.",
       "markOneHint": "Chọn một đáp án đúng",
       "markManyHint": "Chọn mọi đáp án đúng",
+      "markCountHint": "Đánh dấu đúng {{count}} đáp án",
+      "selectCountAny": "Không cố định, đúng hết mới có điểm",
+      "selectCountValue": "Chọn {{count}}",
+      "selectCountMismatch": "Cần đánh dấu đúng {{count}} phương án, bằng số đáp án cần chọn.",
+      "selectCountReset": "Đã đặt lại Chọn {{count}} thành \"Không cố định\" vì chỉ còn {{options}} phương án.",
+      "selectCountTooFew": "Chọn {{count}} cần ít nhất {{options}} phương án. Hãy thêm phương án hoặc chọn \"Không cố định\".",
+      "maxWordsHint": "Để trống nếu không giới hạn. Học sinh thấy giới hạn này; câu trả lời dài hơn chỉ bị đánh dấu, không bị cắt.",
+      "maxWordsInvalid": "Nhập số nguyên từ 1 đến 100, hoặc để trống.",
+      "tfngOption": { "T": "Đúng", "F": "Sai", "NG": "Không có thông tin" },
+      "tfngShort": "Đúng / Sai / Không có thông tin",
       "markCorrect": "Lựa chọn {{label}} là đáp án đúng",
       "editOption": "Sửa",
       "editOptionNamed": "Sửa lựa chọn {{label}}",
@@ -5303,7 +5490,7 @@
       "acceptedHint": "Mỗi dòng một đáp án",
       "caseSensitive": "Phân biệt chữ hoa, chữ thường",
       "caseSensitiveFor": "Phân biệt hoa thường ở chỗ trống {{label}}",
-      "sampleHint": "Đáp án mẫu chỉ giáo viên thấy khi chấm; câu tự luận có thể không cần.",
+      "sampleHint": "Đáp án mẫu chỉ giáo viên thấy khi chấm; câu trả lời ngắn có thể không cần.",
       "unsupportedHelp": "Nội dung gốc được giữ nguyên. Đổi sang dạng câu phù hợp ở trên, hoặc loại câu này khỏi đề.",
       "candidates": "Các giá trị trong tài liệu",
       "useCandidateNamed": "Dùng giá trị này: {{value}}",
@@ -5781,11 +5968,13 @@
     "markdown": "Markdown",
     "switchWarning": "Markdown giữ văn bản, chữ đậm, chữ nghiêng, tiêu đề, danh sách, bảng và liên kết. Gạch chân, chỉ số trên và chỉ số dưới không có dạng Markdown nên sẽ bị bỏ.",
     "switchToMarkdown": "Chuyển sang Markdown",
-    "gapsBlockMarkdown": "Hãy bỏ hết chỗ trống khỏi nội dung để chuyển sang Markdown: các chỗ trống đang giữ đáp án được chấp nhận."
+    "gapsBlockMarkdown": "Hãy bỏ hết chỗ trống khỏi nội dung để chuyển sang Markdown: các chỗ trống đang giữ đáp án được chấp nhận.",
+    "mediaBlocksMarkdown": "Hãy gỡ hình ảnh và âm thanh để chuyển sang Markdown: Markdown không có dạng cho chúng."
   },
   "trueFalse": {
     "true": "Đúng",
-    "false": "Sai"
+    "false": "Sai",
+    "notGiven": "Không có thông tin"
   },
   "keyGlyph": {
     "command": "Command",

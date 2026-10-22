@@ -6,7 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
+	"quizzivy/internal/shared/bands"
+	"quizzivy/internal/shared/retention"
 	"quizzivy/internal/shared/schedule"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -88,7 +91,7 @@ func (s *Postgres) markedQuestions(ctx context.Context, a domain.AttemptRecord, 
 	if err != nil {
 		return nil, nil, err
 	}
-	answers, err := s.gradedAnswers(ctx, a.ID)
+	answers, err := s.gradedAnswers(ctx, a.ID, review.ShowScore)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -112,11 +115,42 @@ func (s *Postgres) markedQuestions(ctx context.Context, a domain.AttemptRecord, 
 	if !review.ShowScore {
 		return questions, nil, nil
 	}
-	total, err := s.scoreTotal(ctx, a.ID)
+	total, band, err := s.scoreTotal(ctx, a.ID)
 	if err != nil {
 		return nil, nil, err
 	}
-	return questions, &domain.Score{Earned: earned, Total: total, PendingManual: pending}, nil
+	grader, err := s.graderName(ctx, a.ID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return questions, &domain.Score{Earned: earned, Total: total, PendingManual: pending, Band: band, GradedBy: grader}, nil
+}
+
+// graderName is the name of the one account that graded the paper (D-072,
+// D-074): the attempt has an answer that requires manual grading, none of
+// those still waits, one account graded them all, and it has not been
+// anonymised. It is nil otherwise; an override of an auto mark grades no
+// paper. An answer still waiting has no grader yet, so it alone keeps the
+// name out. Retention keeps the grade of an answer it removes, so such an
+// answer still counts by its grader; one removed before anyone graded it
+// waits for nobody and counts for nothing, as in the answered rule.
+func (s *Postgres) graderName(ctx context.Context, attemptID string) (*string, error) {
+	var name *string
+	if err := s.QueryRow(ctx, `
+		WITH manual AS (
+		  SELECT graded_by FROM app.attempt_answers
+		   WHERE attempt_id = $1::uuid AND requires_manual
+		     AND NOT (payload = '`+retention.RemovedAnswer+`'::jsonb AND manual_score IS NULL)
+		), one AS (
+		  SELECT min(graded_by::text)::uuid AS id FROM manual
+		  HAVING count(*) > 0 AND count(graded_by) = count(*) AND count(DISTINCT graded_by) = 1
+		)
+		SELECT coalesce(u.display_name, u.full_name)
+		  FROM one JOIN app.users u ON u.id = one.id
+		 WHERE `+retention.NotAnonymous, attemptID).Scan(&name); err != nil && !errors.Is(err, pgx.ErrNoRows) {
+		return nil, fmt.Errorf("attempts: read the grader: %w", err)
+	}
+	return name, nil
 }
 
 func (s *Postgres) classAverageOf(ctx context.Context, assignmentID string, stored domain.ReviewPolicy, withheld, closed bool) (*float64, error) {
@@ -164,7 +198,9 @@ func resultQuestion(q domain.Question, extras map[string]resultExtra, plays map[
 	if ex, ok := extras[q.ID]; ok {
 		rq.Explanation, rq.Transcript = ex.explanation, ex.transcript
 		rq.ExplanationContent = ex.explanationContent
+		rq.ExplanationAssets = shownAssets(nil, ex.explanationContent)
 		rq.CorrectOptions, rq.CorrectAnswers = ex.correctOptions, ex.correctAnswers
+		rq.Skill, rq.CorrectMatches = ex.skill, ex.correctMatches
 	}
 	if q.Audio != nil {
 		used := plays[q.ID]
@@ -180,6 +216,10 @@ func resultQuestion(q domain.Question, extras map[string]resultExtra, plays map[
 	}
 	if rq.PendingManual || !showScore {
 		return rq, nil
+	}
+	if answered && ans.band != nil {
+		rq.Band = ans.band
+		rq.Criteria = gradedCriteria(extras[q.ID].rubric, ans.criteria)
 	}
 	value := 0.0
 	if answered && ans.final != nil {
@@ -221,8 +261,11 @@ type resultExtra struct {
 	explanation        *string
 	explanationContent json.RawMessage
 	transcript         *string
+	skill              *string
 	correctOptions     []string
 	correctAnswers     []domain.BlankAnswer
+	correctMatches     []domain.MatchPair
+	rubric             []domain.RubricCriterion
 }
 
 // resultExtras reads the released parts of the key. Each column is gated in
@@ -245,11 +288,18 @@ func (s *Postgres) resultExtras(ctx context.Context, versionID string, p domain.
 		                                         WHERE ba.test_version_blank_id = b.id ORDER BY ba.id LIMIT 1)
 		                                       ORDER BY b.ordinal)
 		                                     FROM app.test_version_blanks b
-		                                    WHERE b.test_version_question_id = q.id), '{}') END
+		                                    WHERE b.test_version_question_id = q.id), '{}') END,
+		       q.skill,
+		       CASE WHEN $3 THEN coalesce((SELECT array_agg(i.id::text || ' ' || i.correct_option_id::text ORDER BY i.ordinal)
+		                                     FROM app.test_version_match_items i
+		                                    WHERE i.test_version_question_id = q.id), '{}') END,
+		       CASE WHEN $4 THEN coalesce((SELECT array_agg(c.id::text || ' ' || c.label ORDER BY c.ordinal)
+		                                     FROM app.test_version_rubric_criteria c
+		                                    WHERE c.test_version_question_id = q.id), '{}') END
 		  FROM app.test_version_questions q
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		 WHERE s.test_version_id = $1::uuid`,
-		versionID, p.ShowExplanations, p.ShowCorrectAnswers)
+		versionID, p.ShowExplanations, p.ShowCorrectAnswers, p.ShowScore)
 	if err != nil {
 		return nil, fmt.Errorf("attempts: read released key: %w", err)
 	}
@@ -259,33 +309,58 @@ func (s *Postgres) resultExtras(ctx context.Context, versionID string, p domain.
 	for rows.Next() {
 		var id string
 		var ex resultExtra
-		var blankIDs, blankAnswers []*string
-		if err := rows.Scan(&id, &ex.explanation, &ex.explanationContent, &ex.transcript, &ex.correctOptions, &blankIDs, &blankAnswers); err != nil {
+		var blankIDs, blankAnswers, matches, rubric []*string
+		if err := rows.Scan(&id, &ex.explanation, &ex.explanationContent, &ex.transcript, &ex.correctOptions, &blankIDs, &blankAnswers,
+			&ex.skill, &matches, &rubric); err != nil {
 			return nil, fmt.Errorf("attempts: scan released key: %w", err)
 		}
-		for i, blankID := range blankIDs {
-			if blankID == nil || i >= len(blankAnswers) || blankAnswers[i] == nil {
-				continue
-			}
-			ex.correctAnswers = append(ex.correctAnswers, domain.BlankAnswer{BlankID: *blankID, Answer: *blankAnswers[i]})
-		}
+		ex.unpack(blankIDs, blankAnswers, matches, rubric)
 		out[id] = ex
 	}
 	return out, rows.Err()
+}
+
+func (ex *resultExtra) unpack(blankIDs, blankAnswers, matches, rubric []*string) {
+	for i, blankID := range blankIDs {
+		if blankID == nil || i >= len(blankAnswers) || blankAnswers[i] == nil {
+			continue
+		}
+		ex.correctAnswers = append(ex.correctAnswers, domain.BlankAnswer{BlankID: *blankID, Answer: *blankAnswers[i]})
+	}
+	for _, pair := range matches {
+		if item, option, ok := strings.Cut(orZero(pair), " "); ok {
+			ex.correctMatches = append(ex.correctMatches, domain.MatchPair{ItemID: item, OptionID: option})
+		}
+	}
+	for _, criterion := range rubric {
+		if id, label, ok := strings.Cut(orZero(criterion), " "); ok {
+			ex.rubric = append(ex.rubric, domain.RubricCriterion{ID: id, Label: label})
+		}
+	}
 }
 
 type gradedAnswer struct {
 	payload        []byte
 	final          *float64
 	manual         *float64
-	requiresManual bool
+	band           *float64
 	comment        *string
+	criteria       map[string]float64
+	requiresManual bool
 }
 
-func (s *Postgres) gradedAnswers(ctx context.Context, attemptID string) (map[string]gradedAnswer, error) {
+// gradedAnswers reads the attempt's answers. Under a withheld score it leaves
+// band and criteria out in SQL, as a second layer: the gate the tests pin is
+// resultQuestion's showScore check, which hides them whatever this returns
+// (QC-785-4).
+func (s *Postgres) gradedAnswers(ctx context.Context, attemptID string, showScore bool) (map[string]gradedAnswer, error) {
 	rows, err := s.Query(ctx, `
-		SELECT question_id::text, payload, final_score, manual_score, requires_manual, grader_comment
-		  FROM app.attempt_answers WHERE attempt_id = $1::uuid`, attemptID)
+		SELECT question_id::text, payload, final_score, manual_score, requires_manual, grader_comment,
+		       CASE WHEN $2 THEN band END,
+		       CASE WHEN $2 THEN (SELECT jsonb_object_agg(g.criterion_id::text, g.band)
+		                            FROM app.attempt_answer_criteria g
+		                           WHERE g.attempt_id = a.attempt_id AND g.question_id = a.question_id) END
+		  FROM app.attempt_answers a WHERE attempt_id = $1::uuid`, attemptID, showScore)
 	if err != nil {
 		return nil, fmt.Errorf("attempts: read graded answers: %w", err)
 	}
@@ -294,7 +369,7 @@ func (s *Postgres) gradedAnswers(ctx context.Context, attemptID string) (map[str
 	for rows.Next() {
 		var id string
 		var g gradedAnswer
-		if err := rows.Scan(&id, &g.payload, &g.final, &g.manual, &g.requiresManual, &g.comment); err != nil {
+		if err := rows.Scan(&id, &g.payload, &g.final, &g.manual, &g.requiresManual, &g.comment, &g.band, &g.criteria); err != nil {
 			return nil, fmt.Errorf("attempts: scan graded answer: %w", err)
 		}
 		out[id] = g
@@ -302,14 +377,21 @@ func (s *Postgres) gradedAnswers(ctx context.Context, attemptID string) (map[str
 	return out, rows.Err()
 }
 
-func (s *Postgres) scoreTotal(ctx context.Context, attemptID string) (float64, error) {
-	var total *float64
+func (s *Postgres) scoreTotal(ctx context.Context, attemptID string) (float64, *float64, error) {
+	var total, band *float64
 	if err := s.QueryRow(ctx,
-		`SELECT score_total FROM app.attempts WHERE id = $1::uuid`, attemptID).Scan(&total); err != nil {
-		return 0, fmt.Errorf("attempts: read score total: %w", err)
+		`SELECT at.score_total, `+bands.OfPaper("at")+` FROM app.attempts at WHERE at.id = $1::uuid`, attemptID).Scan(&total, &band); err != nil {
+		return 0, nil, fmt.Errorf("attempts: read score total: %w", err)
 	}
-	if total == nil {
-		return 0, nil
+	return orZero(total), band, nil
+}
+
+func gradedCriteria(rubric []domain.RubricCriterion, given map[string]float64) []domain.ResultCriterion {
+	var out []domain.ResultCriterion
+	for _, c := range rubric {
+		if band, ok := given[c.ID]; ok {
+			out = append(out, domain.ResultCriterion{ID: c.ID, Label: c.Label, Band: band})
+		}
 	}
-	return *total, nil
+	return out
 }

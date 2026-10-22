@@ -47,6 +47,25 @@ func choiceInput(own *party) map[string]any {
 	}
 }
 
+// withProseMedia gives a question input an image, first, in its prompt or
+// explanation when slot is that image's asset, its prose otherwise matching
+// its text, so the media block is the only thing the bank can refuse (D-064
+// ruling 7).
+func withProseMedia(input map[string]any, own *party, slot string) map[string]any {
+	image := map[string]any{"type": "image", "assetId": own.id("media"), "alt": ""}
+	switch {
+	case strings.HasSuffix(slot, "/promptContent/blocks/-/assetId"):
+		doc := textDoc(input["prompt"].(string))
+		doc["blocks"] = append([]any{image}, doc["blocks"].([]any)...)
+		input["promptContent"] = doc
+	case strings.HasSuffix(slot, "/explanationContent/blocks/-/assetId"):
+		doc := textDoc("Giải thích")
+		doc["blocks"] = append([]any{image}, doc["blocks"].([]any)...)
+		input["explanation"], input["explanationContent"] = "Giải thích", doc
+	}
+	return input
+}
+
 func groupBundle(own *party, groupID, slot string) map[string]any {
 	questionID := uuid.NewString()
 	group := map[string]any{
@@ -64,7 +83,7 @@ func groupBundle(own *party, groupID, slot string) map[string]any {
 			"policy": map[string]any{"maxPlays": 2, "allowSeek": false, "showTranscriptAfterSubmit": false},
 		}}
 	}
-	return map[string]any{"group": group, "questions": []any{map[string]any{"id": questionID, "input": choiceInput(own)}}}
+	return map[string]any{"group": group, "questions": []any{map[string]any{"id": questionID, "input": withProseMedia(choiceInput(own), own, slot)}}}
 }
 
 func (x *iso) testUpdatedAt(own *party) string {
@@ -316,11 +335,15 @@ func isolationCases() map[string]isoCase {
 			},
 		},
 
-		"listQuestions":     {query: map[string]string{"limit": "100"}},
-		"createQuestion":    {body: func(_ *iso, own *party, _ string) any { return choiceInput(own) }},
-		"tagQuestions":      {excuse: map[string]string{"*": "tags only the questions the caller reaches"}, body: fixed(map[string]any{"questionIds": []any{""}, "tags": []any{"đã kiểm tra"}})},
-		"getQuestion":       {},
-		"updateQuestion":    {body: func(_ *iso, own *party, _ string) any { return choiceInput(own) }},
+		"listQuestions": {query: map[string]string{"limit": "100"}},
+		"createQuestion": {body: func(_ *iso, own *party, slot string) any {
+			return withProseMedia(choiceInput(own), own, slot)
+		}},
+		"tagQuestions": {excuse: map[string]string{"*": "tags only the questions the caller reaches"}, body: fixed(map[string]any{"questionIds": []any{""}, "tags": []any{"đã kiểm tra"}})},
+		"getQuestion":  {},
+		"updateQuestion": {body: func(_ *iso, own *party, slot string) any {
+			return withProseMedia(choiceInput(own), own, slot)
+		}},
 		"deleteQuestion":    {fresh: freshQuestion},
 		"duplicateQuestion": {},
 

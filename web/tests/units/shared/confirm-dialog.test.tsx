@@ -31,6 +31,36 @@ describe("the confirm dialog", () => {
     expect(onConfirm).toHaveBeenCalledTimes(1);
   });
 
+  it("opens on Cancel, the safe answer, and a notice on its only button", async () => {
+    const { rerender } = render(
+      <ConfirmDialog
+        open
+        onOpenChange={() => {}}
+        title="Xoá câu hỏi này?"
+        confirmLabel="Xoá"
+        destructive
+        onConfirm={() => {}}
+      />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Huỷ" })).toHaveFocus(),
+    );
+    rerender(
+      <ConfirmDialog
+        open={false}
+        onOpenChange={() => {}}
+        title="Đã lưu"
+        confirmLabel="OK"
+      />,
+    );
+    rerender(
+      <ConfirmDialog open onOpenChange={() => {}} title="Đã lưu" confirmLabel="OK" />,
+    );
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "OK" })).toHaveFocus(),
+    );
+  });
+
   it("keeps the confirming button off while disabled", () => {
     render(
       <ConfirmDialog

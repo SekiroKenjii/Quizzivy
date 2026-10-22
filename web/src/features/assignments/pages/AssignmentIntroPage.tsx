@@ -452,7 +452,7 @@ function Action({
         <Button
           size="xl"
           aria-disabled="true"
-          className={`${CTA} bg-muted text-muted-fg hover:bg-muted cursor-default`}
+          className={`${CTA} bg-muted aria-disabled:bg-muted text-muted-fg hover:bg-muted aria-disabled:hover:bg-muted cursor-default`}
         >
           {opensLabel(a, now, locale, t)}
           <ArrowRight aria-hidden="true" className="size-[18px]" />

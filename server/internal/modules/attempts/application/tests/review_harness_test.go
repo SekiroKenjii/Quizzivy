@@ -84,14 +84,24 @@ func seedPaper(t *testing.T, pool *pgxpool.Pool, status string) paper {
 	must(err)
 
 	t.Cleanup(func() {
-		c := context.Background()
-		_, _ = pool.Exec(c, `DELETE FROM app.attempt_answers WHERE attempt_id = $1::uuid`, p.attempt)
-		_, _ = pool.Exec(c, `DELETE FROM app.attempt_events WHERE attempt_id = $1::uuid`, p.attempt)
-		_, _ = pool.Exec(c, `DELETE FROM app.attempts WHERE id = $1::uuid`, p.attempt)
-		_, _ = pool.Exec(c, `DELETE FROM app.assignments WHERE id = $1::uuid`, assignmentID)
-		_, _ = pool.Exec(c, `DELETE FROM app.test_versions WHERE test_id = $1::uuid`, p.testID)
-		_, _ = pool.Exec(c, `DELETE FROM app.tests WHERE id = $1::uuid`, p.testID)
-		_, _ = pool.Exec(c, `DELETE FROM app.users WHERE id IN ($1::uuid, $2::uuid)`, p.admin, p.student)
+		for _, q := range []struct {
+			sql  string
+			args []any
+		}{
+			{`DELETE FROM app.audit_log WHERE entity_id = $1::uuid`, []any{p.attempt}},
+			{`DELETE FROM app.attempt_answers WHERE attempt_id = $1::uuid`, []any{p.attempt}},
+			{`DELETE FROM app.attempt_events WHERE attempt_id = $1::uuid`, []any{p.attempt}},
+			{`DELETE FROM app.attempts WHERE id = $1::uuid`, []any{p.attempt}},
+			{`DELETE FROM app.assignments WHERE id = $1::uuid`, []any{assignmentID}},
+			{`DELETE FROM app.test_versions WHERE test_id = $1::uuid`, []any{p.testID}},
+			{`DELETE FROM app.tests WHERE id = $1::uuid`, []any{p.testID}},
+			{`DELETE FROM app.users WHERE id = $1::uuid`, []any{p.student}},
+		} {
+			if _, err := pool.Exec(context.Background(), q.sql, q.args...); err != nil {
+				t.Errorf("clean up the paper: %v", err)
+			}
+		}
+		removeAdmin(t, pool, p.admin)
 	})
 	return p
 }

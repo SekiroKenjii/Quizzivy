@@ -114,7 +114,9 @@ func (a *assessor) question(q *DraftQuestion) int {
 	}
 	a.answer(q)
 	if !oversized && (q.Answer.State == AnswerKnown || q.Type == string(questions.ShortAnswer)) {
-		if field, invalid := invalidField(q); invalid {
+		if miscounted(q) {
+			a.add(CodeInvalidQuestion, Blocking, q.ID, "selectCount", 1, q.Answer.Evidence)
+		} else if field, invalid := invalidField(q); invalid {
 			a.add(CodeInvalidQuestion, Blocking, q.ID, field, 1, q.Source)
 		}
 	}
@@ -228,6 +230,11 @@ func invalidField(q *DraftQuestion) (string, bool) {
 		return invalid.Fields[0].Field, true
 	}
 	return "", true
+}
+
+// miscounted reports a "Choose N" question whose key names a different number of options than N.
+func miscounted(q *DraftQuestion) bool {
+	return q.Type == string(questions.MultipleChoice) && q.SelectCount != nil && q.Answer.State == AnswerKnown && len(q.Answer.OptionIDs) != *q.SelectCount
 }
 
 func isChoice(t string) bool {

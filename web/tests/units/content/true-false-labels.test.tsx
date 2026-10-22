@@ -1,7 +1,10 @@
 import { describe, expect, it, vi } from "vitest";
 import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
+import {
+  tfngTextLabelKey,
+  trueFalseLabelKey,
+} from "@/components/shared/content/trueFalse";
 import {
   isPlainOptionContent,
   plainOptionContent,
@@ -209,6 +212,49 @@ describe("the student's result for a true/false answer", () => {
     expect(screen.getByText("Đúng")).toBeInTheDocument();
     expect(screen.getAllByText("Sai")).toHaveLength(2);
     expect(screen.queryByText("True")).toBeNull();
+    expect(screen.queryByText("False")).toBeNull();
+  });
+});
+
+describe("the student's result for a true / false / not given answer", () => {
+  it("names the given and the correct option by their texts, in the reader's language", () => {
+    expect(tfngTextLabelKey("tfng", "Not given")).toBe("trueFalse.notGiven");
+    expect(tfngTextLabelKey("tfng", "not given")).toBeNull();
+    expect(tfngTextLabelKey("true_false", "Not given")).toBeNull();
+
+    const question: ResultQuestion = {
+      id: "q1",
+      sectionId: "s1",
+      type: "tfng",
+      prompt: "Most of the delta's rice is grown in the dry season.",
+      points: 1,
+      options: [
+        { id: "t", text: "True" },
+        { id: "f", text: "False" },
+        { id: "n", text: "Not given" },
+      ],
+      answer: { type: "choice", optionIds: ["n"] },
+      earned: 0,
+      correctOptionIds: ["f"],
+    };
+    render(
+      <ReviewItem
+        question={question}
+        number={1}
+        review={{
+          showScore: true,
+          showCorrectAnswers: true,
+          showExplanations: false,
+          release: "on_submit",
+          showClassAverage: false,
+        }}
+        onRetry={vi.fn()}
+      />,
+    );
+    expect(screen.getByText("Không có thông tin")).toBeInTheDocument();
+    // The verdict reads "Sai" too, for a screen reader.
+    expect(screen.getAllByText("Sai")).toHaveLength(2);
+    expect(screen.queryByText("Not given")).toBeNull();
     expect(screen.queryByText("False")).toBeNull();
   });
 });

@@ -28,7 +28,9 @@ import type { MediaAsset } from "@/features/media/api";
 import type { GroupBundle } from "../api";
 import {
   emptyMaterial,
+  hasOptionOrderChoice,
   materialAssets,
+  memberOptionOrder,
   memberValues,
   newGroupQuestion,
   withMembers,
@@ -396,6 +398,8 @@ export function GroupComposer({
                 onAssetChange={(asset) => {
                   if (asset) onAsset(asset);
                 }}
+                assets={assetById}
+                onAsset={onAsset}
                 onRefresh={onRefresh}
                 clearPromptOnFocus={starters.has(member.id)}
                 settings={{
@@ -414,20 +418,22 @@ export function GroupComposer({
                     group: {
                       ...bundle.group,
                       members: bundle.group.members.map((item) =>
-                        item.questionId === member.id &&
-                        !["single_choice", "multiple_choice", "true_false"].includes(
-                          input.type,
-                        )
-                          ? { ...item, optionOrder: "shuffle" }
+                        item.questionId === member.id
+                          ? {
+                              ...item,
+                              optionOrder: memberOptionOrder(
+                                input.type,
+                                item.optionOrder,
+                                member.input.type,
+                              ),
+                            }
                           : item,
                       ),
                     },
                   })
                 }
               />
-              {["single_choice", "multiple_choice", "true_false"].includes(
-                member.input.type,
-              ) ? (
+              {hasOptionOrderChoice(member.input.type) ? (
                 <Field orientation="horizontal">
                   <Checkbox
                     id={`group-fixed-${member.id}`}

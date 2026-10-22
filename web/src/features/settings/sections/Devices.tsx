@@ -38,8 +38,6 @@ const KIND_ICON: Record<Session["deviceKind"], LucideIcon> = {
 const ROW = "flex items-center gap-3 border-t px-4.5 py-3 first:border-t-0";
 const SKELETON_ROWS = [0, 1, 2] as const;
 
-const QUIET = "aria-disabled:opacity-50";
-
 type Revoking = { kind: "one"; familyId: string } | { kind: "others" } | null;
 
 function nextToSignOut(sessions: readonly Session[], familyId: string) {
@@ -147,7 +145,7 @@ export function DevicesSection() {
           ref={othersButton}
           type="button"
           variant="outline"
-          className={cn("h-8.5", QUIET)}
+          className="h-8.5"
           aria-disabled={busy || undefined}
           onClick={() => {
             if (!busy) setConfirming(true);
@@ -292,8 +290,7 @@ function DeviceRow({
           type="button"
           variant="ghost"
           className={cn(
-            "text-danger-ink hover:bg-danger-soft hover:text-danger-ink dark:hover:bg-danger-soft text-meta h-7.5 flex-none rounded-[7px] px-2.5 font-normal",
-            QUIET,
+            "text-danger-ink hover:bg-danger-soft hover:text-danger-ink dark:hover:bg-danger-soft aria-disabled:text-danger-ink/60 aria-disabled:hover:text-danger-ink/60 text-meta h-7.5 flex-none rounded-[7px] px-2.5 font-normal",
           )}
           data-family-id={session.familyId}
           aria-disabled={busy || undefined}

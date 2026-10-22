@@ -462,3 +462,112 @@ describe("Generate for the whole test", () => {
     );
   });
 });
+
+describe("True / False / Not given", () => {
+  const tfngQuestion: AiGeneratedQuestion = {
+    type: "tfng",
+    prompt: "Parks are a kind of road.",
+    options: ["True", "False", "Not given"],
+    answerKey: ["Not given"],
+    explanation: "",
+  };
+  const tfngChip = vi_.questionEditor.type.tfng;
+
+  function chips(scope: HTMLElement) {
+    return within(within(scope).getByRole("group", { name: ai.generate.types }))
+      .getAllByRole("button")
+      .map((button) => button.textContent);
+  }
+
+  it("is offered from a passage, names its options in the reader's language, and is never sent standalone", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: [tfngQuestion],
+          usage: { credits: 150, left: 18650 },
+        });
+      }),
+    );
+    const { dialog, user } = await openPanel(context({ section: reading }));
+    expect(chips(dialog)).toContain(tfngChip);
+    await user.click(within(dialog).getByRole("button", { name: tfngChip }));
+    await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
+    expect(chips(dialog)).not.toContain(tfngChip);
+    await user.click(within(dialog).getByRole("radio", { name: /^Theo bài đọc/ }));
+    expect(
+      within(dialog).getByRole("button", { name: tfngChip, pressed: true }),
+    ).toBeVisible();
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    expect(await within(dialog).findByText("Parks are a kind of road.")).toBeVisible();
+    for (const label of ["Đúng", "Sai", "Không có thông tin"])
+      expect(within(dialog).getByText(label)).toBeVisible();
+    expect(bodies[0]).toEqual(
+      expect.objectContaining({
+        stimulusId: STIMULUS_ID,
+        types: expect.arrayContaining(["tfng"]),
+      }),
+    );
+  });
+
+  it("is dropped from a standalone run's request even when it was chosen from a passage", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    answerBoth(bodies, standaloneAnswer);
+    const { dialog, user } = await openPanel(context({ section: reading }));
+    await user.click(within(dialog).getByRole("button", { name: tfngChip }));
+    await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    await waitFor(() => expect(bodies).toHaveLength(1));
+    expect(bodies[0]).toEqual(expect.objectContaining({ standalone: true }));
+    expect(bodies[0]!["types"]).not.toContain("tfng");
+  });
+
+  it("keeps True / False / Not given chosen while other chips change in a standalone run", async () => {
+    const { dialog, user } = await openPanel(context({ section: reading }));
+    await user.click(within(dialog).getByRole("button", { name: tfngChip }));
+    await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
+    const fill = vi_.questionEditor.type.fill_blank;
+    await user.click(within(dialog).getByRole("button", { name: fill }));
+    await user.click(within(dialog).getByRole("button", { name: fill }));
+    await user.click(within(dialog).getByRole("radio", { name: /^Theo bài đọc/ }));
+    expect(
+      within(dialog).getByRole("button", { name: tfngChip, pressed: true }),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByRole("button", { name: fill, pressed: false }),
+    ).toBeVisible();
+  });
+
+  it("asks for another type when a standalone run has only True / False / Not given", async () => {
+    const tfngOnly: AiSection = { ...grammar, types: ["tfng"] };
+    const { dialog } = await openPanel(
+      context({ section: tfngOnly, sections: [tfngOnly, reading, blank] }),
+    );
+    expect(within(dialog).getByRole("radio", { name: /^Câu độc lập/ })).toBeChecked();
+    expect(chips(dialog)).not.toContain(tfngChip);
+    expect(within(dialog).getByText(ai.generate.needType)).toBeVisible();
+  });
+
+  it("offers it in the plan only to a section written per passage, and drops it from a standalone row", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    answerBoth(bodies, standaloneAnswer);
+    const mixed: AiSection = { ...grammar, types: ["single_choice", "tfng"] };
+    const withTfng: AiSection = { ...reading, types: ["tfng"] };
+    const { dialog, user } = await openPanel(
+      context({ section: mixed, sections: [mixed, withTfng, blank] }),
+    );
+    await planTwoSections(dialog, user);
+    const rows = within(dialog).getAllByRole("listitem");
+    expect(chips(rows[0]!)).not.toContain(tfngChip);
+    expect(chips(rows[1]!)).toContain(tfngChip);
+    await user.click(within(dialog).getByRole("button", { name: "Tạo 2 câu" }));
+    await waitFor(() => expect(bodies).toHaveLength(2));
+    expect(bodies).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ standalone: true, types: ["single_choice"] }),
+        expect.objectContaining({ stimulusId: STIMULUS_ID, types: ["tfng"] }),
+      ]),
+    );
+  });
+});

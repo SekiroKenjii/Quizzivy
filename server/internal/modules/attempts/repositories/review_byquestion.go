@@ -39,7 +39,7 @@ func (s *Reviews) AnswersForQuestion(ctx context.Context, scope access.Scope, as
 	}
 	out.Count = len(questions)
 	for i, q := range questions {
-		if q.Type == "short_answer" {
+		if q.Type == "short_answer" || q.Type == domain.Essay {
 			out.ManualIDs = append(out.ManualIDs, q.ID)
 		}
 		if q.ID == questionID {
@@ -51,9 +51,17 @@ func (s *Reviews) AnswersForQuestion(ctx context.Context, scope access.Scope, as
 		return domain.ByQuestion{}, domain.ErrQuestionNotOnPaper
 	}
 
+	if out.Items, err = s.answersByQuestion(ctx, scope, assignmentID, questionID); err != nil {
+		return domain.ByQuestion{}, err
+	}
+	return out, nil
+}
+
+func (s *Reviews) answersByQuestion(ctx context.Context, scope access.Scope, assignmentID, questionID string) ([]domain.QuestionAnswer, error) {
+	var items []domain.QuestionAnswer
 	rows, err := s.Query(ctx, `
 		SELECT at.id::text, at.student_id::text, u.full_name, at.attempt_no,
-		       ans.payload, ans.manual_score, ans.grader_comment
+		       ans.payload, ans.manual_score, ans.band, ans.grader_comment
 		  FROM app.attempts at
 		  JOIN app.users u ON u.id = at.student_id
 		  LEFT JOIN app.attempt_answers ans ON ans.attempt_id = at.id AND ans.question_id = $2::uuid
@@ -62,19 +70,26 @@ func (s *Reviews) AnswersForQuestion(ctx context.Context, scope access.Scope, as
 		   AND `+visibility.Papers(3, 4, "at.assignment_id", "at.student_id")+`
 		 ORDER BY at.id`, assignmentID, questionID, scope.All, opt.String(scope.UserID))
 	if err != nil {
-		return domain.ByQuestion{}, fmt.Errorf("review: read answers by question: %w", err)
+		return nil, fmt.Errorf("review: read answers by question: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var item domain.QuestionAnswer
 		if err := rows.Scan(&item.AttemptID, &item.StudentID, &item.StudentName, &item.AttemptNo,
-			&item.Payload, &item.ManualScore, &item.GraderComment); err != nil {
-			return domain.ByQuestion{}, fmt.Errorf("review: scan answer by question: %w", err)
+			&item.Payload, &item.ManualScore, &item.Band, &item.GraderComment); err != nil {
+			return nil, fmt.Errorf("review: scan answer by question: %w", err)
 		}
-		out.Items = append(out.Items, item)
+		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		return domain.ByQuestion{}, fmt.Errorf("review: read answers by question: %w", err)
+		return nil, fmt.Errorf("review: read answers by question: %w", err)
 	}
-	return out, nil
+	given, err := s.givenCriteria(ctx, `g.question_id = $1::uuid AND g.attempt_id IN (SELECT id FROM app.attempts WHERE assignment_id = $2::uuid)`, questionID, assignmentID)
+	if err != nil {
+		return nil, err
+	}
+	for i, item := range items {
+		items[i].Criteria = given[item.AttemptID+":"+questionID]
+	}
+	return items, nil
 }

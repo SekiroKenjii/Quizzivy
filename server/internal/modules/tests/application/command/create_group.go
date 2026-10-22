@@ -26,10 +26,8 @@ func (s CreateGroupHandler) Handle(ctx context.Context, cmd CreateGroup) (domain
 		return domain.StoredGroup{}, err
 	}
 	cmd.Bundle = composed
-	for _, question := range cmd.Bundle.Questions {
-		if err := question.Input.ValidateAuthoring(); err != nil {
-			return domain.StoredGroup{}, err
-		}
+	if err := cmd.Bundle.ValidateAuthoring(); err != nil {
+		return domain.StoredGroup{}, err
 	}
 	bundle, err := s.Prepare(ctx, cmd.Actor.Scope, cmd.Bundle)
 	if err != nil {

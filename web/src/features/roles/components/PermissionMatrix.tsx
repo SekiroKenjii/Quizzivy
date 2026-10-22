@@ -49,7 +49,7 @@ const GAP_REM = 0.5;
 const STUCK = "sticky left-0 z-3 -ml-4 pl-4";
 
 const CELL =
-  "size-4.5 rounded-[0.3125rem] checked:after:size-3 aria-disabled:cursor-not-allowed aria-disabled:border-ring/50 aria-disabled:checked:bg-primary/50 aria-disabled:checked:border-primary/50 data-[changed=true]:shadow-[0_0_0_2px_var(--card),0_0_0_4px_var(--accent-c)]";
+  "size-4.5 rounded-[0.3125rem] checked:after:size-3 aria-disabled:cursor-not-allowed aria-disabled:border-ring/50 aria-disabled:checked:bg-primary/55 aria-disabled:checked:border-primary/50 data-[changed=true]:shadow-[0_0_0_2px_var(--card),0_0_0_4px_var(--accent-c)]";
 
 interface Row {
   key: PermissionKey;

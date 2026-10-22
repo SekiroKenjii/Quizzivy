@@ -3,6 +3,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { tfngLabelKey } from "@/components/shared/content/trueFalse";
 import type { DiffChange, TestVersionDiff } from "@/features/tests/api";
 import type { Locale } from "@/lib/i18n";
 import { useLocale } from "@/lib/i18n/useLocale";
@@ -16,6 +17,22 @@ const CHIP: Record<DiffChange["kind"], string> = {
   answer: "bg-info-soft text-info-ink",
   points: "bg-muted text-muted-fg",
 };
+
+const TFNG_VALUES = ["true", "false", "not_given"];
+
+/**
+ * answerLabels joins one side of an answer change. A TFNG side arrives as
+ * the values `true`, `false` or `not_given`, named here in the reader's
+ * language; every other label is shown as the server drew it.
+ */
+function answerLabels(labels: string[], t: TFunction): string {
+  return labels
+    .map((label) => {
+      const key = tfngLabelKey(TFNG_VALUES.indexOf(label));
+      return key ? t(key) : label;
+    })
+    .join(", ");
+}
 
 function points(value: number | undefined, locale: Locale) {
   return new Intl.NumberFormat(locale).format(value ?? 0);
@@ -51,8 +68,8 @@ function changeText(
       return params.answerFrom && params.answerTo
         ? t("tests.detail.compare.answer", {
             n,
-            from: params.answerFrom.join(", "),
-            to: params.answerTo.join(", "),
+            from: answerLabels(params.answerFrom, t),
+            to: answerLabels(params.answerTo, t),
           })
         : t("tests.detail.compare.answerKey", { n });
     case "points":

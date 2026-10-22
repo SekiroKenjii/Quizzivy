@@ -269,6 +269,9 @@
       "idle": "Compares the answer with the accepted answers. You decide the score.",
       "run": "Suggest a score",
       "running": "Reading the answer…",
+      "idleEssay": "Reads the essay and suggests a band. You decide the band.",
+      "idleRubric": "Reads the essay and suggests a band for each criterion. You decide the bands.",
+      "runningEssay": "Reading the essay…",
       "confidence": {
         "high": "High confidence",
         "medium": "Medium confidence",
@@ -278,6 +281,7 @@
       "comment": "Comment for the student:",
       "use": "Use score and comment",
       "filled": "Score and comment filled in. Check them, then Save & next.",
+      "filledBand": "Band and comment filled in. Check them, then Save & next.",
       "off": "AI suggestions are off in <settings>Settings › AI assistant</settings>."
     },
     "needsVersion": "Publish the test before making a variant.",
@@ -406,6 +410,7 @@
       "assignment.updated": "Updated an assignment",
       "attempt.extended": "Extended an attempt for maintenance",
       "attempt.flagged": "Flagged an attempt",
+      "attempt.graded": "Graded an attempt",
       "attempt.reset": "Reset an attempt",
       "attempt.unflagged": "Cleared the flag on an attempt",
       "attempt.voided": "Voided an attempt",
@@ -1702,7 +1707,8 @@
       "score": "{{earned}} / {{total}}",
       "beingGraded": "Being graded",
       "submitted": "Submitted",
-      "justNow": "Just now"
+      "justNow": "Just now",
+      "band": "Band {{band}}"
     },
     "classes": {
       "subtitle": "Your teachers and what's next in each class.",
@@ -2564,10 +2570,13 @@
     "tags": "Tags",
     "typeLabel": "Question type",
     "type": {
+      "essay": "Essay",
       "fill_blank": "Fill in the blank",
+      "matching": "Matching",
       "multiple_choice": "Multiple choice",
       "short_answer": "Short answer",
       "single_choice": "Single choice",
+      "tfng": "True / False / Not given",
       "true_false": "True / False"
     },
     "newTitle": "New question",
@@ -2584,6 +2593,7 @@
       "placeholderMismatch": "The blank markers do not match.",
       "optionContent": "Option formatting is invalid or does not match its text.",
       "questionContent": "Rich content is invalid or does not match its text.",
+      "markerNeedsAudio": "The audio's place in the prompt needs the question's own audio. Add it under the question's Media, or remove the place.",
       "pointPrecision": "Points can have at most two decimal places.",
       "pointsTooLarge": "Points can be at most 999999.99.",
       "trueFalseCount": "True/false requires exactly two options.",
@@ -2593,7 +2603,26 @@
       "duplicateBlank": "Blank ordinals must be unique.",
       "blankOrdinal": "Blank numbers must be between 1 and 32767.",
       "gapMismatch": "Each gap in the content must have exactly one matching answer group.",
-      "maxOptions": "A question takes at most 8 options."
+      "maxOptions": "A question takes at most 8 options.",
+      "selectCountRange": "Students choose from 2 to 7 answers, and fewer than the options.",
+      "selectCountTicks": "Tick as many correct answers as students choose.",
+      "maxWordsRange": "The word limit is a whole number from 1 to 100.",
+      "unexpectedTypeField": "This setting does not apply to this question type.",
+      "tfngCount": "True / False / Not given has exactly three options.",
+      "matchTwoItems": "Add at least two items.",
+      "maxMatchItems": "A matching question takes at most 20 items.",
+      "matchItemRequired": "Fill in every item.",
+      "matchItemTooLong": "An item can be at most 500 characters.",
+      "matchItemUnset": "Choose the correct option for every item.",
+      "matchOptionTaken": "An option answers only one item. Choose another, or let each choice be used more than once.",
+      "matchMoreItemsThanOptions": "There are more items than options. Add options, or let each choice be used more than once.",
+      "matchOptionCorrect": "A matching question's options are not marked correct.",
+      "matchReuseRequired": "Say whether each choice can be used more than once.",
+      "criterionRequired": "Name every criterion.",
+      "criterionTooLong": "A criterion can be at most 80 characters.",
+      "duplicateCriterion": "Two criteria have the same name.",
+      "maxCriteria": "An essay has at most six criteria.",
+      "maxMatchOptions": "A matching question takes at most 12 options."
     },
     "preview": "What the student sees",
     "removeBlankN": "Remove blank {{n}}",
@@ -2631,7 +2660,10 @@
       "auto": "Marked automatically when the student submits.",
       "manual": "Graded by hand. Each answer goes to the grading queue.",
       "anyAccepted": "An answer is correct if it matches any accepted answer.",
-      "exactlyTicked": "Students must choose exactly the ticked options."
+      "exactlyTicked": "Students must choose exactly the ticked options.",
+      "band": "Graded by you on a 3–9 band.",
+      "itemShare": "Each item scores its share of the points.",
+      "perPick": "Each correct pick scores its share of the points."
     },
     "questionMedia": {
       "label": "Question media",
@@ -2705,7 +2737,57 @@
     "leaveTitle": "Leave without saving?",
     "leaveBody": "Your changes to this question are not saved.",
     "leave": "Leave",
-    "stay": "Stay"
+    "stay": "Stay",
+    "includeNotGiven": "Include “Not given”",
+    "includeNotGivenHint": "for IELTS-style True / False / Not given",
+    "optionsHintCount_one": "tick {{count}} correct answer",
+    "optionsHintCount_other": "tick {{count}} correct answers",
+    "chooseExactly": "Students choose exactly",
+    "chooseExactlyCount": "Number of answers students choose",
+    "tickExactly_one": "Tick exactly {{count}} correct answer, as many as students choose.",
+    "tickExactly_other": "Tick exactly {{count}} correct answers, as many as students choose.",
+    "wordLimit": "Word limit",
+    "wordLimitHint": "Optional. Students see a live word count; a longer answer is flagged, never cut.",
+    "wordLimitPlaceholder": "No limit",
+    "matching": {
+      "items": "Items",
+      "itemsHint": "what students match, with the correct option",
+      "optionsHint": "the list students choose from",
+      "item": "Item {{key}}",
+      "itemPlaceholder": "Write the item",
+      "option": "Option {{key}}",
+      "optionPlaceholder": "Write the option",
+      "choose": "Choose…",
+      "correctFor": "Correct option for item {{key}}",
+      "removeItem": "Remove item {{key}}",
+      "removeOption": "Remove option {{key}}",
+      "addItem": "Add item",
+      "extra": "Extra",
+      "extraTitle": "Matches no item, so it works as a distractor",
+      "reuse": "Each choice can be used more than once",
+      "maxItemsToast": "Up to {{count}} items",
+      "minItemsToast": "A matching question needs at least {{count}} items",
+      "minOptionsToast": "A matching question needs at least {{count}} options"
+    },
+    "rubric": {
+      "label": "Rubric criteria",
+      "hint": "up to {{count}}. The band is their average, rounded to the nearest half.",
+      "none": "No criteria: you set the band directly when grading.",
+      "criterion": "Criterion {{n}}",
+      "placeholder": "Name the criterion",
+      "moveUp": "Move criterion {{n}} up",
+      "moveDown": "Move criterion {{n}} down",
+      "remove": "Remove criterion {{n}}",
+      "add": "Add criterion",
+      "preset": "Use IELTS Writing criteria",
+      "maxToast": "Up to {{count}} criteria",
+      "ielts": {
+        "taskResponse": "Task response",
+        "coherence": "Coherence and cohesion",
+        "lexical": "Lexical resource",
+        "grammar": "Grammatical range and accuracy"
+      }
+    }
   },
   "builder": {
     "dragInstructions": "Press Space to pick up an item, use the arrow keys to move, then press Space to drop or Escape to cancel.",
@@ -2915,7 +2997,8 @@
       "usedIn_one": "used in {{count}} test",
       "usedIn_other": "used in {{count}} tests",
       "inTest": "In this test"
-    }
+    },
+    "noCorrectAnswer": "No correct answer set"
   },
   "bank": {
     "filters": "Filters",
@@ -3116,6 +3199,9 @@
           "prompt": "wording",
           "options": "options",
           "blanks": "blanks",
+          "items": "items to match",
+          "rubric": "rubric criteria",
+          "rules": "answering rules",
           "media": "media",
           "points": "points",
           "explanation": "explanation",
@@ -3867,6 +3953,7 @@
     "transcript": "Recording transcript"
   },
   "takeTest": {
+    "imageUnavailable": "This image did not load. Try again.",
     "openPassage": "Open the passage",
     "openRecording": "Open the audio",
     "drawerHint": "Swipe left to go back to the question",
@@ -3884,6 +3971,14 @@
     "answerPlaceholder": "Type your answer",
     "wordCount_one": "{{count}} word",
     "wordCount_other": "{{count}} words",
+    "wordLimit_one": "{{words}} of {{count}} word",
+    "wordLimit_other": "{{words}} of {{count}} words",
+    "wordLimitOver_one": "{{words}} of {{count}} word · too many",
+    "wordLimitOver_other": "{{words}} of {{count}} words · too many",
+    "wordLimitHintOne": "Write ONE WORD.",
+    "wordLimitHint": "Write NO MORE THAN {{words}} WORDS.",
+    "yourEssay": "Your essay",
+    "essayPlaceholder": "Write your essay",
     "leave": "Leave test",
     "leaveTitle": "Leave the test?",
     "leaveBody": "Your answers are saved, but the timer keeps running. Come back before it reaches zero.",
@@ -3943,10 +4038,10 @@
     "submitDialog": {
       "titleUnanswered": "Submit with {{n}} unanswered?",
       "titleAll": "Submit your test?",
-      "bodyUnanswered_one": "Unanswered questions score zero. You still have {{count}} minute.",
-      "bodyUnanswered_other": "Unanswered questions score zero. You still have {{count}} minutes.",
-      "bodySoon": "Unanswered questions score zero. You have less than a minute left.",
-      "bodyOver": "Unanswered questions score zero. Time is up.",
+      "bodyUnanswered_one": "Unanswered gaps, matches and questions score zero. You still have {{count}} minute.",
+      "bodyUnanswered_other": "Unanswered gaps, matches and questions score zero. You still have {{count}} minutes.",
+      "bodySoon": "Unanswered gaps, matches and questions score zero. You have less than a minute left.",
+      "bodyOver": "Unanswered gaps, matches and questions score zero. Time is up.",
       "bodyAll": "You cannot change your answers after submitting.",
       "answered": "Answered",
       "flagged": "Flagged",
@@ -3970,7 +4065,10 @@
       "multiple_choice": "Multiple choice",
       "true_false": "True / False",
       "fill_blank": "Fill in the blank",
-      "short_answer": "Short answer"
+      "short_answer": "Short answer",
+      "tfng": "True / False / Not given",
+      "matching": "Matching",
+      "essay": "Essay"
     },
     "blankRuleInsensitive": "Capital letters do not matter. Spell it exactly.",
     "blankRuleSensitive": "Capital letters matter. Spell it exactly.",
@@ -3979,6 +4077,27 @@
     "retrySave": "Try saving again",
     "chooseMultiple": "Select the answers you believe are correct. You can choose more than one.",
     "chooseSingle": "Choose one answer.",
+    "chooseCount": "Choose {{words}} answers.",
+    "numberWord": {
+      "2": "two",
+      "3": "three",
+      "4": "four",
+      "5": "five",
+      "6": "six",
+      "7": "seven",
+      "8": "eight",
+      "9": "nine",
+      "10": "ten",
+      "11": "eleven"
+    },
+    "matching": {
+      "done": "{{k}} of {{n}} matched",
+      "options": "Options",
+      "usedBy": "matched to",
+      "item": "{{key}} {{text}}",
+      "chipUsed": "{{key}}, matched to {{by}}",
+      "moved": "{{key}} moved from {{from}}"
+    },
     "viewSubmitted": "View submitted paper",
     "unknownType": "Question {{n}} is a new kind of question that this page cannot show yet. Reload the page to answer it; your answers are kept.",
     "reloadPage": "Reload the page",
@@ -4214,7 +4333,8 @@
     "pendingNote_one": "{{count}} question needs your mark.",
     "pendingNote_other": "{{count}} questions need your mark.",
     "noQuestions": "This paper has no questions.",
-    "questionMeta": "Question {{n}} · {{type}} · {{points}} pts",
+    "questionMeta_one": "Question {{n}} · {{type}} · {{points}} pt",
+    "questionMeta_other": "Question {{n}} · {{type}} · {{points}} pts",
     "sampleAnswer": "Sample answer — only you can see this",
     "attemptOf": "attempt {{n}}/{{total}}",
     "submittedAt": "submitted {{time}}",
@@ -4233,7 +4353,8 @@
       "partial": "Partly correct",
       "pending": "To grade",
       "unanswered": "Unanswered",
-      "removed": "Removed"
+      "removed": "Removed",
+      "banded": "Graded on a band"
     },
     "studentAnswer": "Student's answer",
     "unanswered": "The student didn't answer this question.",
@@ -4255,7 +4376,18 @@
     "voided": "This attempt was voided, so it isn't graded.",
     "keyTo": "–",
     "keySep": "·",
-    "keyEnter": "Enter"
+    "keyEnter": "Enter",
+    "wordCount_one": "{{count}} word",
+    "wordCount_other": "{{count}} words",
+    "overLimit": "Over the word limit ({{words}} of {{max}})",
+    "notMatched": "Not matched",
+    "matchedTo": "Matched to {{choice}}",
+    "matchKey": "Correct answer: {{choice}}",
+    "matchedRight": "Matched to {{choice}} · correct",
+    "essayBand": "Band {{band}}",
+    "chooseCount": "Choose {{n}} · {{correct}} of {{n}} picks correct",
+    "chooseOver": "Choose {{n}} · {{picked}} picked, more than {{n}}, so none count",
+    "paperBand": "Band {{band}}"
   },
   "timeline": {
     "loadFailed": "Couldn't load this attempt's timeline.",
@@ -4354,7 +4486,8 @@
       "of": "of {{total}}",
       "soFar": "of {{total}} so far",
       "grading": "grading",
-      "withheld": "Score not released"
+      "withheld": "Score not released",
+      "band": "band"
     },
     "summary": {
       "graded": "You answered {{correct}} of {{total}} correctly.",
@@ -4366,7 +4499,10 @@
       "pending": "Your teacher is grading your written answers. Your score appears here when grading is finished.",
       "pendingNotify": "Your teacher is grading your written answers. You will get a notification when your score is ready.",
       "withheld": "You answered {{answered}} of {{total}} questions. Your teacher has not released the score.",
-      "withheldUntil": "You answered {{answered}} of {{total}} questions. Your score is released when the test closes."
+      "withheldUntil": "You answered {{answered}} of {{total}} questions. Your score is released when the test closes.",
+      "band": "Graded by your teacher.",
+      "bandBy": "Graded by {{name}}.",
+      "strongest": "{{criterion}} was your strongest area."
     },
     "tiles": {
       "auto": "Marked automatically",
@@ -4403,7 +4539,8 @@
     "verdict": {
       "correct": "Correct",
       "wrong": "Wrong",
-      "partial": "Partly correct"
+      "partial": "Partly correct",
+      "banded": "Graded on a band"
     },
     "points": "{{earned}} / {{total}}",
     "waiting": "Waiting",
@@ -4415,13 +4552,16 @@
     "false": "False",
     "blank": "blank",
     "replayFreely": "Replay freely after submitting",
+    "explanationAudio": "Explanation audio",
     "showTranscript": "Show transcript",
     "noTranscript": "The transcript isn't shown.",
     "teacherComment": "Teacher's comment",
+    "commentFrom": "Comment from {{name}}",
     "cloze": {
       "questions": "Questions {{from}}–{{to}}",
       "chip": "Question {{n}}, {{word}}"
-    }
+    },
+    "band": "Band {{band}}"
   },
   "queue": {
     "summary": {
@@ -4461,7 +4601,8 @@
     "graded": "Graded {{done}}/{{total}}",
     "next": "Next question",
     "exit": "Grade per paper",
-    "meta": "Question {{n}} · {{type}} · {{points}} points",
+    "meta_one": "Question {{n}} · {{type}} · {{points}} point",
+    "meta_other": "Question {{n}} · {{type}} · {{points}} points",
     "rubric": "Rubric",
     "namesHidden": "Names stay hidden until this question is graded.",
     "showNames": "Show names",
@@ -4596,7 +4737,36 @@
     "words_one": "{{count}} word",
     "words_other": "{{count}} words",
     "imagesLeftOut_one": "{{count}} image in the copied content was left out.",
-    "imagesLeftOut_other": "{{count}} images in the copied content were left out."
+    "imagesLeftOut_other": "{{count}} images in the copied content were left out.",
+    "media": {
+      "image": "Image",
+      "audio": "Audio",
+      "upload": "Upload from device",
+      "library": "Choose from Media",
+      "libraryHint": "Files you uploaded",
+      "imageLimits": "JPG, PNG or WebP · up to 10 MB",
+      "audioLimits": "MP3 or M4A · up to 50 MB and 5 minutes",
+      "imageNote": "You can also paste ({{shortcut}}) or drop an image into the text. Each image is saved to Media.",
+      "promptAudioNote": "This is the question's audio: its play limit applies, and it plays where you place it.",
+      "explanationAudioNote": "Students hear this after the test, with the explanation.",
+      "placeAudio": "Place the question's audio here",
+      "placeAudioHint": "Moves it to the cursor",
+      "audioBlocked": "This question shows an image as its media. Remove it under Question media to add audio.",
+      "onlyImages": "Only images can be pasted or dropped into the text. Use Audio for a recording.",
+      "refused": "The file could not be added here: the text holds up to 8 images and recordings.",
+      "wrongType": "This file type is not supported",
+      "unavailable": "This file could not be loaded",
+      "removeImage": "Remove image",
+      "removeAudio": "Remove audio",
+      "alt": "Alt text",
+      "altPlaceholder": "Alt text: describe the image for screen readers",
+      "chooseFile": "Choose a file for the text",
+      "altNudge": "Without alt text, screen readers skip this image. Leave it empty only if the image is decorative.",
+      "questionAudio": "Question audio",
+      "questionAudioHint": "{{name}} · plays here with the question's play limit",
+      "questionAudioMissing": "The question has no audio. Add it under Question media or remove this.",
+      "pasteOnItsOwn": "Paste or drop an image on its own to upload it."
+    }
   },
   "groups": {
     "titleLabel": "Question group name",
@@ -5071,6 +5241,7 @@
       "true_false": "True/False",
       "fill_blank": "Fill in the blank",
       "short_answer": "Short answer",
+      "tfng": "True / False / Not given",
       "unsupported": "Not supported"
     },
     "origin": {
@@ -5086,7 +5257,9 @@
       "answer": "Answer",
       "points": "Points",
       "blanks": "Blank answers",
-      "sample": "Sample answer"
+      "sample": "Sample answer",
+      "selectCount": "Answers to choose",
+      "maxWords": "Word limit"
     },
     "severity": {
       "blocking": "Needs action",
@@ -5176,6 +5349,10 @@
         "OPTION_LABEL_REFERENCE": {
           "title": "An option refers to another option",
           "help": "This option refers to another option by its letter, such as “Both A and B”, which breaks if the options are shuffled. Reword the option, or confirm if you won't shuffle this question's options."
+        },
+        "PASSAGE_IN_INSTRUCTION": {
+          "title": "This instruction may hold passage text",
+          "help": "If part of this instruction is passage text, move it into the section's passage."
         },
         "COLORED_TEXT_IN_CONTENT": {
           "title": "Coloured text inside a question",
@@ -5287,11 +5464,21 @@
       "excludeConfirm": "Exclude",
       "restore": "Restore",
       "typeChangeTitle": "Change question type?",
-      "typeChangeBody": "Changing from {{from}} to {{to}} drops some existing options or answers. The document evidence is kept.",
+      "typeChangeBody": "Changing from {{from}} to {{to}} drops some existing options, answers or answer settings. The document evidence is kept.",
       "typeChangeConfirm": "Change type",
       "pointsInvalid": "Points must be a positive number with at most two decimals.",
       "markOneHint": "Mark one correct answer",
       "markManyHint": "Mark every correct answer",
+      "markCountHint": "Mark exactly {{count}} correct answers",
+      "selectCountAny": "Any number, marked all or nothing",
+      "selectCountValue": "Choose {{count}}",
+      "selectCountMismatch": "Mark exactly {{count}} options correct, the number to choose.",
+      "selectCountReset": "Choose {{count}} was reset to \"Any number\": {{options}} options are too few for it.",
+      "selectCountTooFew": "Choose {{count}} needs at least {{options}} options. Add an option or pick \"Any number\".",
+      "maxWordsHint": "Leave empty for no limit. Students see the limit, and a longer answer is flagged, never cut.",
+      "maxWordsInvalid": "Enter a whole number from 1 to 100, or leave it empty.",
+      "tfngOption": { "T": "True", "F": "False", "NG": "Not given" },
+      "tfngShort": "T / F / NG",
       "markCorrect": "Option {{label}} is correct",
       "editOption": "Edit",
       "editOptionNamed": "Edit option {{label}}",
@@ -5781,11 +5968,13 @@
     "markdown": "Markdown",
     "switchWarning": "Markdown keeps text, bold, italic, headings, lists, tables and links. Underline, superscript and subscript have no Markdown form and are removed.",
     "switchToMarkdown": "Switch to Markdown",
-    "gapsBlockMarkdown": "Remove the gaps to switch to Markdown: the gaps hold the accepted answers."
+    "gapsBlockMarkdown": "Remove the gaps to switch to Markdown: the gaps hold the accepted answers.",
+    "mediaBlocksMarkdown": "Remove the images and audio to switch to Markdown: Markdown has no form for them."
   },
   "trueFalse": {
     "true": "True",
-    "false": "False"
+    "false": "False",
+    "notGiven": "Not given"
   },
   "keyGlyph": {
     "command": "Command",

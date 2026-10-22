@@ -147,7 +147,7 @@ func TestOptionsArriveWithoutTheirCorrectness(t *testing.T) {
 	for _, q := range session.Questions {
 		options += len(q.Options)
 		for _, o := range q.Options {
-			if got, want := jsonKeys(t, o), []string{"Content", "ID", "Text"}; !slices.Equal(got, want) {
+			if got, want := jsonKeys(t, o), []string{"Content", "ID", "Key", "Text"}; !slices.Equal(got, want) {
 				t.Errorf("an option reaches the student with fields %v, want %v", got, want)
 			}
 		}

@@ -206,6 +206,160 @@ describe("multiple_choice", () => {
   });
 });
 
+const five = [
+  { id: "o1", text: "Lower street temperatures" },
+  { id: "o2", text: "Less traffic noise" },
+  { id: "o3", text: "Higher property values" },
+  { id: "o4", text: "Cleaner rivers" },
+  { id: "o5", text: "More tourists" },
+];
+
+describe('multiple_choice with "Choose N"', () => {
+  const chooseTwo = question({
+    type: "multiple_choice",
+    options: five,
+    selectCount: 2,
+  });
+
+  it("says how many to choose, the number in words, as the hint under the prompt", () => {
+    renderQuestion(chooseTwo);
+    const hint = screen.getByText("Chọn hai đáp án.");
+    expect(hint).toHaveClass("text-muted-fg", "text-sm", "-mt-2");
+    expect(screen.getByRole("group")).toHaveAccessibleDescription("Chọn hai đáp án.");
+    expect(screen.getAllByRole("checkbox")).toHaveLength(5);
+  });
+
+  it("is the deck's hint in English, and keeps the type label Multiple choice", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      renderQuestion(chooseTwo);
+      expect(screen.getByText("Choose two answers.")).toBeInTheDocument();
+      expect(questionLine(chooseTwo, 2, 9, i18n.t)).toBe(
+        "Question 2 of 9 · Multiple choice",
+      );
+      cleanup();
+      renderQuestion({ ...chooseTwo, selectCount: 11 });
+      expect(screen.getByText("Choose eleven answers.")).toBeInTheDocument();
+      cleanup();
+      renderQuestion({ ...chooseTwo, selectCount: 12 });
+      expect(screen.getByText("Choose 12 answers.")).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
+  it("draws square markers", () => {
+    renderQuestion(chooseTwo, { type: "choice", optionIds: ["o2"] });
+    const row = screen.getByRole("checkbox", {
+      name: /Less traffic noise/,
+    }).parentElement!;
+    expect(row.querySelector("span[aria-hidden]")).toHaveClass("rounded-[7px]");
+  });
+
+  it("adds a pick while there is room, in pick order", async () => {
+    const onAnswer = renderQuestion(chooseTwo, { type: "choice", optionIds: ["o3"] });
+    await userEvent.click(screen.getByRole("checkbox", { name: /Lower street/ }));
+    expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["o3", "o1"] });
+  });
+
+  it("replaces the oldest pick with the third", async () => {
+    const onAnswer = renderQuestion(chooseTwo, {
+      type: "choice",
+      optionIds: ["o3", "o1"],
+    });
+    await userEvent.click(screen.getByRole("checkbox", { name: /More tourists/ }));
+    expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["o1", "o5"] });
+  });
+
+  it("removes a pick that is tapped again", async () => {
+    const onAnswer = renderQuestion(chooseTwo, {
+      type: "choice",
+      optionIds: ["o3", "o1"],
+    });
+    await userEvent.click(screen.getByRole("checkbox", { name: /Higher property/ }));
+    expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["o1"] });
+  });
+
+  it("brings an answer saved with too many picks back to N on the next pick", async () => {
+    const onAnswer = renderQuestion(chooseTwo, {
+      type: "choice",
+      optionIds: ["o1", "o2", "o3"],
+    });
+    await userEvent.click(screen.getByRole("checkbox", { name: /Cleaner rivers/ }));
+    expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["o3", "o4"] });
+  });
+});
+
+const tfngOptions = [
+  { id: "t1", text: "True" },
+  { id: "t2", text: "False" },
+  { id: "t3", text: "Not given" },
+];
+
+describe("tfng", () => {
+  const tfng = question({ type: "tfng", options: tfngOptions });
+
+  it("is a radio group of its three options, in order, labelled by position", () => {
+    renderQuestion(tfng);
+    expect(
+      screen.getAllByRole("radio").map((radio) => radio.parentElement!.textContent),
+    ).toEqual(["AĐúng", "BSai", "CKhông có thông tin"]);
+    expect(screen.getByRole("radiogroup")).toHaveAccessibleDescription(
+      "Chọn một đáp án.",
+    );
+  });
+
+  it("decides its columns from the labels the reader sees", () => {
+    viewport(360);
+    renderQuestion(tfng);
+    expect(screen.getByRole("radiogroup")).toHaveClass("grid-cols-1");
+  });
+
+  it("lays the short English labels in columns", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      viewport(1280);
+      renderQuestion(tfng);
+      expect(screen.getByRole("radiogroup")).toHaveClass("grid-cols-3");
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
+  it("labels by position whatever text the options carry", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      renderQuestion(
+        question({
+          type: "tfng",
+          options: [
+            { id: "t1", text: "Đúng" },
+            { id: "t2", text: "x" },
+            { id: "t3", text: "" },
+          ],
+        }),
+      );
+      expect(
+        screen.getAllByRole("radio").map((radio) => radio.parentElement!.textContent),
+      ).toEqual(["ATrue", "BFalse", "CNot given"]);
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
+  it("writes the chosen option as a choice answer", async () => {
+    const onAnswer = renderQuestion(tfng, { type: "choice", optionIds: ["t1"] });
+    await userEvent.click(screen.getByRole("radio", { name: /Không có thông tin/ }));
+    expect(onAnswer).toHaveBeenCalledWith({ type: "choice", optionIds: ["t3"] });
+  });
+
+  it("is named True / False / Not given on the line above it", () => {
+    expect(questionLine(tfng, 24, 34, i18n.t)).toBe(
+      "Câu 24 trên 34 · Đúng/Sai/Không có thông tin",
+    );
+  });
+});
+
 describe("the options' columns", () => {
   const short = ["went", "goes", "gone", "going"].map((text, index) => ({
     id: `s${index + 1}`,
@@ -663,6 +817,159 @@ describe("short_answer", () => {
   });
 });
 
+describe("short_answer with a word limit", () => {
+  const limited = question({ type: "short_answer", maxWords: 3 });
+
+  it("counts against the limit under the field", () => {
+    renderQuestion(limited, { type: "text", value: "near the park" });
+    expect(screen.getByText("3/3 từ")).toHaveClass("text-muted-fg");
+    expect(screen.getByRole("textbox")).toHaveAccessibleDescription("3/3 từ");
+  });
+
+  it("says too many, in danger, past the limit, and never cuts the text", async () => {
+    const onAnswer = renderQuestion(limited, {
+      type: "text",
+      value: "near the city park",
+    });
+    expect(screen.getByText("4/3 từ · quá số từ")).toHaveClass("text-danger-ink");
+    await userEvent.type(screen.getByRole("textbox"), "s");
+    expect(onAnswer).toHaveBeenLastCalledWith({
+      type: "text",
+      value: "near the city parks",
+    });
+  });
+
+  it("is the deck's wording in English, the singular for a limit of one", async () => {
+    await i18n.changeLanguage("en");
+    try {
+      renderQuestion(limited, { type: "text", value: "a well-known park" });
+      expect(screen.getByText("3 of 3 words")).toBeInTheDocument();
+      cleanup();
+      renderQuestion(limited, { type: "text", value: "a 3.5 km walk away" });
+      expect(screen.getByText("5 of 3 words · too many")).toBeInTheDocument();
+      cleanup();
+      renderQuestion(question({ type: "short_answer", maxWords: 1 }), {
+        type: "text",
+        value: "",
+      });
+      expect(screen.getByText("0 of 1 word")).toBeInTheDocument();
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
+  it("states the limit as the deck's rule line under the prompt", async () => {
+    renderQuestion(limited);
+    expect(screen.getByText("Viết KHÔNG QUÁ BA TỪ.")).toHaveClass(
+      "text-muted-fg",
+      "text-sm",
+    );
+    cleanup();
+    await i18n.changeLanguage("en");
+    try {
+      renderQuestion(limited);
+      expect(screen.getByText("Write NO MORE THAN THREE WORDS.")).toBeInTheDocument();
+      cleanup();
+      renderQuestion(question({ type: "short_answer", maxWords: 1 }));
+      expect(screen.getByText("Write ONE WORD.")).toBeInTheDocument();
+      cleanup();
+      renderQuestion(question({ type: "short_answer", maxWords: 40 }));
+      expect(screen.getByText("Write NO MORE THAN 40 WORDS.")).toBeInTheDocument();
+      cleanup();
+      renderQuestion(question({ type: "short_answer" }));
+      expect(screen.queryByText(/^Write /)).toBeNull();
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
+  });
+
+  it("fades a locked field's colours, never the element", () => {
+    render(
+      <QuestionBody
+        question={limited}
+        answer={{ type: "text", value: "kept" }}
+        onAnswer={vi.fn()}
+        disabled
+      />,
+    );
+    expect(screen.getByRole("textbox")).toHaveClass("disabled:text-fg/60");
+    expect(screen.getByRole("textbox").className).not.toMatch(/opacity/);
+  });
+
+  it("counts a dash standing alone as no word", () => {
+    renderQuestion(question({ type: "short_answer" }), {
+      type: "text",
+      value: "parks - trees",
+    });
+    expect(screen.getByText("2 từ")).toBeInTheDocument();
+  });
+});
+
+describe("essay", () => {
+  const essay = question({ type: "essay", points: 9, prompt: "Write about parks." });
+
+  it("is a labelled field that starts at twelve lines and grows", () => {
+    renderQuestion(essay);
+    const field = screen.getByRole("textbox", { name: "Bài luận của bạn" });
+    expect(field.tagName).toBe("TEXTAREA");
+    expect(field).toHaveAttribute("rows", "12");
+    expect(field).toHaveClass(
+      "field-sizing-content",
+      "min-h-[calc(12lh+1.75rem)]",
+      "rounded-[11px]",
+      "border-[1.5px]",
+      "focus:border-primary",
+    );
+    expect(field).toHaveAttribute("placeholder", "Viết bài luận của bạn");
+    expect(field).toHaveAttribute("spellcheck", "false");
+    expect(screen.getByText("Write about parks.")).toBeInTheDocument();
+  });
+
+  it("counts the words live and says who marks it", async () => {
+    const onAnswer = renderQuestion(essay, {
+      type: "text",
+      value: "Parks matter.",
+    });
+    expect(screen.getByText("2 từ")).toBeInTheDocument();
+    expect(screen.getByRole("textbox")).toHaveAccessibleDescription("2 từ");
+    expect(screen.getByText(/9 điểm · /)).toBeInTheDocument();
+    await userEvent.type(screen.getByRole("textbox"), "!");
+    expect(onAnswer).toHaveBeenLastCalledWith({
+      type: "text",
+      value: "Parks matter.!",
+    });
+  });
+
+  it("raises its text with larger text in tests", () => {
+    act(() => writeLargerTestText(true));
+    renderQuestion(essay);
+    expect(screen.getByRole("textbox")).toHaveClass("text-lg");
+  });
+
+  it("is read-only on a locked paper", () => {
+    render(
+      <QuestionBody
+        question={essay}
+        answer={{ type: "text", value: "Kept" }}
+        onAnswer={vi.fn()}
+        disabled
+      />,
+    );
+    expect(screen.getByRole("textbox")).toBeDisabled();
+    expect(screen.getByRole("textbox")).toHaveValue("Kept");
+  });
+
+  it("autosaves through the card as a short answer does", async () => {
+    renderCard(essay);
+    await userEvent.type(screen.getByRole("textbox"), "Hi");
+    expect(useTakeTestStore.getState().answers["q1"]).toEqual({
+      type: "text",
+      value: "Hi",
+    });
+    expect(useTakeTestStore.getState().dirty.has("q1")).toBe(true);
+  });
+});
+
 describe("a locked paper", () => {
   it("keeps the answers readable and refuses edits", () => {
     render(
@@ -995,12 +1302,12 @@ describe("a fill-in's blanks", () => {
 
 describe("a type this page has no renderer for", () => {
   const unknown = question({
-    type: "matching" as StudentQuestion["type"],
+    type: "diagram" as StudentQuestion["type"],
     options,
     blanks: [{ id: "b1", ordinal: 1, caseSensitive: false }],
   });
 
-  it("is told apart from the five the page knows", () => {
+  it("is told apart from the types the page knows", () => {
     expect(questionKind(unknown)).toBe("unknown");
     expect(
       (
@@ -1008,17 +1315,28 @@ describe("a type this page has no renderer for", () => {
           "single_choice",
           "multiple_choice",
           "true_false",
+          "tfng",
           "fill_blank",
           "short_answer",
+          "essay",
         ] as const
       ).map((type) => questionKind({ type })),
-    ).toEqual(["choice", "choice", "choice", "fill_blank", "short_answer"]);
+    ).toEqual([
+      "choice",
+      "choice",
+      "choice",
+      "choice",
+      "fill_blank",
+      "short_answer",
+      "essay",
+    ]);
+    expect(questionKind({ type: "matching" })).toBe("matching");
     expect(questionKind({ type: "toString" as StudentQuestion["type"] })).toBe(
       "unknown",
     );
   });
 
-  it("labels each of the five types in English", async () => {
+  it("labels each type it knows in English", async () => {
     await i18n.changeLanguage("en");
     try {
       expect(
@@ -1027,16 +1345,20 @@ describe("a type this page has no renderer for", () => {
             "single_choice",
             "multiple_choice",
             "true_false",
+            "tfng",
             "fill_blank",
             "short_answer",
+            "essay",
           ] as const
         ).map((type) => questionLine({ type }, 4, 8, i18n.t)),
       ).toEqual([
         "Question 4 of 8 · Single choice",
         "Question 4 of 8 · Multiple choice",
         "Question 4 of 8 · True / False",
+        "Question 4 of 8 · True / False / Not given",
         "Question 4 of 8 · Fill in the blank",
         "Question 4 of 8 · Short answer",
+        "Question 4 of 8 · Essay",
       ]);
       expect(questionLine(unknown, 4, 8, i18n.t)).toBe("Question 4 of 8");
     } finally {

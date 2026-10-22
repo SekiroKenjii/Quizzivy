@@ -55,7 +55,7 @@ type ReviewRepository interface {
 	GroupAudioPlays(ctx context.Context, attemptID string) (map[string]int, error)
 	GroupTranscripts(ctx context.Context, versionID string) (map[string]string, error)
 	Get(ctx context.Context, scope access.Scope, attemptID string) (Review, error)
-	Grade(ctx context.Context, scope access.Scope, attemptID, graderID string, items []GradeItem) (Score, error)
+	Grade(ctx context.Context, scope access.Scope, attemptID string, grader Request, items []GradeItem) (Score, error)
 	Finish(ctx context.Context, scope access.Scope, attemptID string) (Attempt, error)
 	SetNote(ctx context.Context, scope access.Scope, attemptID string, note *string) error
 	AnswersForQuestion(ctx context.Context, scope access.Scope, assignmentID, questionID string) (ByQuestion, error)

@@ -1,4 +1,5 @@
 import { ReviewGroup } from "@/features/media";
+import { PromptMedia } from "@/features/take-test/components/PromptMedia";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -38,56 +39,86 @@ import {
   gradeAttempt,
   type AdminQuestion,
   type AttemptReview,
+  type GradeItem,
   type ReviewAnswer,
 } from "../../api";
 import { monitorKey, reviewKey } from "../../keys";
 import { AnswerReview } from "../../components/AnswerReview";
 import { GradeByQuestion } from "../../components/GradeByQuestion";
 import { GradingCard } from "../../components/GradingCard";
+import { gradeFieldMessage } from "../../gradeErrors";
+import { handMarked } from "../../essayMark";
+import { paperScoreText } from "../../paperScore";
 import { DOT, type Verdict } from "../../components/answerStyles";
+import { UnsavedChangesGuard } from "@/features/settings/UnsavedChangesGuard";
+import { useConfirmMove } from "@/features/settings/unsavedSection";
+import "../../gradingMessages";
 
 type Tab = "paper" | "integrity";
 
 /**
  * AttemptReviewPage is one student's paper in the teacher shell: the answers
  * with a rail of questions and the grading card, Finish grading, the flag, and
- * an Integrity tab with the full timeline and the private note.
+ * an Integrity tab with the full timeline and the private note. Marks given
+ * here or in G-04 and not saved yet ask before a navigation leaves the paper,
+ * and before the rail, Skip, the tabs, a group's links or Grade by question
+ * drop them. The paper is read again when the window regains focus, since
+ * another tab or teacher may grade it meanwhile.
  */
 export default function AttemptReviewPage() {
-  useDisplayTimeZone();
   const { t } = useTranslation();
   const { id = "" } = useParams<{ id: string }>();
+  return (
+    <UnsavedChangesGuard
+      base={`/teacher/attempts/${id}`}
+      copy={{
+        title: t("grading.reviewLeave.title"),
+        description: t("grading.reviewLeave.body"),
+        confirm: t("grading.reviewLeave.confirm"),
+        stay: t("grading.stay"),
+      }}
+    >
+      <ReviewPage id={id} />
+    </UnsavedChangesGuard>
+  );
+}
+
+function ReviewPage({ id }: Readonly<{ id: string }>) {
+  useDisplayTimeZone();
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const locale = useLocale();
+  const confirmMove = useConfirmMove();
   const [tab, setTab] = useState<Tab>("paper");
   const [byQuestion, setByQuestion] = useState(false);
   const [picked, setCurrent] = useState<number | null>(null);
   const [pointsFor, setPointsFor] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [fieldFailure, setFieldFailure] = useState<{
+    questionId: string;
+    message: string;
+  } | null>(null);
 
   const review = useQuery({
     queryKey: reviewKey(id),
     queryFn: ({ signal }) => getAttemptForReview(id, signal),
+    refetchOnWindowFocus: "always",
   });
 
   const invalidate = () =>
     invalidateReview(queryClient, id, review.data?.attempt.assignmentId);
   const grade = useMutation({
-    mutationFn: ({
-      questionId,
-      points,
-      comment,
-    }: {
-      questionId: string;
-      points: number;
-      comment: string | null;
-    }) => gradeAttempt(id, [{ questionId, points, comment }]),
+    mutationFn: (item: GradeItem) => gradeAttempt(id, [item]),
+    onMutate: () => setFieldFailure(null),
     onSuccess: async () => {
       setFailure(null);
       await invalidate();
     },
-    onError: (cause) => {
-      setFailure(failureMessage(cause, t("review.saveFailed")));
+    onError: (cause, item) => {
+      const field = gradeFieldMessage(cause, item.questionId, t);
+      if (field !== null)
+        setFieldFailure({ questionId: item.questionId, message: field });
+      else setFailure(failureMessage(cause, t("review.saveFailed")));
       if (answerRemovedRefusal(cause)) void invalidate();
     },
   });
@@ -154,7 +185,7 @@ export default function AttemptReviewPage() {
     setPointsFor(null);
   };
 
-  const manualIds = questions.filter((q) => q.type === "short_answer").map((q) => q.id);
+  const manualIds = questions.filter((q) => handMarked(q.type)).map((q) => q.id);
   if (byQuestion && manualIds.length > 0) {
     const from = startManualId(question, manualIds);
     return (
@@ -192,6 +223,12 @@ export default function AttemptReviewPage() {
                   {scoreText(score.earned, score.total, locale, t).split("/")[0]}
                 </span>
                 <span className="text-muted-fg">/{score.total}</span>
+                {score.band != null && (
+                  <span className="text-muted-fg">
+                    {" · "}
+                    {paperScoreText(score, locale, t)}
+                  </span>
+                )}
               </span>
             )}
             {tab === "paper" && pending > 0 && gradable && (
@@ -205,7 +242,6 @@ export default function AttemptReviewPage() {
               aria-label={t(flagged ? "review.unflag" : "review.flag")}
               disabled={attempt.status === "voided"}
               aria-disabled={flag.isPending || undefined}
-              className={cn(flag.isPending && "opacity-50")}
               onClick={() => {
                 if (!flag.isPending) flag.mutate(!flagged);
               }}
@@ -218,11 +254,13 @@ export default function AttemptReviewPage() {
             {tab === "paper" && (
               <Button
                 size="sm"
-                disabled={!gradable || pending > 0}
-                aria-disabled={finish.isPending || undefined}
-                className={cn(finish.isPending && "opacity-50")}
+                aria-disabled={
+                  !gradable || pending > 0 || finish.isPending || undefined
+                }
                 onClick={() => {
-                  if (!finish.isPending) finish.mutate();
+                  const blocked = finishBlocked(gradable, live, pending, t);
+                  if (blocked !== null) toast(blocked);
+                  else if (!finish.isPending) finish.mutate();
                 }}
               >
                 {t("review.finish")}
@@ -239,7 +277,10 @@ export default function AttemptReviewPage() {
         </p>
       </PageHead>
 
-      <Tabs value={tab} onValueChange={(value) => setTab(value as Tab)}>
+      <Tabs
+        value={tab}
+        onValueChange={(value) => confirmMove(() => setTab(value as Tab))}
+      >
         <TabsList aria-label={t("review.tabsLabel")}>
           <TabsTrigger value="paper">{t("review.tabs.paper")}</TabsTrigger>
           <TabsTrigger value="integrity">{t("review.tabs.integrity")}</TabsTrigger>
@@ -272,7 +313,10 @@ export default function AttemptReviewPage() {
                     type="button"
                     aria-current={i === current ? "true" : undefined}
                     aria-label={dotLabel(i, verdicts[i] ?? "unanswered", t)}
-                    onClick={() => pick(i)}
+                    onClick={() => {
+                      if (i === current) pick(i);
+                      else confirmMove(() => pick(i));
+                    }}
                     className={cn(
                       DOT.base,
                       "h-9",
@@ -295,7 +339,7 @@ export default function AttemptReviewPage() {
                   variant="outline"
                   size="sm"
                   className="mt-3 w-full"
-                  onClick={() => setByQuestion(true)}
+                  onClick={() => confirmMove(() => setByQuestion(true))}
                 >
                   <Rows3 aria-hidden="true" />
                   {t("byQuestion.title")}
@@ -325,7 +369,8 @@ export default function AttemptReviewPage() {
                       type: t(`questionEditor.type.${question.type}`, {
                         defaultValue: question.type,
                       }),
-                      points: question.points,
+                      count: question.points,
+                      points: trim(question.points, locale),
                     })}
                   </span>
                   <VerdictBadge verdict={verdicts[current ?? 0] ?? "unanswered"} />
@@ -341,33 +386,45 @@ export default function AttemptReviewPage() {
                     onRetry={() => void review.refetch()}
                     onQuestion={(questionId) => {
                       const number = numbers.get(questionId);
-                      if (number !== undefined) pick(number - 1);
-                      document.getElementById("review-answer")?.focus();
+                      if (number === undefined) return;
+                      confirmMove(() => {
+                        pick(number - 1);
+                        document.getElementById("review-answer")?.focus();
+                      });
                     }}
                   />
                 )}
                 <Card id="review-answer" tabIndex={-1}>
                   <CardContent className="space-y-4">
-                    <AnswerReview question={question} answer={answer} />
-                    {question.type === "short_answer" &&
-                      question.sampleAnswer != null && (
-                        <details open className="bg-muted rounded-lg border p-4">
-                          <summary className="text-muted-fg flex w-fit cursor-pointer items-center gap-1.5 rounded-sm text-xs">
-                            <Eye className="size-3.5" aria-hidden="true" />
-                            {t("review.sampleAnswer")}
-                          </summary>
-                          <p className="mt-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap">
-                            {question.sampleAnswer}
-                          </p>
-                          {question.explanation != null && (
+                    <AnswerReview
+                      question={question}
+                      answer={answer}
+                      marks={!cardShown(question, answer, gradable)}
+                    />
+                    {handMarked(question.type) && question.sampleAnswer != null && (
+                      <details open className="bg-muted rounded-lg border p-4">
+                        <summary className="text-muted-fg flex w-fit cursor-pointer items-center gap-1.5 rounded-sm text-xs">
+                          <Eye className="size-3.5" aria-hidden="true" />
+                          {t("review.sampleAnswer")}
+                        </summary>
+                        <p className="mt-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap">
+                          {question.sampleAnswer}
+                        </p>
+                        {question.explanation != null && (
+                          <PromptMedia
+                            assets={question.contentAssets}
+                            onRetry={() => void review.refetch()}
+                          >
                             <QuestionProse
                               className="text-muted-fg mt-2 text-xs"
                               text={question.explanation}
                               content={question.explanationContent}
+                              field="explanation"
                             />
-                          )}
-                        </details>
-                      )}
+                          </PromptMedia>
+                        )}
+                      </details>
+                    )}
                     {question.audio && (
                       <AudioNote
                         question={question}
@@ -377,30 +434,32 @@ export default function AttemptReviewPage() {
                   </CardContent>
                 </Card>
 
-                {question.type === "short_answer" && answer?.answerRemoved === true && (
+                {handMarked(question.type) && answer?.answerRemoved === true && (
                   <RecordedGrade answer={answer} max={question.points} />
                 )}
-                {question.type === "short_answer" &&
-                  gradable &&
-                  answer?.answerRemoved !== true && (
-                    <GradingCard
-                      key={question.id}
-                      question={question}
-                      answer={answer}
-                      pending={grade.isPending}
-                      error={null}
-                      focusPoints={pointsFor === question.id}
-                      onPointsFocused={() => setPointsFor(null)}
-                      onSave={(points, comment) =>
-                        grade.mutate(
-                          { questionId: question.id, points, comment },
-                          { onSuccess: next },
-                        )
-                      }
-                      onSkip={next}
-                    />
-                  )}
-                {question.type === "short_answer" && !gradable && (
+                {cardShown(question, answer, gradable) && (
+                  <GradingCard
+                    key={question.id}
+                    question={question}
+                    answer={answer}
+                    pending={grade.isPending}
+                    error={
+                      fieldFailure?.questionId === question.id
+                        ? fieldFailure.message
+                        : null
+                    }
+                    focusPoints={pointsFor === question.id}
+                    onPointsFocused={() => setPointsFor(null)}
+                    onSave={(marks, comment) =>
+                      grade.mutate(
+                        { questionId: question.id, ...marks, comment },
+                        { onSuccess: next },
+                      )
+                    }
+                    onSkip={() => confirmMove(next)}
+                  />
+                )}
+                {handMarked(question.type) && !gradable && (
                   <p className="text-muted-fg text-sm">
                     {t(live ? "review.notYetSubmitted" : "review.voided")}
                   </p>
@@ -473,6 +532,7 @@ function headerMeta(data: AttemptReview, t: TFunction): string {
 
 function RailStats({ data }: Readonly<{ data: AttemptReview }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   const { attempt, questions, answers, integrity } = data;
   let autoEarned = 0;
   let autoTotal = 0;
@@ -480,7 +540,7 @@ function RailStats({ data }: Readonly<{ data: AttemptReview }>) {
   let manualTotal = 0;
   for (const q of questions) {
     const a = answers[q.id];
-    if (q.type === "short_answer") {
+    if (handMarked(q.type)) {
       manualTotal += q.points;
       manualEarned += a?.manualScore ?? 0;
     } else {
@@ -503,11 +563,11 @@ function RailStats({ data }: Readonly<{ data: AttemptReview }>) {
     <div className="space-y-2 text-sm">
       <Line
         label={t("review.stats.auto")}
-        value={`${trim(autoEarned)} / ${trim(autoTotal)}`}
+        value={`${trim(autoEarned, locale)} / ${trim(autoTotal, locale)}`}
       />
       <Line
         label={t("review.stats.manual")}
-        value={`${trim(manualEarned)} / ${trim(manualTotal)}`}
+        value={`${trim(manualEarned, locale)} / ${trim(manualTotal, locale)}`}
       />
       <Line
         label={t("review.stats.duration")}
@@ -525,8 +585,33 @@ function RailStats({ data }: Readonly<{ data: AttemptReview }>) {
   );
 }
 
-function trim(n: number): string {
-  return String(Math.round(n * 100) / 100);
+/**
+ * cardShown says the paper shows a grading card for this answer: hand-marked,
+ * gradable and still held. The answer above it then leaves out the marks the
+ * card shows while they can change.
+ */
+function cardShown(
+  question: AdminQuestion,
+  answer: ReviewAnswer | undefined,
+  gradable: boolean,
+) {
+  return handMarked(question.type) && gradable && answer?.answerRemoved !== true;
+}
+
+/** finishBlocked is why Finish grading cannot run yet, or null when it can. */
+function finishBlocked(
+  gradable: boolean,
+  live: boolean,
+  pending: number,
+  t: TFunction,
+) {
+  if (!gradable) return t(live ? "review.notYetSubmitted" : "review.voided");
+  return pending > 0 ? t("review.pendingNote", { count: pending }) : null;
+}
+
+/** trim writes a score to two decimals at most, in the reader's locale ("13,17" in vi). */
+function trim(n: number, locale: string): string {
+  return new Intl.NumberFormat(locale, { maximumFractionDigits: 2 }).format(n);
 }
 
 function Line({ label, value }: Readonly<{ label: string; value: string }>) {
@@ -567,6 +652,7 @@ function RecordedGrade({
   max,
 }: Readonly<{ answer: ReviewAnswer; max: number }>) {
   const { t } = useTranslation();
+  const locale = useLocale();
   const comment = answer.graderComment?.trim() ?? "";
   if (answer.manualScore == null && comment === "") return null;
   return (
@@ -576,7 +662,7 @@ function RecordedGrade({
           <p className="flex items-center gap-3 text-sm">
             <span className="font-medium">{t("review.points")}</span>
             <span className="tabular-nums">
-              {trim(answer.manualScore)} / {trim(max)}
+              {trim(answer.manualScore, locale)} / {trim(max, locale)}
             </span>
           </p>
         )}
@@ -611,12 +697,14 @@ function isPending(answer: ReviewAnswer | undefined): boolean {
   );
 }
 
+/** verdictOf is an answer's mark on the rail; an essay marked on a band is `banded`, neither right nor wrong. */
 function verdictOf(question: AdminQuestion, answer: ReviewAnswer | undefined): Verdict {
   if (answer === undefined) return "unanswered";
   if (answer.answerRemoved === true) {
     if (answer.manualScore == null && answer.autoScore == null) return "removed";
   } else if (answer.answer === null) return "unanswered";
   if (isPending(answer)) return "pending";
+  if (answer.band != null) return "banded";
   const earned = answer.manualScore ?? answer.autoScore ?? 0;
   if (earned >= question.points) return "correct";
   if (earned > 0) return "partial";
@@ -724,5 +812,5 @@ function startManualId(
   question: { readonly id: string; readonly type: string } | null,
   manualIds: readonly string[],
 ): string {
-  return question?.type === "short_answer" ? question.id : manualIds[0]!;
+  return question && handMarked(question.type) ? question.id : manualIds[0]!;
 }

@@ -178,6 +178,8 @@ var answersFile = File{AnswersFile, "Mọi câu trả lời của mọi lượt 
 		col("auto_score", "Điểm tự động", "Automatic score"),
 		col("manual_score", "Điểm giáo viên chấm", "Teacher's score"),
 		col("final_score", "Điểm cuối cùng (điểm giáo viên nếu có, nếu không là điểm tự động)", "Final score (the teacher's if there is one, else the automatic one)"),
+		col("band", "Band của bài luận đã chấm, từ 3 đến 9; trống với các dạng câu khác", "The band of a graded essay, 3 to 9; empty for other types"),
+		col("criteria", "Band của từng tiêu chí chấm, dạng mã tiêu chí=band, cách nhau bằng dấu chấm phẩy", "The band of each rubric criterion, as criterion ID=band, separated by semicolons"),
 		col("grader_comment", "Nhận xét khi chấm, nếu có", "Grader's comment, if any"),
 		col("graded_by", "Mã tài khoản đã chấm", "ID of the account that graded it"),
 		col("graded_at", "Lúc chấm", "When it was graded"),

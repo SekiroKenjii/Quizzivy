@@ -227,7 +227,7 @@ export function ImportUsersDialog({
           aria-disabled={(choosing && paused) || undefined}
           className={cn(
             FOOTER_BUTTON,
-            "aria-disabled:bg-primary/50 aria-disabled:hover:bg-primary/50 px-4",
+            "aria-disabled:bg-primary/55 aria-disabled:hover:bg-primary/55 px-4",
           )}
           onClick={() => {
             if (!choosing) close(false);

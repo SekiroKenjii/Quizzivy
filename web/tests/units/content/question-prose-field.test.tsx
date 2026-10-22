@@ -10,6 +10,7 @@ import {
 } from "@/features/question-bank/questionSchema";
 import type {
   QuestionContent,
+  StoredQuestionProse,
   QuestionPromptContent,
 } from "@/components/shared/content/questionContent";
 import "@/lib/i18n";
@@ -47,13 +48,17 @@ const RICH: QuestionContent = {
   ],
 };
 
-type Change = { text: string; content: QuestionContent | null };
+type Change = { text: string; content: StoredQuestionProse | null };
 
 function Prose({
   text,
   content = null,
   changes,
-}: Readonly<{ text: string; content?: QuestionContent | null; changes: Change[] }>) {
+}: Readonly<{
+  text: string;
+  content?: StoredQuestionProse | null;
+  changes: Change[];
+}>) {
   const [value, setValue] = useState<Change>({ text, content });
   return (
     <QuestionProseField

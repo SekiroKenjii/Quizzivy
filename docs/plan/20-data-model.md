@@ -1433,6 +1433,14 @@ listed here matches the spec.
 | D-59 | Add `avatar_sweeps`, one row for each anonymised account whose profile photo objects the housekeeping removed, `user_id` the primary key and `ON DELETE CASCADE`, and the app role holds `SELECT` and `INSERT` only | Anonymisation (T-R5.17a) runs as the maintenance role, which holds no storage credential, so it clears `users.avatar_key` and leaves the objects under `avatars/{user_id}/`; the API's daily housekeeping deletes them (T-R5.16, D-050). Nothing else records which anonymised accounts still have objects, so without a mark every run would list every anonymised account's prefix for ever, and listing the whole `avatars/` prefix instead would read every live photo daily and lose its place on a restart. The row is written only once the prefix is empty, so a failed list or delete leaves the account due for the next run, and an account is listed once. It is a table of its own, not a column on `users`: the maintenance guard (D-042) pins what an anonymised row holds, and the mark is the API's state, not the account's. `REVOKE UPDATE, DELETE` makes a mark permanent for the application; it goes only with its account. No index beyond the key: the pick reads `users` by the anonymised shape and anti-joins this table, and D-050 names the revisit at about 100,000 anonymised accounts. See §56 |
 | D-60 | A third role, `quizzivy_maintenance`, created outside migrations (§1); `00139` grants it table by table and column by column only what `cmd/maintenance`'s commands read and write: `INSERT` alone on `audit_log`, `DELETE` only where a command deletes, nothing on a sequence or on `ai_usage_ledger`, `USAGE` on schemas `app` and `public` and `CREATE` on neither. The file fails when the role is missing, and adds `users_maintenance_guard`, a `BEFORE UPDATE` trigger on `users` fired only for this role, which refuses (`42501`) an update that does not leave the row anonymised | §13.5 had two roles, and before R5 `MAINTENANCE_DATABASE_URL` named the owner or another privileged role. The retention sweep runs unattended from a nightly workflow (T-R5.17a, D16), so its credential holds the least the commands need, and a grant nothing uses is a fault too: `privileges_test.go` compares the role's effective column privileges with its own list of them, which §55's table mirrors, in both directions. There is no conditional grant, so a database that migrates has the role. The `UPDATE` on the login columns that anonymising needs is also what a leaked credential would use to take an account over, so the guard pins the anonymised shape (D-042). It reads no ownership: by direct SQL the role can still anonymise any account but the last active Admin, a teacher's included, and only the sweep and `anonymize-user` skip owners (D-045). See §55 |
 | D-61 | An answer the retention sweep removes keeps its `attempt_answers` row, with `payload` replaced by the marker `{"removed": true}` (`retention.RemovedAnswer`); no column is added | Only the response goes: `auto_score`, `manual_score`, the grader's comment and the grader stay, so no result or average moves (plan 75, "Removing answers keeps scores and comments"). The marker is a JSON object, which the existing `jsonb_typeof(payload) = 'object'` check accepts, so neither T-R5.17a nor T-R5.17b needed a migration. It has no `type`, so no real answer shape can be mistaken for it and `answered.SaysSomething` counts it as saying nothing. Every reader goes through one test: `attempts/domain.AnswerRemoved` in Go, and an equality with `retention.RemovedAnswer` in SQL, where `answered.AwaitsGrade` drops it from every count of answers awaiting a mark (`attempt_answers_pending_idx` still serves them, the marker filtering the rows it returns), a grade naming one is refused whole (`409 ANSWER_REMOVED`), the sweep and the settings page's impact count skip a row already removed, and the data export's `removed` column reports it. See §55 |
+| D-62 | `app.question_type` gains `tfng`, `matching` and `essay` (`00145`), and that file's Down leaves the three values in place, refusing while any question or version question uses one | PostgreSQL cannot drop an enum value, and rebuilding the type fails, because `ALTER COLUMN … TYPE` re-parses every CHECK that compares `type` and each fails with `operator does not exist`. An unused value is harmless, so the Down still undoes everything an older binary could notice; a full reset drops the type with `00002`. Enum values rather than text, because the column is already the enum and every query, index (`questions_type_id_idx`) and CHECK compares it as one (§58) |
+| D-63 | `questions` and `test_version_questions` gain nullable `select_count smallint` (a multiple choice only, 2 to 7) and `max_words smallint` (a short answer only, 1 to 100) | "Choose exactly N" and the word limit are rules of the question (T-R6.1a, plan 76): NULL keeps every existing question's rule, and the frozen copy carries both because marking and the engine read the version, never the bank. Seven is the 8-option cap (DG-63) less one. The word limit is advice: the server stores whatever was typed. Each Down refuses while a row in either table has a value, since the rule cannot be rebuilt once the column goes (§58) |
+| D-64 | Two CHECKs that list types widen: `questions_sample_answer_only_short_answer` becomes `questions_sample_answer_only_written` (a short answer or an essay, `00148`), and `questions_context_option_order` lets a `tfng` or `matching` group member keep a `fixed` order (`00149`) | The grader reads an essay's sample answer beside the student's text, as a short answer's; a True / False / Not given question's options are never shuffled and matching's choices keep the order their keys name, so `shuffle` would record an order nobody applies (T-R6.1a, QC-R6M-3). Each Down refuses while a row uses what it allowed and otherwise restores the original rule (§58) |
+| D-65 | Add `question_rubric_criteria` and its frozen copy `test_version_rubric_criteria` (up to six labels per question, 1 to 80 characters), the copy with `UPDATE` revoked from the app role | An essay's band is the mean of its criteria's bands when it has criteria (DG-61, interim): criteria are per question, not a centre-wide model, until the design team draws one. The copy carries `UNIQUE (test_version_question_id, id)`, so a grade's composite FK can name only a criterion of the question it grades (§59) |
+| D-66 | Matching reuses `question_options` as its choice list, none marked correct, and adds `question_match_items` and `test_version_match_items`, each item keyed to one option by a composite FK `(question_id, correct_option_id)` onto a plain unique index `(question_id, id)` built `CONCURRENTLY` (`00151`); both question tables gain `match_allow_reuse`, present exactly on a matching question | The choices are already options in every path (authoring, duplicate, publish, the student projection), and the composite key keeps an item from pointing into another question. The FK is `NO ACTION`, checked at the end of the statement, so a purge that cascades to options and items together passes whatever order the cascade takes. The index is not attached as a constraint, so dropping a constraint can never take it (§59) |
+| D-67 | `attempt_answers` gains `band numeric(3,1)` (3 to 9 in half steps, only beside a `manual_score`), and `attempt_answer_criteria` holds a band per rubric criterion | An essay is graded on a band and the band is converted to points, `manual_score = round(band × points ÷ 9, 2)`, so `final_score` and every total stay points; the band is stored beside them because the result and the grading screen show it and the points cannot give it back. Criteria rows are replaced on a regrade, as `manual_score` is (§59) |
+| D-68 | `attempt_answer_criteria`'s criterion FK is composite, `(question_id, criterion_id)` onto `test_version_rubric_criteria (test_version_question_id, id)`, where plan 76 named `criterion_id` alone | The single-column FK would accept a grade that names another question's criterion; the composite one refuses it in the database, and its index follows the FK (§59). Chosen by the R6 migrations thread (T-R6.1b) |
+| D-69 | Media named inside a prompt or an explanation gets reference rows, `question_media_references` and the frozen `test_version_question_media_references` (`00154`), rather than the readers scanning `prompt_content` and `explanation_content` | "Used in", the delete refusal, the unreferenced sweep, staff readability and student reach all ask whether an asset is in use; a row with a composite FK onto `media_assets (id, kind)` and `RESTRICT` answers that in the database, and `field` keeps a prompt's media (signed while the paper is sat) apart from an explanation's (signed only through the gated result) (§60, D-064) |
 
 ---
 
@@ -1576,6 +1584,16 @@ the file it adds.
 | `00139_grant_maintenance_role.sql` | the grants of `quizzivy_maintenance`, column by column; fails when the role is missing; `app.users_maintenance_guard()` and its trigger `users_maintenance_guard` on `app.users` | R5 (T-R5.17a), D-60, §55 |
 | `00140_create_avatar_sweeps.sql` | `avatar_sweeps` and the `REVOKE UPDATE, DELETE` from the app role | R5 (T-R5.16), D-59, §56 |
 | `00141_require_encrypted_join_codes.sql` | refuses a live code without a ciphertext, revokes each expired unrevoked legacy code at its `expires_at`, and adds and validates `class_join_codes_live_encrypted`; Down drops the constraint and keeps the revocations | R5 (T-R5.1), §33 |
+| `00145_add_question_types.sql` | `tfng`, `matching` and `essay` on `app.question_type`; Down refuses while a row uses one and leaves the values | R6 (T-R6.1a), D-62 |
+| `00146_add_question_select_count.sql` | `select_count` on `questions` and `test_version_questions`, CHECK added `NOT VALID` and validated; Down refuses while a value exists | R6 (T-R6.1a), D-63 |
+| `00147_add_question_max_words.sql` | `max_words` on `questions` and `test_version_questions`, the same pattern and Down | R6 (T-R6.1a), D-63 |
+| `00148_allow_essay_sample_answer.sql` | `questions_sample_answer_only_written` replaces `questions_sample_answer_only_short_answer`; Down refuses while an essay has a sample answer; `lock_timeout` 5 s | R6 (T-R6.1a), D-64 |
+| `00149_allow_fixed_order_for_tfng_and_matching.sql` | `questions_context_option_order` admits `fixed` on `tfng` and `matching`; Down refuses while such a member keeps it; `lock_timeout` 5 s | R6 (T-R6.1a), D-64 |
+| `00150_create_question_rubric_criteria.sql` | `question_rubric_criteria`, `test_version_rubric_criteria` (`UPDATE` revoked); Down refuses while a criterion exists; `lock_timeout` 5 s | R6 (T-R6.1b), D-65 |
+| `00151_index_question_options_identity.sql` | `NO TRANSACTION`: unique indexes `question_options (question_id, id)` and `test_version_options (test_version_question_id, id)`, `CONCURRENTLY` | R6 (T-R6.1b), D-66 |
+| `00152_create_question_match_items.sql` | `question_match_items`, `test_version_match_items` (`UPDATE` revoked), `match_allow_reuse` on both question tables, backfilled on matching rows; Down refuses while a matching question exists; `lock_timeout` 5 s | R6 (T-R6.1b), D-66 |
+| `00153_add_attempt_answer_bands.sql` | `attempt_answers.band`, `attempt_answer_criteria`; Down refuses while a band or a criterion grade exists; `lock_timeout` 5 s | R6 (T-R6.1b), D-67 |
+| `00154_create_question_media_references.sql` | `question_media_references`, `test_version_question_media_references` (`UPDATE` revoked), both with `media_asset_binding_guard`; Down refuses while either holds a row | R6 (T-R6.2b), D-69, §60 |
 
 Notes on migration mechanics (§13.7):
 
@@ -1591,7 +1609,7 @@ Notes on migration mechanics (§13.7):
   tables, where a plain `CREATE INDEX` is instant and transactional.
   `CONCURRENTLY` becomes mandatory once an index is added to a populated table
   (`00029`, `00036`, `00038`, `00057`, `00071`–`00077`, `00112`, `00127`, `00133`,
-  `00138`), and each such file
+  `00138`, `00151`), and each such file
   gets `-- +goose NO TRANSACTION`, because
   [CREATE INDEX CONCURRENTLY cannot run inside a transaction block](https://www.postgresql.org/docs/18/sql-createindex.html)
   and leaves an `INVALID` index if it fails.
@@ -4131,3 +4149,150 @@ workspace), one SQL predicate (`limits.TeacherRole`) used by the guards and by `
 limit is set, a guard takes `pg_advisory_xact_lock(73819, 45)` for accounts or `(73819, 46)` for storage
 before it counts, in the transaction of the write, so two writes cannot both take the last place.
 
+## 58. Question types, "choose N" and word limits (T-R6.1a)
+
+R6 adds three types and two rules to the question bank and its frozen copy. Every change is additive, so the
+v0.12.0 binary keeps writing with its own column lists (`TestTheV0120WritesStillInsert`).
+
+**`00145_add_question_types.sql`** adds `tfng`, `matching` and `essay` to `app.question_type` with
+`ADD VALUE IF NOT EXISTS`. They are enum values rather than a `text` column because `type` already is the enum:
+`questions_type_id_idx`, every CHECK and every repository compare it as one, and a second column would be a
+second source of truth. A value added in a transaction cannot be used before that transaction commits, so no
+statement in the file names one, and every CHECK that does is in a later file. The Down refuses while a question or
+version question uses one of them and otherwise leaves them in place (D-62): PostgreSQL cannot drop an enum value,
+and rebuilding the type fails on the CHECKs that compare `type`. `IF NOT EXISTS` is what lets the up after that
+Down run.
+
+- `tfng` is True / False / Not given: three `question_options` in fixed order with exactly one correct, answered
+  with the `choice` shape and marked by the choice rule (plan 76). The three-option shape is the application's
+  rule, enforced by the bank's validation (T-R6.3), not by a CHECK.
+- `matching` reuses `question_options` as its choice list and adds items (T-R6.1b).
+- `essay` is a written answer scored on a band (T-R6.1b).
+
+**`00146_add_question_select_count.sql`** and **`00147_add_question_max_words.sql`** add `select_count smallint`
+and `max_words smallint` to `questions` and `test_version_questions` (D-63):
+
+- `CHECK (select_count IS NULL OR (type = 'multiple_choice' AND select_count BETWEEN 2 AND 7))`. NULL is a plain
+  multiple choice, all or nothing; N is "choose exactly N", marked per correct pick.
+- `CHECK (max_words IS NULL OR (type = 'short_answer' AND max_words BETWEEN 1 AND 100))`. NULL is no limit. The
+  limit is advice: the server stores what was typed, and the grader sees the over-limit badge.
+
+Both tables hold rows, so each CHECK is added `NOT VALID` and then validated, the pattern every populated table
+gets (§13). Each file runs in one transaction, so the `ADD COLUMN`'s `ACCESS EXCLUSIVE` lock is held through the
+`VALIDATE`: the pattern buys no weaker lock here, and the scan reads a centre's bank, where the column is NULL on
+every row. It keeps the two steps apart, so the Neon rehearsal times each, and it is already the shape a table too
+large to scan under that lock would need, split across two files. Each file sets `lock_timeout = '5s'` in its Up and
+its Down, so a lock it cannot get fails the deploy at once, to be run again, rather than queueing every writer behind it (as
+`00103` does). The Downs refuse while either table holds a value, since an older binary would mark a choose-N
+question all or nothing and the rule cannot be rebuilt once the column goes, as `00145` refuses for the types; with
+no value they drop the columns.
+
+**`00148_allow_essay_sample_answer.sql`** replaces `questions_sample_answer_only_short_answer` with
+`questions_sample_answer_only_written`, `CHECK (sample_answer IS NULL OR type IN ('short_answer', 'essay'))`, added
+`NOT VALID` and validated before the old rule is dropped, so no moment has neither (D-64). `test_version_questions`
+has no such rule and gains none. The Down refuses while an essay has a sample answer and otherwise restores the
+original the same way.
+
+**`00149_allow_fixed_order_for_tfng_and_matching.sql`** widens 00035's `questions_context_option_order` to
+`CHECK (context_option_order IS DISTINCT FROM 'fixed' OR type IN ('single_choice', 'multiple_choice', 'true_false',
+'tfng', 'matching'))` (D-64). A True / False / Not given question's three options are never shuffled, and matching's
+choices keep the order their keys name, so a group member of either type stores `fixed`; `shuffle` would record an
+order nobody applies. An essay has no options and stays out. The rule keeps its name: it is dropped and added in one
+`ALTER TABLE`, `NOT VALID`, then validated. The Down refuses while a `tfng` or `matching` member keeps `fixed` and
+otherwise restores the original. Group members' frozen copy (`test_version_group_members.option_order`) has no
+type rule and needs none.
+
+## 59. Rubrics, matching and band grades (T-R6.1b)
+
+**`00150_create_question_rubric_criteria.sql`** creates `app.question_rubric_criteria (id, question_id → questions
+ON DELETE CASCADE, ordinal ≥ 0, label 1..80 and not blank)` with `UNIQUE (question_id, ordinal) DEFERRABLE INITIALLY
+IMMEDIATE`, the D-13 reorder pattern, and `app.test_version_rubric_criteria`, the same shape against
+`test_version_questions`, with a plain ordinal key and a second key `(test_version_question_id, id)`. The app role
+may not `UPDATE` the copy, as `00039` does for the frozen group graph. At most six criteria per question is the
+bank's rule (T-R6.3). When criteria exist, the band is their mean rounded half up to 0.5,
+`floor(mean × 2 + 0.5) ÷ 2`; without them the grader sets the band directly (D-65). Down refuses while either
+table holds a criterion, since a frozen rubric is part of a published essay's grading (QC-R6B-1), and otherwise
+drops both.
+
+**`00151_index_question_options_identity.sql`** is `-- +goose NO TRANSACTION` and builds
+`question_options_question_id_id_key ON app.question_options (question_id, id)` and
+`test_version_options_question_id_id_key ON app.test_version_options (test_version_question_id, id)`, both
+`UNIQUE` and `CONCURRENTLY`, since both tables hold rows and every save and publish writes them. An FK may
+reference the columns of a non-partial, non-deferrable unique index directly; `question_options_ordinal_key` cannot
+serve, being `DEFERRABLE`. Nothing attaches the index with `ADD CONSTRAINT … UNIQUE USING INDEX`, which would hand
+it to the constraint so that dropping the constraint dropped the index. Each build is preceded by
+`DROP INDEX CONCURRENTLY IF EXISTS`, so a rerun after an interrupted build removes the `INVALID` leftover instead of
+finding the name taken and recording the file over an index that enforces nothing (as `00133` and `00138` do). Down
+drops both.
+
+**`00152_create_question_match_items.sql`** (D-66):
+
+- `app.question_match_items (id, question_id → questions ON DELETE CASCADE, ordinal, text 1..500 and not blank,
+  correct_option_id)`, with `question_match_items_option_fk FOREIGN KEY (question_id, correct_option_id) REFERENCES
+  app.question_options (question_id, id) ON DELETE NO ACTION`, the deferrable ordinal key, and
+  `question_match_items_option_idx (question_id, correct_option_id)` for the FK's check when an option is deleted.
+- `app.test_version_match_items`, the same against `test_version_questions` and `test_version_options`, with
+  `UPDATE` revoked.
+- `match_allow_reuse boolean` on `questions` and `test_version_questions`, with
+  `CHECK ((type = 'matching') = (match_allow_reuse IS NOT NULL))` added `NOT VALID` and validated (§58). A
+  matching row can exist from `00145` on, so each table is first backfilled with `false`, the strict reading, and
+  the file applies wherever `00145` has run.
+
+The choices are the question's options in their order, none `is_correct`, keyed with roman numerals by the
+editor; the items carry letters. `NO ACTION` is checked at the end of the statement, so the purge of a matching
+question, which cascades to options and items together, passes, while deleting an option an item still names is
+refused; `RESTRICT` would depend on the order the cascade visits the two tables. A bank save that rewrites a
+question's options must therefore rewrite its items in the same statement or delete them first (T-R6.3). The
+editor's bounds are 12 options and 20 items (plan 76, DG-113), the bank's rule. Down refuses while a matching
+question exists in either table, or any item does (QC-R6B-1): it runs before `00145`'s refusal on a rollback to
+v0.12, and without its items and its reuse rule a published matching question can never be marked again.
+Otherwise it drops the columns and the tables; the indexes stay for `00151`'s Down.
+
+**`00153_add_attempt_answer_bands.sql`** (D-67):
+
+- `attempt_answers.band numeric(3,1)` with `attempt_answers_band_step CHECK (band IS NULL OR (band BETWEEN 3 AND 9
+  AND band * 2 = trunc(band * 2)))` and `attempt_answers_band_needs_score CHECK (band IS NULL OR manual_score IS NOT
+  NULL)`, both `NOT VALID` then validated. `numeric(3,1)` rounds 6.25 to 6.3 before the CHECK runs, which the step
+  rule then refuses.
+- `app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band numeric(3,1) NOT NULL)`, `PRIMARY KEY
+  (attempt_id, question_id, criterion_id)`, `FOREIGN KEY (attempt_id, question_id) → attempt_answers ON DELETE
+  CASCADE`, and `attempt_answer_criteria_criterion_fk FOREIGN KEY (question_id, criterion_id) →
+  test_version_rubric_criteria (test_version_question_id, id) ON DELETE RESTRICT`, with the same step CHECK and an
+  index on `(question_id, criterion_id)` for the RESTRICT check. The plan named a single-column `criterion_id` FK;
+  the composite one also refuses a grade naming another question's criterion, and the index follows it (D-68).
+
+`manual_score = round(band × points ÷ 9, 2)`, so `final_score`, `finishGrading` and every points total are
+unchanged. The criteria table is not append-only: a regrade replaces its rows, as it overwrites `manual_score`. A
+grade that changes a mark is audited since T-R6.7 (D-069 in `decisions.md`, spec §13.4): one `attempt.graded` row per
+attempt, whose diff holds the changed `manualScore`, `band` and `criteria` as `{old, new}`; the tables themselves keep no
+history. The retention sweep keeps
+answer rows (D-61), so a band outlives a removed response with its points. Down refuses while any band or criterion
+grade exists, and otherwise drops the table and the column.
+
+Every transactional file in this section, Up and Down, sets `lock_timeout = '5s'` (QC-R6M-4, QC-R6M-6), as §58's do;
+`00151` runs outside a transaction and builds its indexes `CONCURRENTLY`, so it takes no lock that blocks writers.
+It waits, without a bound, for transactions older than it, so the deploy should not start beside a long one
+(QC-R6B-5). Nothing in the database ties a criterion, an item or a band to its question's type (QC-R6B-3): the
+bank's rules (T-R6.3) and the grader (T-R6.4) do. A v0.12 binary that regrades an essay overwrites `manual_score`
+and leaves `band`, so no binary older than T-R6.7 (band grading) may grade once bands are written.
+
+## 60. Media in question prose (T-R6.2b, DG-109, D-064)
+
+An image or audio block in a question's prompt or explanation names a media asset by id inside the JSON
+(`prompt_content`, `explanation_content`). `00154` makes each such name a row, so the database and not a scan of the JSON
+answers whether an asset is in use (D-69):
+
+- `app.question_media_references (question_id → questions ON DELETE CASCADE, field, media_asset_id, media_asset_kind)`,
+  primary key `(question_id, field, media_asset_id)`, written by `WriteMediaReferences` in the transaction that writes
+  the content and rewritten on every write.
+- `app.test_version_question_media_references`, the same keyed by `test_version_question_id`, written at publish
+  (T-R6.5b) and never updated (`REVOKE UPDATE`, as `00039` does for the frozen group graph).
+
+`field` is `prompt` or `explanation` (a CHECK), because the two are reached differently: a student signs a frozen prompt's
+media while sitting the paper, and an explanation's only through the gated result. The composite FK onto
+`media_assets (id, kind)` refuses an image block that names a recording, and `RESTRICT` keeps an asset row while any row
+names it. A prompt's audio marker names no asset (it places the question's own `media_asset_id`), so it has no row. The
+readers ("Used in", the delete refusal, the question count, the unreferenced sweep, staff readability and student reach)
+treat a row exactly as they treat the question's attached media. The Down refuses while either table holds a row.
+Both tables carry `00113`'s `media_asset_binding_guard`, so no row can name a file the sweep removed, and the guard's
+coverage test now finds every `app` table with a `media_asset_id` column rather than a fixed list (QC-R6D-1).

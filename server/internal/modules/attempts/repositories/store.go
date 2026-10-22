@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/content"
+	"quizzivy/internal/shared/matchkey"
 	"quizzivy/internal/shared/opt"
 	"quizzivy/internal/shared/schedule"
 	"time"
@@ -315,7 +317,9 @@ const questionsQuery = `
 	       q.media_asset_id, q.media_asset_kind, q.media_alt, m.mime_type, m.original_filename,
 	       m.bytes, m.duration_ms, m.created_at,
 	       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after, coalesce(q.audio_allow_pause, true),
-           coalesce(gm.group_id::text,''),coalesce(gm.ordinal,0),coalesce(gm.option_order='fixed',false)
+           coalesce(gm.group_id::text,''),coalesce(gm.ordinal,0),
+           coalesce(gm.option_order='fixed',false) OR q.type IN ('tfng','matching'),
+           q.select_count, q.max_words, q.match_allow_reuse
 	  FROM app.test_version_questions q
 	  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 	  LEFT JOIN app.media_assets m ON m.id = q.media_asset_id
@@ -397,11 +401,13 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 			&r.mediaID, &r.mediaKind, &q.MediaAlt, &r.mimeType, &r.filename, &r.mediaBytes,
 			&r.durationMs, &r.createdAt,
 			&r.maxPlays, &r.allowSeek, &r.showTranscript, &r.allowPause,
-			&q.GroupID, &q.GroupOrdinal, &q.FixedOptionOrder); err != nil {
+			&q.GroupID, &q.GroupOrdinal, &q.FixedOptionOrder,
+			&q.SelectCount, &q.MaxWords, &q.MatchAllowReuse); err != nil {
 			return nil, fmt.Errorf("attempts: scan question: %w", err)
 		}
 		q.Media = r.media()
 		q.Audio = r.audio()
+		q.PromptAssets = shownAssets(q.PromptContent, nil)
 		byID[q.ID] = len(out)
 		out = append(out, q)
 	}
@@ -412,12 +418,15 @@ func (s *Postgres) Questions(ctx context.Context, testVersionID string) ([]domai
 	if err := s.attachOptions(ctx, testVersionID, out, byID); err != nil {
 		return nil, err
 	}
+	if err := s.attachMatchItems(ctx, testVersionID, out, byID); err != nil {
+		return nil, err
+	}
 	return out, s.attachBlanks(ctx, testVersionID, out, byID)
 }
 
 func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
 	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
-		SELECT o.test_version_question_id, o.id, o.text, o.content
+		SELECT o.test_version_question_id, o.id, o.text, o.content, o.ordinal, q.type = 'matching'
 		  FROM app.test_version_options o
 		  JOIN app.test_version_questions q ON q.id = o.test_version_question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
@@ -426,7 +435,12 @@ func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []dom
 		func(rows pgx.Rows) (string, domain.Option, error) {
 			var questionID string
 			var o domain.Option
-			err := rows.Scan(&questionID, &o.ID, &o.Text, &o.Content)
+			var ordinal int
+			var keyed bool
+			err := rows.Scan(&questionID, &o.ID, &o.Text, &o.Content, &ordinal, &keyed)
+			if keyed {
+				o.Key = matchkey.Option(ordinal)
+			}
 			return questionID, o, err
 		})
 	if err != nil {
@@ -435,6 +449,33 @@ func (s *Postgres) attachOptions(ctx context.Context, versionID string, qs []dom
 	for questionID, options := range byQuestion {
 		if i, ok := at[questionID]; ok {
 			qs[i].Options = options
+		}
+	}
+	return nil
+}
+
+func (s *Postgres) attachMatchItems(ctx context.Context, versionID string, qs []domain.Question, at map[string]int) error {
+	byQuestion, err := db.GroupBy(ctx, s.Conn(), `
+		SELECT i.test_version_question_id, i.id, i.ordinal, i.text
+		  FROM app.test_version_match_items i
+		  JOIN app.test_version_questions q ON q.id = i.test_version_question_id
+		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+		 WHERE s.test_version_id = $1::uuid
+		 ORDER BY i.ordinal`, []any{versionID},
+		func(rows pgx.Rows) (string, domain.MatchItem, error) {
+			var questionID string
+			var item domain.MatchItem
+			var ordinal int
+			err := rows.Scan(&questionID, &item.ID, &ordinal, &item.Text)
+			item.Key = matchkey.Item(ordinal)
+			return questionID, item, err
+		})
+	if err != nil {
+		return fmt.Errorf("attempts: read match items: %w", err)
+	}
+	for questionID, items := range byQuestion {
+		if i, ok := at[questionID]; ok {
+			qs[i].MatchItems = items
 		}
 	}
 	return nil
@@ -549,4 +590,21 @@ func (s *Postgres) Rebeacon(ctx context.Context, attemptID string, hash []byte) 
 		return fmt.Errorf("attempts: reissue beacon token: %w", err)
 	}
 	return nil
+}
+
+// shownAssets lists the assets a frozen prompt or explanation shows (DG-109),
+// once each in document order. The paper passes only the prompt and the
+// result only an explanation its policy released, so neither reaches the
+// other's media (D-064 ruling 6). A document the media rules refuse, such as a
+// legacy one, shows none.
+func shownAssets(prompt, explanation []byte) []string {
+	shown, err := content.QuestionMedia(prompt, explanation)
+	if err != nil || len(shown) == 0 {
+		return nil
+	}
+	ids := make([]string, len(shown))
+	for i, asset := range shown {
+		ids[i] = asset.ID
+	}
+	return ids
 }

@@ -90,15 +90,23 @@ func (PublishManager) MissingMedia(d DraftContent, missing []string) error {
 	var violations []Violation
 	for _, section := range d.Sections {
 		for _, q := range section.Questions {
-			if q.MediaAssetID == nil || !gone[strings.ToLower(*q.MediaAssetID)] {
-				continue
+			switch {
+			case q.MediaAssetID != nil && gone[strings.ToLower(*q.MediaAssetID)]:
+				violations = append(violations, Violation{
+					Rule:       missingAttachmentRule(q),
+					Message:    "Tệp đính kèm của câu hỏi không tồn tại hoặc đã bị xoá. Hãy chọn tệp khác.",
+					SectionID:  section.ID,
+					QuestionID: q.SourceID,
+				})
+			case proseNames(q, gone):
+				violations = append(violations, Violation{
+					Rule:       QuestionValid,
+					Message:    "Một hình ảnh hoặc âm thanh trong nội dung câu hỏi không tồn tại hoặc đã bị xoá. Hãy chọn tệp khác.",
+					English:    "An image or audio in the question's text does not exist or has been deleted. Choose another file.",
+					SectionID:  section.ID,
+					QuestionID: q.SourceID,
+				})
 			}
-			violations = append(violations, Violation{
-				Rule:       missingAttachmentRule(q),
-				Message:    "Tệp đính kèm của câu hỏi không tồn tại hoặc đã bị xoá. Hãy chọn tệp khác.",
-				SectionID:  section.ID,
-				QuestionID: q.SourceID,
-			})
 		}
 		for _, group := range section.Groups {
 			if !materialsName(group, gone) {
@@ -125,6 +133,21 @@ func missingAttachmentRule(q DraftQuestion) Rule {
 	return QuestionValid
 }
 
+// proseNames reports whether the question's prompt or explanation shows one of
+// assets (DG-109).
+func proseNames(q DraftQuestion, assets map[string]bool) bool {
+	shown, err := content.QuestionMedia(q.PromptContent, q.ExplanationContent)
+	if err != nil {
+		return false
+	}
+	for _, asset := range shown {
+		if assets[strings.ToLower(asset.ID)] {
+			return true
+		}
+	}
+	return false
+}
+
 func materialsName(group GroupBundle, assets map[string]bool) bool {
 	for _, material := range group.Group.Stimuli {
 		document, err := content.Parse(material.Content)
@@ -149,8 +172,10 @@ type Rule string
 
 // Violation is one failed check, anchored to whatever the builder can highlight.
 type Violation struct {
-	Rule       Rule
-	Message    string
+	Rule    Rule
+	Message string
+	// English is Message in English, empty when the check has only the one.
+	English    string
 	SectionID  string
 	QuestionID string
 	GroupID    string

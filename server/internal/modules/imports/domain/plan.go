@@ -40,7 +40,7 @@ type PlanUnit struct {
 
 // Input maps an included draft question onto the bank's write model.
 func (q DraftQuestion) Input() (questions.Input, error) {
-	in := questions.Input{Type: questions.Type(q.Type), PromptContent: q.Prompt, Prompt: plainText(q.Prompt), Points: q.Points, Tags: []string{}}
+	in := questions.Input{Type: questions.Type(q.Type), PromptContent: q.Prompt, Prompt: plainText(q.Prompt), Points: q.Points, SelectCount: q.SelectCount, MaxWords: q.MaxWords, Tags: []string{}}
 	if in.Prompt == "" {
 		return in, content.ErrInvalidDocument
 	}
@@ -112,12 +112,8 @@ func groupBundle(g DraftGroup, sectionTitle string, newID func() string) (tests.
 			return tests.GroupBundle{}, err
 		}
 		ids[q.ID] = newID()
-		order := "shuffle"
-		if isChoice(q.Type) {
-			order = "fixed"
-		}
 		bundle.Questions = append(bundle.Questions, tests.GroupQuestion{ID: ids[q.ID], Input: in})
-		bundle.Group.Members = append(bundle.Group.Members, tests.GroupMember{QuestionID: ids[q.ID], OptionOrder: order})
+		bundle.Group.Members = append(bundle.Group.Members, tests.GroupMember{QuestionID: ids[q.ID], OptionOrder: optionOrder(q.Type)})
 	}
 	if len(g.Stimulus) == 0 || len(bundle.Questions) == 0 {
 		return bundle, nil
@@ -144,6 +140,14 @@ func groupBundle(g DraftGroup, sectionTitle string, newID func() string) (tests.
 	stimulus.Content = raw
 	bundle.Group.Stimuli = append(bundle.Group.Stimuli, stimulus)
 	return bundle, nil
+}
+
+// optionOrder keeps a choice or tfng member's options in their printed order; a tfng question's order is fixed.
+func optionOrder(questionType string) string {
+	if isChoice(questionType) || questionType == string(questions.TFNG) {
+		return "fixed"
+	}
+	return "shuffle"
 }
 
 func validGroupShape(g DraftGroup) error {

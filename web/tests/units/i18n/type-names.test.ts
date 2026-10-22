@@ -22,6 +22,9 @@ describe("the engine's type names", () => {
       true_false: "True / False",
       fill_blank: "Fill in the blank",
       short_answer: "Short answer",
+      tfng: "True / False / Not given",
+      matching: "Matching",
+      essay: "Essay",
     });
   });
 });

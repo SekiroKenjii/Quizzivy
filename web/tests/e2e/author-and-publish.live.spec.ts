@@ -5,8 +5,11 @@ import { assignToClass, publishInBuilder } from "./support/live";
 
 /**
  * E2E 1 (§14): the teacher logs in, authors a test with one question of each
- * of §7's five types including audio, publishes it, and assigns it. Phase 2
- * ran the half up to publishing as 1a; Phase 4 closes it with the assignment.
+ * of §7's types including audio, publishes it, and assigns it. Phase 2 ran the
+ * half up to publishing as 1a; Phase 4 closes it with the assignment. R6
+ * (T-R6.14) adds the types it brought, authored through the editor: True /
+ * False / Not given, "Choose N", a word limit, matching and an essay with the
+ * IELTS rubric.
  */
 
 const ADMIN = { email: "thuong@quizzivy.com", password: "quizzivy-dev" };
@@ -53,10 +56,10 @@ async function addQuestion(page: Page, type: string, prompt: string) {
   await field.fill(prompt);
 }
 
-test("E2E 1: an admin authors a test with all five question types, publishes and assigns it", async ({
+test("E2E 1: an admin authors a test with every question type, publishes and assigns it", async ({
   page,
 }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   await signIn(page);
 
   // ---------------------------------------------------------------- create
@@ -107,8 +110,80 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await answer.press("Enter");
 
   // --------------------------------------------------------- short_answer
-  await addQuestion(page, "Tự luận", "Viết 2–3 câu tả thói quen buổi sáng của bạn.");
+  await addQuestion(
+    page,
+    "Trả lời ngắn",
+    "Viết 2–3 câu tả thói quen buổi sáng của bạn.",
+  );
   await page.getByLabel("Đáp án mẫu").fill("I usually wake up at six.");
+  // A word limit advises; it never cuts (§7).
+  await page
+    .getByRole("spinbutton", { name: "Giới hạn số từ", exact: true })
+    .fill("60");
+
+  // ------------------------------------------------- tfng (R6, T-R6.14)
+  // A true / false question with "Not given" turned on is the IELTS kind.
+  await addQuestion(page, "Đúng/Sai", "The museum opens on Mondays.");
+  await page.getByRole("switch", { name: /^Thêm “Không có thông tin”/ }).click();
+  await page
+    .locator("label")
+    .filter({ hasText: /^Không có thông tin$/ })
+    .click();
+
+  // ------------------------------------------------------------ Choose N
+  await addQuestion(page, "Nhiều đáp án", "Which TWO words are verbs?");
+  await page.getByRole("button", { name: "Thêm lựa chọn", exact: true }).click();
+  await setOptions(page, ["swim", "blue", "run"]);
+  // The visible box of the third row sits over the hidden input, so the row
+  // is clicked as a teacher clicks it.
+  await page
+    .getByLabel("Đánh dấu C là đáp án đúng", { exact: true })
+    .locator("xpath=..")
+    .click();
+  await expect(
+    page.getByLabel("Đánh dấu C là đáp án đúng", { exact: true }),
+  ).toBeChecked();
+  await page.getByRole("switch", { name: "Học viên chọn đúng số đáp án" }).click();
+  await expect(
+    page.getByRole("spinbutton", { name: "Số đáp án học viên chọn", exact: true }),
+  ).toHaveValue("2");
+
+  // ------------------------------------------------------------- matching
+  await addQuestion(page, "Nối", "Match each paragraph with its heading.");
+  await page.getByRole("textbox", { name: "Mục A", exact: true }).fill("Paragraph A");
+  await page.getByRole("textbox", { name: "Mục B", exact: true }).fill("Paragraph B");
+  await page
+    .getByRole("textbox", { name: "Lựa chọn i", exact: true })
+    .fill("A river with nine mouths");
+  await page
+    .getByRole("textbox", { name: "Lựa chọn ii", exact: true })
+    .fill("Salt water moving inland");
+  await page.getByRole("button", { name: "Thêm lựa chọn", exact: true }).click();
+  await page
+    .getByRole("textbox", { name: "Lựa chọn iii", exact: true })
+    .fill("Markets on the water");
+  for (const [item, choice] of [
+    ["A", "i"],
+    ["B", "ii"],
+  ] as const) {
+    await page
+      .getByRole("combobox", { name: `Lựa chọn đúng cho mục ${item}`, exact: true })
+      .click();
+    await page.getByRole("option", { name: new RegExp(`^${choice} `) }).click();
+  }
+
+  // ------------------------------------------------- essay, with a rubric
+  await addQuestion(
+    page,
+    "Bài luận",
+    "Some people think rivers matter more than roads. Discuss.",
+  );
+  await page
+    .getByRole("button", { name: "Dùng tiêu chí IELTS Writing", exact: true })
+    .click();
+  await expect(
+    page.getByRole("textbox", { name: "Tiêu chí 4", exact: true }),
+  ).toHaveValue("Độ đa dạng và chính xác ngữ pháp");
 
   // ------------------------------------------ audio, with a real upload
   await addQuestion(page, "Một đáp án", "Người phụ nữ đề nghị làm gì?");
@@ -155,18 +230,29 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
   await expect(page.getByText("Phiên bản 1 · mặc định cho bài giao mới")).toBeVisible();
   await expect(page.getByRole("heading", { name: title })).toBeVisible();
 
-  // Six questions, one of each type plus the audio one, in the student payload.
-  // The preview is the engine, one question at a time: the first opens it, and
-  // five steps reach the sixth, the last, with its recording.
+  // Ten questions, one of each type plus Choose N and the audio one, in the
+  // student payload. The preview is the engine, one question at a time: the
+  // first opens it, and nine steps reach the tenth, the last, with its
+  // recording.
   const paper = page.getByRole("region", { name: "Màn hình của học viên" });
   await expect(
     paper.getByText("They chỗ trống to the museum last weekend.", { exact: true }),
   ).toBeVisible();
-  await expect(paper.getByText(/^Câu 1 trên 6 · /)).toBeVisible();
-  for (let step = 0; step < 5; step += 1) {
+  await expect(paper.getByText(/^Câu 1 trên 10 · /)).toBeVisible();
+  // Each of R6's types arrives as the engine draws it.
+  const drawn: Record<number, () => Promise<void>> = {
+    6: () =>
+      expect(paper.getByRole("radio", { name: "Không có thông tin" })).toBeVisible(),
+    7: () => expect(paper.getByText("Chọn hai đáp án.")).toBeVisible(),
+    8: () => expect(paper.getByText("Đã nối 0/2")).toBeVisible(),
+    9: () =>
+      expect(paper.getByRole("textbox", { name: "Bài luận của bạn" })).toBeVisible(),
+  };
+  for (let n = 2; n <= 10; n += 1) {
     await paper.getByRole("button", { name: "Câu sau", exact: true }).click();
+    await drawn[n]?.();
   }
-  await expect(paper.getByText(/^Câu 6 trên 6 · /)).toBeVisible();
+  await expect(paper.getByText(/^Câu 10 trên 10 · /)).toBeVisible();
   await expect(paper.getByText("Người phụ nữ đề nghị làm gì?")).toBeVisible();
   await expect(
     paper.getByRole("group", { name: "Đoạn ghi âm của câu hỏi" }),
@@ -175,13 +261,14 @@ test("E2E 1: an admin authors a test with all five question types, publishes and
     paper.getByRole("button", { name: "Hoàn tất", exact: true }),
   ).toBeVisible();
 
-  // And the version history records it: six questions, six points, by name.
+  // And the version history records it: ten questions, eighteen points (the
+  // essay is worth nine by default), by name.
   // At 1280 the history is the sheet the header opens.
   await page.getByRole("button", { name: "Lịch sử phiên bản" }).click();
   const history = page.getByRole("dialog", { name: "Lịch sử phiên bản" });
   const versionOne = history.locator('[data-version="1"]');
   await expect(versionOne.getByText("Mặc định", { exact: true })).toBeVisible();
-  await expect(versionOne.getByText("6 câu · 6 điểm")).toBeVisible();
+  await expect(versionOne.getByText("10 câu · 18 điểm")).toBeVisible();
   await expect(versionOne.getByText(/Thuong/)).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(history).toBeHidden();

@@ -57,8 +57,12 @@ conflict to know: the skill teaches the pre-18
 - Target PostgreSQL 18. Do not write DDL that silently degrades on 16/17.
 - No `SELECT *` anywhere in application code.
 - Student-facing payloads never contain `isCorrect`, `sampleAnswer`,
-  `acceptedAnswers`, or `transcript`. There is a test asserting this;
-  do not weaken it.
+  `acceptedAnswers`, or `transcript`. The session payload (`GET
+  /app/attempts/:id`) also never carries the result-only keys:
+  `correctOptionIds`, `correctAnswers`, `correctMatches`,
+  `correctOptionId`, `band` or `criteria`; they appear only on the result,
+  behind the review policy. There is a test asserting this (E2E 9); do
+  not weaken it.
 - Every unauthenticated endpoint is rate-limited and leak-reviewed in the
   same PR that adds it.
 - Never remove or skip a failing test to make CI green. Fix it or flag it.
@@ -528,7 +532,9 @@ Every control has a visible `:focus-visible` ring, although the deck draws none.
 Its colour is `--focus`, which `tokens.test.ts` holds at 3:1 or more on `--bg`,
 `--card`, `--sidebar` and `--muted` in both themes.
 A control paused with `aria-disabled` stays focusable and fades its colours, never
-the element's opacity, which halves its focus outline.
+the element's opacity, which halves its focus outline. `Button` and `Switch` draw
+that look for every variant, so a caller sets `aria-disabled` and adds no fade of
+its own; under forced colours a paused control takes `GrayText`.
 Continuous motion (the marquee on overflowing titles, the live dot) pauses on
 hover and focus and is static under `prefers-reduced-motion`.
 

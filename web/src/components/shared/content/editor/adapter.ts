@@ -8,10 +8,14 @@ import type {
   ContentCell,
   ContentInline,
   ContentMark,
+  ProseBlock,
+  ProseDocument,
   SemanticContent,
 } from "../model";
 import { CONTENT_LIMITS } from "../model";
-import { validateContent, type ContentValidation } from "../validation";
+import type { ContentValidation } from "../validation";
+import type { ProseField, QuestionProseValidation } from "../questionContent";
+import { mediaField, validateForProfile, type EditorProfile } from "./profile";
 
 function inlineJSON(node: ContentInline): JSONContent[] {
   switch (node.type) {
@@ -35,7 +39,7 @@ function inlineJSON(node: ContentInline): JSONContent[] {
   }
 }
 
-function blockJSON(node: ContentBlock): JSONContent {
+function blockJSON(node: ProseBlock, media: boolean): JSONContent {
   switch (node.type) {
     case "paragraph":
       return { type: "paragraph", content: node.content.flatMap(inlineJSON) };
@@ -51,7 +55,7 @@ function blockJSON(node: ContentBlock): JSONContent {
         ...(node.ordered ? { attrs: { start: node.start } } : {}),
         content: node.items.map((item) => ({
           type: "listItem",
-          content: item.map(blockJSON),
+          content: item.map((block) => blockJSON(block, media)),
         })),
       };
     case "table":
@@ -62,26 +66,41 @@ function blockJSON(node: ContentBlock): JSONContent {
           content: row.map((cell) => ({
             type: cell.header ? "tableHeader" : "tableCell",
             attrs: { rowspan: cell.rowSpan, colspan: cell.colSpan },
-            content: cell.content.map(blockJSON),
+            content: cell.content.map((block) => blockJSON(block, media)),
           })),
         })),
       };
     case "image":
-      return {
-        type: "contentImage",
-        attrs: { assetId: node.assetId, label: node.alt },
-      };
+      return media
+        ? { type: "proseImage", attrs: { assetId: node.assetId, alt: node.alt } }
+        : { type: "contentImage", attrs: { assetId: node.assetId, label: node.alt } };
     case "audio":
+      if ("label" in node)
+        return {
+          type: "contentAudio",
+          attrs: { assetId: node.assetId, label: node.label },
+        };
       return {
-        type: "contentAudio",
-        attrs: { assetId: node.assetId, label: node.label },
+        type: "proseAudio",
+        attrs: { assetId: "assetId" in node ? node.assetId : null },
       };
   }
 }
 
-/** toEditorJSON adapts validated semantic content without storing the editor's private schema. */
-export function toEditorJSON(document: SemanticContent): JSONContent {
-  return { type: "doc", content: document.blocks.map(blockJSON) };
+/**
+ * toEditorJSON adapts validated semantic content without storing the editor's
+ * private schema. A profile that holds question media draws its images and
+ * audio as the question's own nodes, a group material's as the material's.
+ */
+export function toEditorJSON(
+  document: SemanticContent | ProseDocument,
+  profile: EditorProfile = "document",
+): JSONContent {
+  const media = mediaField(profile) !== null;
+  return {
+    type: "doc",
+    content: document.blocks.map((node) => blockJSON(node, media)),
+  };
 }
 
 const editorMark = z.strictObject({
@@ -112,6 +131,8 @@ const cellAttrs = z.strictObject({
 });
 const gapAttrs = z.strictObject({ id: z.string(), label: z.string() });
 const assetAttrs = z.strictObject({ assetId: z.string(), label: z.string() });
+const proseImageAttrs = z.strictObject({ assetId: z.string(), alt: z.string() });
+const proseAudioAttrs = z.strictObject({ assetId: z.string().nullable() });
 const linkAttrs = z.strictObject({
   href: z.string(),
   title: z.null().optional(),
@@ -177,7 +198,9 @@ function readCell(
     header: node.type === "tableHeader",
     rowSpan: attrs.rowspan,
     colSpan: attrs.colspan,
-    content: (node.content ?? []).map((child) => readBlock(child, depth + 1, budget)),
+    content: (node.content ?? []).map(
+      (child) => readBlock(child, depth + 1, budget) as ContentBlock,
+    ),
   };
 }
 
@@ -197,7 +220,7 @@ function readBlock(
   input: unknown,
   depth: number,
   budget: { nodes: number },
-): ContentBlock {
+): ProseBlock {
   const node = readNode(input, depth, budget);
   const children = node.content ?? [];
   switch (node.type) {
@@ -224,8 +247,8 @@ function readBlock(
         ordered,
         start,
         items: children.map((item) =>
-          readChildren(item, "listItem", depth + 1, budget).map((child) =>
-            readBlock(child, depth + 2, budget),
+          readChildren(item, "listItem", depth + 1, budget).map(
+            (child) => readBlock(child, depth + 2, budget) as ContentBlock,
           ),
         ),
       };
@@ -248,33 +271,64 @@ function readBlock(
         ? { type: "image", assetId: attrs.assetId, alt: nfc(attrs.label) }
         : { type: "audio", assetId: attrs.assetId, label: nfc(attrs.label) };
     }
+    case "proseImage": {
+      if (children.length) throw new Error("schema");
+      const attrs = proseImageAttrs.parse(node.attrs);
+      return { type: "image", assetId: attrs.assetId, alt: nfc(attrs.alt) };
+    }
+    case "proseAudio": {
+      if (children.length) throw new Error("schema");
+      const { assetId } = proseAudioAttrs.parse(node.attrs);
+      return assetId === null ? { type: "audio" } : { type: "audio", assetId };
+    }
     default:
       throw new Error("schema");
   }
 }
 
-/** fromEditorJSON rejects unsupported editor structure before it can become learner content. */
-const validatedDocuments = new WeakMap<EditorDocument, ContentValidation>();
+/** EditorValidation is an editor document read back as content, by its profile's rules. */
+export type EditorValidation = ContentValidation | QuestionProseValidation;
 
-/** fromEditorDoc validates an editor document once; documents are immutable, so every later check of the same node reuses the result. */
-export function fromEditorDoc(doc: EditorDocument): ContentValidation {
-  let validation = validatedDocuments.get(doc);
+const validatedDocuments = new WeakMap<
+  EditorDocument,
+  Map<ProseField | "content", EditorValidation>
+>();
+
+/** fromEditorDoc validates an editor document once per set of rules (content, a prompt's or an explanation's); documents are immutable, so every later check of the same node reuses the result. */
+export function fromEditorDoc(
+  doc: EditorDocument,
+  profile: EditorProfile = "document",
+): EditorValidation {
+  let byProfile = validatedDocuments.get(doc);
+  if (!byProfile) {
+    byProfile = new Map();
+    validatedDocuments.set(doc, byProfile);
+  }
+  const rules = mediaField(profile) ?? "content";
+  let validation = byProfile.get(rules);
   if (!validation) {
-    validation = fromEditorJSON(doc.toJSON());
-    validatedDocuments.set(doc, validation);
+    validation = fromEditorJSON(doc.toJSON(), profile);
+    byProfile.set(rules, validation);
   }
   return validation;
 }
 
-export function fromEditorJSON(input: unknown): ContentValidation {
+/** fromEditorJSON rejects unsupported editor structure before it can become learner content. */
+export function fromEditorJSON(
+  input: unknown,
+  profile: EditorProfile = "document",
+): EditorValidation {
   if (!withinContentBudget(input)) return { ok: false, issue: "limit" };
   try {
     const budget = { nodes: 0 };
     const children = readChildren(input, "doc", 0, budget);
-    return validateContent({
-      format: "semantic_v1",
-      blocks: children.map((child) => readBlock(child, 1, budget)),
-    });
+    return validateForProfile(
+      {
+        format: "semantic_v1",
+        blocks: children.map((child) => readBlock(child, 1, budget)),
+      },
+      profile,
+    );
   } catch {
     return { ok: false, issue: "schema" };
   }

@@ -1,33 +1,57 @@
 import { useId } from "react";
 import { useTranslation } from "react-i18next";
 import { CircleCheck } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 import { cn } from "@/lib/utils";
-import { readTrueFalse, trueFalseOptions } from "../questionType";
+import {
+  readTfng,
+  readTrueFalse,
+  tfngOptions,
+  trueFalseOptions,
+  withNotGiven,
+  type TfngAnswer,
+} from "../questionType";
 import type { QuestionValues } from "../questionSchema";
 
-type Option = QuestionValues["options"][number];
-
 /**
- * TrueFalseField is a true/false question's answer: a radio group of two
- * cards, "True" and "False", in the reader's language. It reads the answer by
- * canonical text (readTrueFalse), not by position, and writes the two canonical
- * options "True" and "False" (DG-139), each keeping the id of the option it
- * replaces, so editing a legacy question whose teacher renamed them normalises
- * their texts; the ticked one is the correct answer.
+ * TrueFalseField is a true/false question's answer: a radio group of cards,
+ * "True" and "False", in the reader's language, and the switch "Include “Not
+ * given”" (DG-113). On, the question is stored as `tfng` and a third card,
+ * "Not given", joins them; off, it is `true_false`, and an answer of "Not
+ * given" becomes False, as the deck draws it. A true/false answer is read by
+ * canonical text (readTrueFalse), not by position, and written as the two
+ * canonical options "True" and "False" (DG-139), each keeping the id of the
+ * option it replaces, so editing a legacy question whose teacher renamed them
+ * normalises their texts. A tfng answer is read by position, the server's
+ * fixed order. The ticked card is the correct answer.
  */
 export function TrueFalseField({
-  options,
+  value,
   onChange,
-}: Readonly<{ options: Option[]; onChange: (options: Option[]) => void }>) {
+}: Readonly<{ value: QuestionValues; onChange: (value: QuestionValues) => void }>) {
   const { t } = useTranslation();
   const heading = useId();
   const correctNote = useId();
   const name = useId();
+  const notGiven = value.type === "tfng";
+  const options = value.options;
   const answer = readTrueFalse(options);
-  const choices = [
-    { value: true, label: t("trueFalse.true") },
-    { value: false, label: t("trueFalse.false") },
+  const current = currentAnswer(notGiven, options);
+  const choices: ReadonlyArray<{ value: TfngAnswer; label: string }> = [
+    { value: "true", label: t("trueFalse.true") },
+    { value: "false", label: t("trueFalse.false") },
+    ...(notGiven
+      ? [{ value: "not_given" as const, label: t("trueFalse.notGiven") }]
+      : []),
   ];
+  function choose(next: TfngAnswer) {
+    onChange({
+      ...value,
+      options: notGiven
+        ? tfngOptions(next, options)
+        : trueFalseOptions(next === "true", answer),
+    });
+  }
   return (
     <div className="flex flex-col gap-2.5">
       <p
@@ -48,10 +72,10 @@ export function TrueFalseField({
         className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2"
       >
         {choices.map((choice) => {
-          const on = choice.value === answer.trueIsCorrect;
+          const on = choice.value === current;
           return (
             <label
-              key={String(choice.value)}
+              key={choice.value}
               className={cn(
                 "text-fg flex min-h-11.5 min-w-0 cursor-pointer items-center gap-2.5 rounded-[10px] border-[1.5px] px-3.5 text-[14px] font-medium",
                 "has-[:focus-visible]:outline-focus has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2",
@@ -64,7 +88,7 @@ export function TrueFalseField({
                 className="sr-only"
                 checked={on}
                 aria-describedby={on ? correctNote : undefined}
-                onChange={() => onChange(trueFalseOptions(choice.value, answer))}
+                onChange={() => choose(choice.value)}
               />
               <span
                 aria-hidden="true"
@@ -75,7 +99,9 @@ export function TrueFalseField({
               >
                 <span className={cn("size-2 rounded-full", on && "bg-success")} />
               </span>
-              <span className="min-w-max flex-[1_1_auto]">{choice.label}</span>
+              <span className="min-w-0 flex-[1_1_auto] break-words">
+                {choice.label}
+              </span>
               {on ? (
                 <CircleCheck
                   aria-hidden="true"
@@ -86,6 +112,27 @@ export function TrueFalseField({
           );
         })}
       </div>
+      <label className="flex cursor-pointer items-center gap-2.5 text-[13px]">
+        <Switch
+          size="sm"
+          checked={notGiven}
+          onCheckedChange={(on) => onChange(withNotGiven(value, on))}
+        />
+        <span>
+          {t("questionEditor.includeNotGiven")}{" "}
+          <span className="text-muted-fg">
+            · {t("questionEditor.includeNotGivenHint")}
+          </span>
+        </span>
+      </label>
     </div>
   );
+}
+
+function currentAnswer(
+  notGiven: boolean,
+  options: QuestionValues["options"],
+): TfngAnswer {
+  if (notGiven) return readTfng(options);
+  return readTrueFalse(options).trueIsCorrect ? "true" : "false";
 }

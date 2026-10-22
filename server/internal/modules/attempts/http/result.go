@@ -85,7 +85,9 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 	}
 	out := openapi.ResultQuestion{
 		Id: base.Id, SectionId: base.SectionId, Type: base.Type, Prompt: base.Prompt, PromptContent: base.PromptContent, Points: base.Points,
-		Media: base.Media, MediaAlt: base.MediaAlt, Options: base.Options, Blanks: base.Blanks,
+		Media: base.Media, MediaAlt: base.MediaAlt, PromptAssets: base.PromptAssets, Options: base.Options, Blanks: base.Blanks, MatchItems: base.MatchItems,
+		SelectCount:        base.SelectCount,
+		Band:               q.Band,
 		Earned:             q.Earned,
 		PendingManual:      httpapi.Ptr(q.PendingManual),
 		GraderComment:      q.GraderComment,
@@ -93,6 +95,13 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 		ExplanationContent: q.ExplanationContent,
 		Transcript:         q.Transcript,
 		AudioPlaysUsed:     q.AudioPlaysUsed,
+	}
+	if len(q.ExplanationAssets) > 0 {
+		assets, err := h.signedAssets(ctx, q.ExplanationAssets, h.adminGroupAsset)
+		if err != nil {
+			return openapi.ResultQuestion{}, fmt.Errorf("sign explanation media: %w", err)
+		}
+		out.ExplanationAssets = &assets
 	}
 	if domain.AnswerRemoved(q.Answer) {
 		out.AnswerRemoved = httpapi.Ptr(true)
@@ -121,5 +130,45 @@ func (h Attempts) toAPIResultQuestion(ctx context.Context, studentID string, q d
 		}
 		out.CorrectAnswers = &answers
 	}
+	if q.Skill != nil {
+		out.Skill = httpapi.Ptr(openapi.QuestionSkill(*q.Skill))
+	}
+	out.CorrectMatches, out.Criteria = toAPIResultMatches(q.CorrectMatches), toAPIResultCriteria(q.Criteria)
 	return out, nil
+}
+
+func toAPIResultMatches(pairs []domain.MatchPair) *[]struct {
+	ItemId   openapi.Uuid `json:"itemId"`
+	OptionId openapi.Uuid `json:"optionId"`
+} {
+	if pairs == nil {
+		return nil
+	}
+	out := make([]struct {
+		ItemId   openapi.Uuid `json:"itemId"`
+		OptionId openapi.Uuid `json:"optionId"`
+	}, len(pairs))
+	for i, m := range pairs {
+		out[i].ItemId, out[i].OptionId = httpapi.ParseUUID(m.ItemID), httpapi.ParseUUID(m.OptionID)
+	}
+	return &out
+}
+
+func toAPIResultCriteria(given []domain.ResultCriterion) *[]struct {
+	Band  openapi.Band `json:"band"`
+	Id    openapi.Uuid `json:"id"`
+	Label string       `json:"label"`
+} {
+	if given == nil {
+		return nil
+	}
+	out := make([]struct {
+		Band  openapi.Band `json:"band"`
+		Id    openapi.Uuid `json:"id"`
+		Label string       `json:"label"`
+	}, len(given))
+	for i, c := range given {
+		out[i].Band, out[i].Id, out[i].Label = c.Band, httpapi.ParseUUID(c.ID), c.Label
+	}
+	return &out
 }

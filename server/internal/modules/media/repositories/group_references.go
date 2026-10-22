@@ -16,6 +16,9 @@ func GroupReferences(ctx context.Context, q db.Querier, assetID string) ([]domai
 		SELECT group_id FROM app.group_recordings WHERE media_asset_id=$1
 		UNION
 		SELECT context_group_id FROM app.questions WHERE media_asset_id=$1 AND context_group_id IS NOT NULL
+		UNION
+		SELECT q.context_group_id FROM app.question_media_references r JOIN app.questions q ON q.id=r.question_id
+		 WHERE r.media_asset_id=$1 AND q.context_group_id IS NOT NULL
 	)
 	SELECT g.id::text,g.title,s.test_id::text
 	FROM referenced_groups r JOIN app.question_groups g ON g.id=r.group_id

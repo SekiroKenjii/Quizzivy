@@ -76,10 +76,22 @@ func (v *groupValidator) members(members []GroupMember, questions []GroupQuestio
 		if _, ok := v.questions[id]; !ok || seen[id] {
 			return &GroupError{Rule: "group_membership", QuestionID: member.QuestionID}
 		}
-		if (member.OptionOrder != "shuffle" && member.OptionOrder != fixedOptionOrder) || (member.OptionOrder == fixedOptionOrder && !v.questions[id].Input.Type.IsChoice()) {
+		if (member.OptionOrder != "shuffle" && member.OptionOrder != fixedOptionOrder) || (member.OptionOrder == fixedOptionOrder && !v.questions[id].Input.Type.HasOptions()) {
 			return &GroupError{Rule: "group_option_order", QuestionID: member.QuestionID}
 		}
 		seen[id] = true
+	}
+	return nil
+}
+
+// ValidateAuthoring bounds what a save sends for each member as the bank bounds
+// a question's own save (at most eight options on a choice type), refusing the
+// first member over it as a group_question, as any other invalid member is.
+func (b GroupBundle) ValidateAuthoring() error {
+	for _, question := range b.Questions {
+		if question.Input.ValidateAuthoring() != nil {
+			return &GroupError{Rule: "group_question", QuestionID: question.ID}
+		}
 	}
 	return nil
 }
@@ -105,17 +117,30 @@ func (v *groupValidator) memberQuestion(question GroupQuestion) error {
 }
 
 func (v *groupValidator) questionChildren(in questions.Input) bool {
-	for _, option := range in.Options {
-		if option.ID != nil && !v.claimID(*option.ID) {
-			return false
-		}
-	}
-	for _, blank := range in.Blanks {
-		if blank.ID != nil && !v.claimID(*blank.ID) {
+	for _, id := range childIDs(in) {
+		if id != nil && !v.claimID(*id) {
 			return false
 		}
 	}
 	return true
+}
+
+// childIDs is every id a question's children carry, nil where one is new.
+func childIDs(in questions.Input) []*string {
+	ids := make([]*string, 0, len(in.Options)+len(in.Blanks)+len(in.MatchItems)+len(in.Rubric))
+	for _, option := range in.Options {
+		ids = append(ids, option.ID)
+	}
+	for _, blank := range in.Blanks {
+		ids = append(ids, blank.ID)
+	}
+	for _, item := range in.MatchItems {
+		ids = append(ids, item.ID)
+	}
+	for _, criterion := range in.Rubric {
+		ids = append(ids, criterion.ID)
+	}
+	return ids
 }
 
 func (v *groupValidator) asset(id, kind string) bool {
@@ -147,6 +172,12 @@ func validGroupQuestionStrings(in questions.Input) bool {
 	}
 	for _, blank := range in.Blanks {
 		values = append(values, blank.AcceptedAnswers...)
+	}
+	for _, item := range in.MatchItems {
+		values = append(values, item.Text)
+	}
+	for _, criterion := range in.Rubric {
+		values = append(values, criterion.Label)
 	}
 	for _, value := range values {
 		if !validGroupText(value, MaxGroupBytes, false) {

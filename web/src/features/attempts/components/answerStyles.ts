@@ -28,7 +28,8 @@ export function optionKey(index: number): string {
 /**
  * Verdict is right, wrong, or nothing decided yet -- one word for a dot and a
  * badge. `removed` is an answer the retention policy removed before it was
- * scored.
+ * scored; `banded` is an essay marked on a band, which reads its band, not a
+ * right or wrong.
  */
 export type Verdict =
-  "correct" | "wrong" | "partial" | "pending" | "unanswered" | "removed";
+  "correct" | "wrong" | "partial" | "banded" | "pending" | "unanswered" | "removed";

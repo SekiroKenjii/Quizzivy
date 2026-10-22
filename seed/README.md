@@ -26,10 +26,19 @@ What is here:
   status, *IELTS Writing Clinic* and *Business English B1*, the custom role *Tổ trưởng*, audit
   entries in every category and one by the system, fourteen days of activity, and this month's
   AI credits with Phan Minh Đức's request waiting. It relies on 01, 03, 06 and 08.
+- `10-dev-question-types.sql` — a published paper with a question of every type (R6,
+  T-R6.14): two parts, a reading-passage group holding a True / False / Not given and a
+  matching question, a "Choose two", a short answer with a word limit, an essay with the four
+  IELTS criteria, and an image in one prompt and in its explanation. Three assignments to the
+  class: one E2E 11 runs, one E2E 9 reads the session of, and one that hides the score, the
+  answers and the explanations for E2E 9's result case. It relies on 01.
 - `99-assert.sql` — runs last and refuses the seed if the rows above break a
   rule `publish` would have enforced, or if a user, class or owned row lacks
   the column R2's access model reads. The seed writes frozen version rows
-  directly, which is the one path that skips publish's validation.
+  directly, which is the one path that skips publish's validation. Since R6 it also
+  checks the new types' frozen shape: True / False / Not given's three options, "Choose N",
+  matching's items and choices, rubric criteria only on essays, and that the media references
+  match the images and audio in the content.
 
 ## Logins
 

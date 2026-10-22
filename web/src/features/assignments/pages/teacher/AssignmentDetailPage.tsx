@@ -59,7 +59,7 @@ import { Monitor } from "@/features/attempts/components/Monitor";
 import { ProgressCard } from "@/features/attempts/components/ProgressCard";
 import { SheetNoteController } from "@/features/attempts/components/sheetNotes";
 import { POLL_MS, monitorKey, reviewKey } from "@/features/attempts/keys";
-import { listVersions, previewTest } from "@/features/tests/api";
+import { listVersions } from "@/features/tests/api";
 import { useIdlePolling, useRefetchOnResume } from "@/hooks/useIdlePolling";
 import { PageHead } from "@/layouts/shell/PageHead";
 import { useCrumbs } from "@/layouts/shell/crumbs";
@@ -113,10 +113,9 @@ export default function AssignmentDetailPage() {
   const { notes, recoveryPanel, noteFocusRequest } = useSheetDrafts();
   const insights = useAssignmentInsights(id);
 
-  const { assignment, a, now, status, monitor, version, preview } = useAssignmentReads(
+  const { assignment, a, now, status, monitor, version } = useAssignmentReads(
     id,
     workspace,
-    tab,
   );
   const [sheetIdentity, setSheetIdentity] = useState<{
     assignmentId: string;
@@ -322,7 +321,8 @@ export default function AssignmentDetailPage() {
               insights={insights}
               assignmentId={a.id}
               testTitle={a.testTitle}
-              groups={preview.data?.groups}
+              testId={a.testId}
+              testVersion={a.testVersion}
             />
           </ItemAnalysis>
         </TabsContent>
@@ -371,11 +371,7 @@ export default function AssignmentDetailPage() {
   );
 }
 
-function useAssignmentReads(
-  id: string,
-  workspace: boolean,
-  tab: ReturnType<typeof detailTab>,
-) {
+function useAssignmentReads(id: string, workspace: boolean) {
   const assignment = useQuery({
     queryKey: ["teacher-assignment", id],
     queryFn: ({ signal }) => getAssignment(id, signal),
@@ -401,12 +397,7 @@ function useAssignmentReads(
     enabled: a !== undefined && testId !== undefined,
   });
   const version = versions.data?.items.find((v) => v.id === a?.testVersionId);
-  const preview = useQuery({
-    queryKey: ["teacher-test-preview", testId, a?.testVersion],
-    queryFn: ({ signal }) => previewTest(testId ?? "", a?.testVersion, signal),
-    enabled: a !== undefined && tab === "questions",
-  });
-  return { assignment, a, now, status, monitor, version, preview };
+  return { assignment, a, now, status, monitor, version };
 }
 
 function AssignmentMeta({
@@ -730,7 +721,6 @@ function WriteActions({
         <Button
           disabled={unpublishable}
           aria-disabled={pending || undefined}
-          className="aria-disabled:opacity-50"
           onClick={() => {
             if (write && status === "draft" && !pending) onPublish();
           }}

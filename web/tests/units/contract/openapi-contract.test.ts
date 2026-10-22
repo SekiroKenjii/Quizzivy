@@ -61,6 +61,34 @@ function allowedAt(bad: string, path: string): boolean {
   );
 }
 
+/**
+ * Result-only keys must never reach the session. The attempt's own `score`
+ * carries `AttemptScore.band`, which the server sends only once the attempt is
+ * handed in, so the walk drops that one field and must then find no band.
+ */
+const RESULT_ONLY = [
+  "correctOptionIds",
+  "correctAnswers",
+  "correctMatches",
+  "band",
+  "criteria",
+] as const;
+
+function sessionLeaks(spec: Json): string[] {
+  const walked = structuredClone(spec);
+  delete walked.components.schemas.AttemptScore.properties.band;
+  return operations(walked)
+    .filter(({ op }) => ["startOrResumeAttempt", "getAttempt"].includes(op.operationId))
+    .flatMap(({ op }) => {
+      const names = propertyNames(walked, jsonResponseSchema(op, 200));
+      if (!names.has("matchItems"))
+        return [`${op.operationId} does not reach matchItems`];
+      return RESULT_ONLY.filter((bad) => names.has(bad)).map(
+        (bad) => `${op.operationId} exposes '${bad}'`,
+      );
+    });
+}
+
 describe("references", () => {
   it("has no dangling $ref", () => {
     const dangling = [...new Set(collectRefs(doc))]
@@ -118,6 +146,35 @@ describe("§13.5: the student-payload boundary", () => {
     ).toEqual([]);
   });
 
+  it("keeps a matching item's key off every /app/* response", () => {
+    const item = propertyNames(doc, doc.components.schemas.StudentMatchItem);
+    expect(item.has("text"), "the walk does not reach StudentMatchItem").toBe(true);
+    expect(item.has("correctOptionId")).toBe(false);
+    const leaks = ops
+      .filter(({ path }) => path.startsWith("/app/"))
+      .flatMap(({ path, method, op }) =>
+        successStatuses(op).flatMap((status) => {
+          const names = propertyNames(doc, jsonResponseSchema(op, status));
+          return ["correctOptionId", "rubric"]
+            .filter((bad) => names.has(bad))
+            .map((bad) => `${method.toUpperCase()} ${path} ${status} exposes '${bad}'`);
+        }),
+      );
+    expect(leaks).toEqual([]);
+  });
+
+  it("keeps result-only keys off the attempt session", () => {
+    expect(sessionLeaks(doc)).toEqual([]);
+    const leaky = structuredClone(doc);
+    leaky.components.schemas.StudentQuestion.properties.correctMatches = {
+      type: "array",
+    };
+    expect(sessionLeaks(leaky)).toEqual([
+      "startOrResumeAttempt exposes 'correctMatches'",
+      "getAttempt exposes 'correctMatches'",
+    ]);
+  });
+
   it("still gives AdminQuestion the grading key", () => {
     const names = propertyNames(doc, doc.components.schemas.AdminQuestion);
     for (const needed of [
@@ -128,6 +185,52 @@ describe("§13.5: the student-payload boundary", () => {
     ]) {
       expect(names.has(needed), `AdminQuestion is missing ${needed}`).toBe(true);
     }
+  });
+});
+
+describe("DG-109: media inside a prompt or an explanation (D-064)", () => {
+  const media = [
+    "QuestionContentImage",
+    "QuestionPromptAudio",
+    "QuestionExplanationAudio",
+  ];
+
+  it("names an asset by id and never by file name", () => {
+    for (const name of media) {
+      const names = propertyNames(doc, doc.components.schemas[name]);
+      expect(names.has("type"), `the walk does not reach ${name}`).toBe(true);
+      for (const bad of [
+        "originalFilename",
+        "filename",
+        "fileName",
+        "displayName",
+        "url",
+      ])
+        expect(names.has(bad), `${name} carries ${bad}`).toBe(false);
+    }
+  });
+
+  it("places the question's own audio in a prompt, naming no asset", () => {
+    expect(Object.keys(doc.components.schemas.QuestionPromptAudio.properties)).toEqual([
+      "type",
+    ]);
+  });
+
+  it("bounds media blocks the same in both documents", () => {
+    expect(doc.components.schemas.QuestionPromptContent["x-media-blocks"]).toBe(8);
+    expect(doc.components.schemas.QuestionExplanationContent["x-media-blocks"]).toBe(8);
+  });
+
+  it("keeps explanations, and so their media, off the attempt session", () => {
+    const leaks = ops
+      .filter(({ op }) =>
+        ["startOrResumeAttempt", "getAttempt"].includes(op.operationId),
+      )
+      .filter(({ op }) =>
+        propertyNames(doc, jsonResponseSchema(op, 200)).has("explanationContent"),
+      )
+      .map(({ op }) => op.operationId);
+    expect(leaks).toEqual([]);
   });
 });
 

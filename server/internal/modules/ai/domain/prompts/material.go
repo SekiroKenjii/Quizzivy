@@ -60,6 +60,12 @@ func writeQuestion(b *strings.Builder, q domain.PaperQuestion, passages map[stri
 	if q.Sample != "" {
 		fmt.Fprintf(b, "Sample answer: %s\n", clip(q.Sample, 300))
 	}
+	switch {
+	case q.MaxWords > 0:
+		fmt.Fprintf(b, "Word limit: %d\n", q.MaxWords)
+	case q.Type == ShortAnswer:
+		b.WriteString("Word limit: none\n")
+	}
 	if q.Explanation != "" {
 		fmt.Fprintf(b, "Explanation: %s\n", clip(oneLine(q.Explanation), 600))
 	}

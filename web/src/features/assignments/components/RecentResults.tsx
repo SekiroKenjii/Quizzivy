@@ -3,6 +3,7 @@ import { useTranslation } from "react-i18next";
 import { Link } from "react-router";
 import { Hourglass } from "lucide-react";
 import { useTick } from "@/hooks/useTick";
+import { formatBand } from "@/lib/bands";
 import type { Locale } from "@/lib/i18n";
 import { dayDate, useDisplayTimeZone } from "@/lib/i18n/datetime";
 import { cn } from "@/lib/utils";
@@ -20,6 +21,15 @@ function Outcome({ row, locale }: Readonly<{ row: ResultRow; locale: Locale }>) 
         {t("student.home.beingGraded")}
       </span>
     );
+  if (row.outcome === "score" && score?.band != null) {
+    const band = formatBand(score.band, locale);
+    return (
+      <span className="text-title flex-none leading-5 font-semibold whitespace-nowrap tabular-nums">
+        <span aria-hidden="true">{band}</span>
+        <span className="sr-only">{t("student.home.band", { band })}</span>
+      </span>
+    );
+  }
   if (row.outcome === "score" && score != null) {
     const n = new Intl.NumberFormat(locale, { maximumFractionDigits: 2 });
     return (
@@ -45,7 +55,8 @@ function when(card: StudentAssignmentCard, now: Date, locale: Locale, fresh: str
 
 /**
  * RecentResults lists the papers attempted last, each a link to its result:
- * the title, the day it was submitted, and the score, "being graded" while
+ * the title, the day it was submitted, and the score (a paper of banded
+ * essays shows its band, "6.0", as the deck does), "being graded" while
  * an answer waits for the teacher, or "submitted" when the score is not
  * shown. The newest reads "just now" for its first minute, and the row
  * repaints by itself when that minute ends.

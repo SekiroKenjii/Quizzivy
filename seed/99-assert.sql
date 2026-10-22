@@ -328,3 +328,128 @@ BEGIN
 
   RAISE NOTICE 'seed: admin console holds';
 END $$;
+
+-- R6's types (T-R6.14): the publish rules T-R6.4 holds a frozen question to,
+-- on every frozen row, then 10's paper holds one question of each type.
+DO $$
+DECLARE
+  paper constant uuid := '01935000-0000-7000-8000-000000001002';
+  bad text;
+BEGIN
+  -- tfng: the three fixed options in their fixed order, exactly one correct.
+  SELECT string_agg(q.id::text, ', ') INTO bad
+    FROM app.test_version_questions q
+   WHERE q.type = 'tfng'
+     AND ((SELECT array_agg(o.text ORDER BY o.ordinal) FROM app.test_version_options o
+            WHERE o.test_version_question_id = q.id) IS DISTINCT FROM ARRAY['True', 'False', 'Not given']
+          OR (SELECT count(*) FROM app.test_version_options o
+               WHERE o.test_version_question_id = q.id AND o.is_correct) <> 1);
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: frozen tfng question(s) without True, False, Not given and one key: %', bad;
+  END IF;
+
+  -- true / false: two options, one correct.
+  SELECT string_agg(q.id::text, ', ') INTO bad
+    FROM app.test_version_questions q
+   WHERE q.type = 'true_false'
+     AND ((SELECT count(*) FROM app.test_version_options o WHERE o.test_version_question_id = q.id) <> 2
+          OR (SELECT count(*) FROM app.test_version_options o
+               WHERE o.test_version_question_id = q.id AND o.is_correct) <> 1);
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: frozen true_false question(s) without two options and one key: %', bad;
+  END IF;
+
+  -- "Choose N": N correct options, and at least one more option than N.
+  SELECT string_agg(q.id::text, ', ') INTO bad
+    FROM app.test_version_questions q
+   WHERE q.select_count IS NOT NULL
+     AND ((SELECT count(*) FROM app.test_version_options o
+            WHERE o.test_version_question_id = q.id AND o.is_correct) <> q.select_count
+          OR (SELECT count(*) FROM app.test_version_options o
+               WHERE o.test_version_question_id = q.id) <= q.select_count);
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: frozen "choose N" question(s) whose keys do not number N: %', bad;
+  END IF;
+
+  -- Matching: 2 to 12 choices, none marked correct; 2 to 20 items; without
+  -- reuse, no more items than choices and no choice keyed twice.
+  SELECT string_agg(q.id::text, ', ') INTO bad
+    FROM app.test_version_questions q
+    CROSS JOIN LATERAL (
+      SELECT (SELECT count(*) FROM app.test_version_options o WHERE o.test_version_question_id = q.id) AS choices,
+             (SELECT count(*) FROM app.test_version_options o
+               WHERE o.test_version_question_id = q.id AND o.is_correct) AS keyed,
+             (SELECT count(*) FROM app.test_version_match_items i WHERE i.test_version_question_id = q.id) AS items,
+             (SELECT count(DISTINCT i.correct_option_id) FROM app.test_version_match_items i
+               WHERE i.test_version_question_id = q.id) AS answers) n
+   WHERE q.type = 'matching'
+     AND (n.choices NOT BETWEEN 2 AND 12 OR n.keyed <> 0 OR n.items NOT BETWEEN 2 AND 20
+          OR (NOT q.match_allow_reuse AND (n.items > n.choices OR n.answers <> n.items)));
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: frozen matching question(s) that break the choice or item rules: %', bad;
+  END IF;
+
+  SELECT string_agg(DISTINCT i.test_version_question_id::text, ', ') INTO bad
+    FROM app.test_version_match_items i
+    JOIN app.test_version_questions q ON q.id = i.test_version_question_id
+   WHERE q.type <> 'matching';
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: match items on frozen question(s) that are not matching: %', bad;
+  END IF;
+
+  -- Essays: at most six criteria, labels distinct; nothing else has a rubric.
+  SELECT string_agg(q.id::text, ', ') INTO bad
+    FROM app.test_version_questions q
+   WHERE EXISTS (SELECT 1 FROM app.test_version_rubric_criteria c WHERE c.test_version_question_id = q.id)
+     AND (q.type <> 'essay'
+          OR (SELECT count(*) FROM app.test_version_rubric_criteria c WHERE c.test_version_question_id = q.id) > 6
+          OR (SELECT count(DISTINCT lower(btrim(c.label))) FROM app.test_version_rubric_criteria c
+               WHERE c.test_version_question_id = q.id)
+             <> (SELECT count(*) FROM app.test_version_rubric_criteria c WHERE c.test_version_question_id = q.id));
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: frozen rubric(s) that break the essay rules: %', bad;
+  END IF;
+
+  -- Media in a prompt or an explanation: every asset the content names has
+  -- its reference row, and no row names an asset the content does not.
+  SELECT string_agg(DISTINCT coalesce(named.qid, ref.qid)::text, ', ') INTO bad
+    FROM (SELECT q.id AS qid, f.field, (b.block->>'assetId')::uuid AS asset
+            FROM app.test_version_questions q
+            CROSS JOIN LATERAL (VALUES ('prompt', q.prompt_content), ('explanation', q.explanation_content)) f(field, doc)
+            CROSS JOIN LATERAL jsonb_array_elements(coalesce(f.doc->'blocks', '[]'::jsonb)) b(block)
+           WHERE b.block->>'type' IN ('image', 'audio') AND b.block ? 'assetId') named
+    FULL JOIN (SELECT r.test_version_question_id AS qid, r.field, r.media_asset_id AS asset
+                 FROM app.test_version_question_media_references r) ref
+      ON ref.qid = named.qid AND ref.field = named.field AND ref.asset = named.asset
+   WHERE named.qid IS NULL OR ref.qid IS NULL;
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: frozen question(s) whose media references differ from their content: %', bad;
+  END IF;
+
+  -- 10's paper: one question of every type, a group, four criteria and media
+  -- in a prompt and an explanation.
+  SELECT string_agg(t.type::text, ', ') INTO bad
+    FROM unnest(enum_range(NULL::app.question_type)) AS t(type)
+   WHERE NOT EXISTS (
+     SELECT 1 FROM app.test_version_questions q
+       JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+      WHERE s.test_version_id = paper AND q.type = t.type);
+  IF bad IS NOT NULL THEN
+    RAISE EXCEPTION 'seed: the every-type paper has no question of type %', bad;
+  END IF;
+  IF NOT EXISTS (SELECT 1 FROM app.test_version_groups g
+                   JOIN app.test_version_sections s ON s.id = g.test_version_section_id
+                  WHERE s.test_version_id = paper)
+     OR (SELECT count(*) FROM app.test_version_rubric_criteria c
+           JOIN app.test_version_questions q ON q.id = c.test_version_question_id
+           JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+          WHERE s.test_version_id = paper) <> 4
+     OR (SELECT count(DISTINCT r.field) FROM app.test_version_question_media_references r
+           JOIN app.test_version_questions q ON q.id = r.test_version_question_id
+           JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+          WHERE s.test_version_id = paper) <> 2 THEN
+    RAISE EXCEPTION 'seed: the every-type paper lacks its reading group, four criteria or prompt and explanation media';
+  END IF;
+
+  RAISE NOTICE 'seed: question types hold';
+END $$;

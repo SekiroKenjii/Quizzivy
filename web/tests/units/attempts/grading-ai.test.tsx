@@ -392,7 +392,7 @@ describe("the grading card's Suggest a score", () => {
     expect(suggested).toEqual([]);
   });
 
-  it("is drawn only for a short answer", async () => {
+  it("is drawn only for an answer marked by hand", async () => {
     server.use(
       http.get(`${BASE}/teacher/grading/queue`, () =>
         HttpResponse.json({

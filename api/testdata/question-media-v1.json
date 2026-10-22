@@ -1,0 +1,642 @@
+[
+ {
+  "name": "prompt image projects its alt between paragraphs",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "Look.",
+       "marks": []
+      }
+     ]
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "A map of the island"
+    },
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "Where is the port?",
+       "marks": []
+      }
+     ]
+    }
+   ]
+  },
+  "valid": true,
+  "plainText": "Look.\n\nA map of the island\n\nWhere is the port?",
+  "assets": [
+   {
+    "id": "01935000-0000-7000-8000-00000000000a",
+    "kind": "image"
+   }
+  ],
+  "placesAudio": false
+ },
+ {
+  "name": "decorative image and audio marker add nothing, not even a separator",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "Listen.",
+       "marks": []
+      }
+     ]
+    },
+    {
+     "type": "audio"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": ""
+    },
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "Answer.",
+       "marks": []
+      }
+     ]
+    }
+   ]
+  },
+  "valid": true,
+  "plainText": "Listen.\n\nAnswer.",
+  "assets": [
+   {
+    "id": "01935000-0000-7000-8000-00000000000a",
+    "kind": "image"
+   }
+  ],
+  "placesAudio": true
+ },
+ {
+  "name": "prompt keeps its gaps beside media",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "A map of the island"
+    },
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "The port is ",
+       "marks": []
+      },
+      {
+       "type": "gap",
+       "id": "g1",
+       "label": "1"
+      }
+     ]
+    }
+   ]
+  },
+  "valid": true,
+  "plainText": "A map of the island\n\nThe port is [1]",
+  "assets": [
+   {
+    "id": "01935000-0000-7000-8000-00000000000a",
+    "kind": "image"
+   }
+  ],
+  "placesAudio": false
+ },
+ {
+  "name": "same image twice is one reference",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "A map of the island"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "Again"
+    }
+   ]
+  },
+  "valid": true,
+  "plainText": "A map of the island\n\nAgain",
+  "assets": [
+   {
+    "id": "01935000-0000-7000-8000-00000000000a",
+    "kind": "image"
+   }
+  ],
+  "placesAudio": false
+ },
+ {
+  "name": "asset ids are canonicalised to lower case",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000A",
+     "alt": "A map of the island"
+    }
+   ]
+  },
+  "valid": true,
+  "plainText": "A map of the island",
+  "assets": [
+   {
+    "id": "01935000-0000-7000-8000-00000000000a",
+    "kind": "image"
+   }
+  ],
+  "placesAudio": false
+ },
+ {
+  "name": "explanation audio names its asset and projects to nothing",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "Hear the answer.",
+       "marks": []
+      }
+     ]
+    },
+    {
+     "type": "audio",
+     "assetId": "01935000-0000-7000-8000-00000000000b"
+    }
+   ]
+  },
+  "valid": true,
+  "plainText": "Hear the answer.",
+  "assets": [
+   {
+    "id": "01935000-0000-7000-8000-00000000000b",
+    "kind": "audio"
+   }
+  ],
+  "placesAudio": false
+ },
+ {
+  "name": "eight media blocks are allowed",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "0"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "1"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "2"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "3"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "4"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "5"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "6"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "7"
+    }
+   ]
+  },
+  "valid": true,
+  "plainText": "0\n\n1\n\n2\n\n3\n\n4\n\n5\n\n6\n\n7",
+  "assets": [
+   {
+    "id": "01935000-0000-7000-8000-00000000000a",
+    "kind": "image"
+   }
+  ],
+  "placesAudio": false
+ },
+ {
+  "name": "a ninth media block is refused",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "0"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "1"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "2"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "3"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "4"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "5"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "6"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "7"
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "8"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "a second audio marker is refused",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "audio"
+    },
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "x",
+       "marks": []
+      }
+     ]
+    },
+    {
+     "type": "audio"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "a prompt audio naming an asset is refused",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "audio",
+     "assetId": "01935000-0000-7000-8000-00000000000b"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an explanation audio without its asset is refused",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "audio"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an audio label is not part of a question's audio",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "audio",
+     "assetId": "01935000-0000-7000-8000-00000000000b",
+     "label": "Track 1"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an image in a list item is refused",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "list",
+     "ordered": false,
+     "start": 1,
+     "items": [
+      [
+       {
+        "type": "paragraph",
+        "content": [
+         {
+          "type": "text",
+          "text": "a",
+          "marks": []
+         }
+        ]
+       },
+       {
+        "type": "image",
+        "assetId": "01935000-0000-7000-8000-00000000000a",
+        "alt": "A map of the island"
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an image in a table cell is refused",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "table",
+     "rows": [
+      [
+       {
+        "header": false,
+        "rowSpan": 1,
+        "colSpan": 1,
+        "content": [
+         {
+          "type": "image",
+          "assetId": "01935000-0000-7000-8000-00000000000a",
+          "alt": "A map of the island"
+         }
+        ]
+       }
+      ]
+     ]
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an image without alt is refused",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "a file name on an image is refused",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "",
+     "fileName": "map.png"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an image may not inline in a paragraph",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "image",
+       "assetId": "01935000-0000-7000-8000-00000000000a",
+       "alt": "A map of the island"
+      }
+     ]
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "one id as an image and as an audio is refused",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000b",
+     "alt": "A map of the island"
+    },
+    {
+     "type": "audio",
+     "assetId": "01935000-0000-7000-8000-00000000000b"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an explanation keeps refusing gaps",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "gap",
+       "id": "g1",
+       "label": "1"
+      }
+     ]
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "legacy markdown is refused",
+  "profile": "prompt",
+  "document": {
+   "format": "legacy_markdown_v1",
+   "markdown": "x"
+  },
+  "valid": false
+ },
+ {
+  "name": "an alt over 1000 characters is refused",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "a whitespace-only alt is refused: empty is how an image is marked decorative",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "x",
+       "marks": []
+      }
+     ]
+    },
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "   "
+    },
+    {
+     "type": "paragraph",
+     "content": [
+      {
+       "type": "text",
+       "text": "y",
+       "marks": []
+      }
+     ]
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an explanation image refuses a whitespace-only alt too",
+  "profile": "explanation",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": "\t\n"
+    }
+   ]
+  },
+  "valid": false
+ },
+ {
+  "name": "an alt with text around spaces is kept as written",
+  "profile": "prompt",
+  "document": {
+   "format": "semantic_v1",
+   "blocks": [
+    {
+     "type": "image",
+     "assetId": "01935000-0000-7000-8000-00000000000a",
+     "alt": " A map "
+    }
+   ]
+  },
+  "valid": true,
+  "plainText": " A map ",
+  "assets": [
+   {
+    "id": "01935000-0000-7000-8000-00000000000a",
+    "kind": "image"
+   }
+  ],
+  "placesAudio": false
+ }
+]
