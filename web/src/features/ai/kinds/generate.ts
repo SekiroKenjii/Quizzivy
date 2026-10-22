@@ -8,7 +8,7 @@ import {
   Plus,
   Sparkles,
 } from "lucide-react";
-import { trueFalseLabelKey } from "@/components/shared/content/trueFalse";
+import { tfngLabelKey, trueFalseLabelKey } from "@/components/shared/content/trueFalse";
 import { failureMessage } from "@/lib/api/errors";
 import type { components } from "@/lib/api/schema";
 import {
@@ -162,6 +162,7 @@ const TYPES: readonly QuestionType[] = [
   "true_false",
   "fill_blank",
   "short_answer",
+  "tfng",
 ];
 const DEFAULT_TYPES: readonly QuestionType[] = ["single_choice", "true_false"];
 const LEVELS = ["b1", "b2", "c1"] as const;
@@ -189,6 +190,23 @@ const PRIMARY_ICONS = {
 
 function isLevel(value: string): value is AiLevel {
   return (LEVELS as readonly string[]).includes(value);
+}
+
+/**
+ * OFFERED is the types a run can ask for: True / False / Not given needs a
+ * passage to say "not given" about, so a standalone run never offers it.
+ */
+const OFFERED: Readonly<Record<PlanMode, readonly QuestionType[]>> = {
+  passage: TYPES,
+  standalone: TYPES.filter((type) => type !== "tfng"),
+};
+
+function chosenTypes(types: readonly string[], mode: PlanMode) {
+  return OFFERED[mode].filter((type) => types.includes(type));
+}
+
+function rowMode(row: { perPassage: boolean }): PlanMode {
+  return row.perPassage ? "passage" : "standalone";
 }
 
 function initialTypes(preset: readonly BankQuestionType[] | undefined) {
@@ -416,9 +434,10 @@ function settings(
   types: readonly string[],
   count: number,
   level: AiLevel,
+  mode: PlanMode,
 ) {
   return {
-    types: TYPES.filter((type) => types.includes(type)),
+    types: chosenTypes(types, mode),
     count,
     level,
     explanations: values.explanations,
@@ -438,6 +457,7 @@ function request(
     values.types,
     Number(values.count),
     isLevel(values.level) ? values.level : "b2",
+    values.style,
   );
   if (values.style === "standalone") {
     const topic = values.source.trim().slice(0, SOURCE_MAX);
@@ -471,6 +491,7 @@ function batchesOf(
       row.entry.types,
       row.count,
       levelOf(row.entry, values),
+      rowMode(row),
     );
     if (row.perPassage)
       return row.passages.map((passage): Batch => ({
@@ -629,9 +650,16 @@ async function runPlan(
   };
 }
 
-function optionText(question: AiGeneratedQuestion, text: string, t: TFunction) {
+function optionText(
+  question: AiGeneratedQuestion,
+  text: string,
+  index: number,
+  t: TFunction,
+) {
   const key =
-    question.type === "true_false" ? trueFalseLabelKey("true_false", text, null) : null;
+    question.type === "tfng"
+      ? tfngLabelKey(index)
+      : trueFalseLabelKey(question.type, text, null);
   return key ? t(key) : text;
 }
 
@@ -655,8 +683,8 @@ function card(item: GenerateItem, t: TFunction, tagDrafts: boolean): AiCard {
     title: question.prompt,
     ...(question.options
       ? {
-          options: question.options.map((text) => ({
-            text: optionText(question, text, t),
+          options: question.options.map((text, index) => ({
+            text: optionText(question, text, index, t),
             correct: keys.has(text),
           })),
         }
@@ -770,8 +798,8 @@ function sourceFields(
   ];
 }
 
-function typeOptions(t: TFunction) {
-  return TYPES.map((type) => ({
+function typeOptions(t: TFunction, mode: PlanMode) {
+  return OFFERED[mode].map((type) => ({
     value: type,
     label: t(`questionEditor.type.${type}`),
   }));
@@ -793,8 +821,8 @@ function sectionFields(
     {
       kind: "chips",
       label: t("ai.generate.types"),
-      options: typeOptions(t),
-      value: values.types,
+      options: typeOptions(t, values.style),
+      value: chosenTypes(values.types, values.style),
       onChange: (types) => set({ types, typesTouched: true }),
     },
     {
@@ -871,8 +899,8 @@ function planFields(
       types: {
         label: t("ai.generate.types"),
         hint: section.types?.length ? ` · ${t("ai.generate.typesFromSection")}` : "",
-        options: typeOptions(t),
-        value: entry.types,
+        options: typeOptions(t, rowMode({ perPassage })),
+        value: chosenTypes(entry.types, rowMode({ perPassage })),
         onChange: (types) => patch(section.id, entry, { types }),
       },
       level: {
@@ -999,8 +1027,9 @@ async function savePlan(
  * generateKind is "Generate questions" (V-14a). For one section it writes
  * standalone questions about a topic or fitted to the section the run names,
  * or questions from a passage of the open test or pasted text, 1 to 8 at a
- * time, in the five stored types (TFNG waits for R6, DG-202). It starts from
- * a passage when the open section holds one and is standalone otherwise. In
+ * time, in six stored types, True / False / Not given only from a passage
+ * (DG-202). It starts from a passage when the open section holds one and is
+ * standalone otherwise. In
  * the builder it can also fill the whole test from a plan, one call for each
  * section, or each passage of a section written per passage, at most
  * PLAN_CALLS calls and PLAN_QUESTIONS questions, each call reserving its own
@@ -1073,7 +1102,12 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
       if (totals.sections === 0) return "ai.generate.planEmpty";
       if (totals.questions > PLAN_QUESTIONS || totals.calls > PLAN_CALLS)
         return "ai.generate.overLimit";
-      if (totals.rows.some((row) => row.calls > 0 && row.entry.types.length === 0))
+      if (
+        totals.rows.some(
+          (row) =>
+            row.calls > 0 && chosenTypes(row.entry.types, rowMode(row)).length === 0,
+        )
+      )
         return "ai.generate.needType";
       return null;
     }
@@ -1083,7 +1117,8 @@ export const generateKind: AiKind<GenerateValues, GenerateItem, GenerateContext>
     } else if (values.source.trim().length < SOURCE_MIN)
       return "ai.generate.needSource";
     if (values.count === "") return "ai.generate.needCount";
-    if (values.types.length === 0) return "ai.generate.needType";
+    if (chosenTypes(values.types, values.style).length === 0)
+      return "ai.generate.needType";
     return null;
   },
   steps: (values, context, t) => {
