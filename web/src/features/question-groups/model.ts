@@ -38,13 +38,19 @@ const CHOICE_TYPES: ReadonlySet<string> = new Set([
 ]);
 
 /**
- * memberOptionOrder is how a member of `type` orders its options: a choice
- * type keeps `current`, the teacher's choice; tfng and matching are always
- * "fixed", because the engine never shuffles them (00149); a type with no
- * options is "shuffle", the column's default.
+ * memberOptionOrder is how a member that was `from` and is now `type` orders
+ * its options: a choice type keeps `current`, the teacher's choice, while it
+ * stays a choice type, and starts from "shuffle" when it comes from a type
+ * with no choice (QC-R6B-4); tfng and matching are always "fixed", because
+ * the engine never shuffles them (00149); a type with no options is
+ * "shuffle", the column's default.
  */
-export function memberOptionOrder(type: string, current: OptionOrder): OptionOrder {
-  if (CHOICE_TYPES.has(type)) return current;
+export function memberOptionOrder(
+  type: string,
+  current: OptionOrder,
+  from: string = type,
+): OptionOrder {
+  if (CHOICE_TYPES.has(type)) return CHOICE_TYPES.has(from) ? current : "shuffle";
   return type === "tfng" || type === "matching" ? "fixed" : "shuffle";
 }
 

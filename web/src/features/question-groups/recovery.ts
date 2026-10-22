@@ -231,6 +231,12 @@ export function independentBundle(source: GroupBundle): GroupBundle {
       input: {
         ...input,
         options: (input.options ?? []).map((option) => ({ ...option, id: null })),
+        ...(input.matchItems
+          ? { matchItems: input.matchItems.map((item) => ({ ...item, id: null })) }
+          : {}),
+        ...(input.rubric
+          ? { rubric: input.rubric.map((criterion) => ({ ...criterion, id: null })) }
+          : {}),
         blanks: (input.blanks ?? []).map((blank) => ({
           ...blank,
           id: null,

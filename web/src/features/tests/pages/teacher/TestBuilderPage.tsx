@@ -1,4 +1,4 @@
-import { publishProblem } from "../../publishProblem";
+import { draftUnkeyed, publishProblem } from "../../publishProblem";
 import {
   lazy,
   Suspense,
@@ -232,6 +232,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
   const [questionStatus, setQuestionStatus] = useState<AutosaveStatus>({
     kind: "idle",
   });
+  const [unkeyedDraft, setUnkeyedDraft] = useState<string | null>(null);
   const [publishError, setPublishError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [checking, setChecking] = useState(false);
@@ -364,6 +365,7 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
   const byId = useMemo(() => {
     const map = new Map<string, OutlineQuestion>();
+    const noKey = t("builder.noCorrectAnswer");
     for (const [index, result] of loaded.entries()) {
       const questionId = questionIds[index];
       if (questionId === undefined || !result.data) continue;
@@ -373,11 +375,14 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         points: result.data.points,
         type: result.data.type,
         hasAudio: result.data.media?.kind === "audio",
-        problem: publishProblem(result.data, t) ?? problemFor(violations, questionId),
+        problem:
+          (unkeyedDraft === questionId ? noKey : null) ??
+          publishProblem(result.data, t) ??
+          problemFor(violations, questionId),
       });
     }
     return map;
-  }, [loaded, questionIds, violations, t]);
+  }, [loaded, questionIds, violations, unkeyedDraft, t]);
 
   const updateOutline = useCallback(
     (next: OutlineSection[]) => {
@@ -1111,6 +1116,12 @@ function Builder({ test }: Readonly<{ test: Test }>) {
         flushRef={flushQuestion}
         retryRef={retryQuestion}
         onStatus={setQuestionStatus}
+        onUnkeyed={(unkeyed) =>
+          setUnkeyedDraft((current) => {
+            if (unkeyed) return questionId;
+            return current === questionId ? null : current;
+          })
+        }
         actions={{
           onDuplicate: () => void duplicateSelected(questionId),
           onMove: () => setMoving(true),
@@ -1609,6 +1620,7 @@ function QuestionPane({
   flushRef,
   retryRef,
   onStatus,
+  onUnkeyed,
   actions,
 }: Readonly<{
   questionId: string;
@@ -1617,6 +1629,7 @@ function QuestionPane({
   flushRef: RefObject<(() => Promise<void>) | null>;
   retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
+  onUnkeyed: (unkeyed: boolean) => void;
   actions: BuilderQuestionActions;
 }>) {
   const { t } = useTranslation();
@@ -1649,6 +1662,7 @@ function QuestionPane({
       flushRef={flushRef}
       retryRef={retryRef}
       onStatus={onStatus}
+      onUnkeyed={onUnkeyed}
       actions={actions}
       onRefresh={() => void question.refetch()}
     />
@@ -1663,6 +1677,7 @@ function QuestionForm({
   flushRef,
   retryRef,
   onStatus,
+  onUnkeyed,
   actions,
   onRefresh,
 }: Readonly<{
@@ -1673,6 +1688,7 @@ function QuestionForm({
   flushRef: RefObject<(() => Promise<void>) | null>;
   retryRef: RefObject<(() => void) | null>;
   onStatus: (status: AutosaveStatus) => void;
+  onUnkeyed: (unkeyed: boolean) => void;
   actions: BuilderQuestionActions;
   onRefresh: () => void;
 }>) {
@@ -1714,6 +1730,18 @@ function QuestionForm({
   useEffect(() => {
     onStatus(status);
   }, [onStatus, status]);
+
+  // The page passes a fresh callback each render, so the latest one is read
+  // through a ref and only a change of the draft's keyed state reports.
+  const reportUnkeyed = useRef(onUnkeyed);
+  useEffect(() => {
+    reportUnkeyed.current = onUnkeyed;
+  });
+  const unkeyed = draftUnkeyed(values);
+  useEffect(() => {
+    reportUnkeyed.current(unkeyed);
+  }, [unkeyed]);
+  useEffect(() => () => reportUnkeyed.current(false), []);
 
   const ai: QuestionAi = {
     prepare: async () => {

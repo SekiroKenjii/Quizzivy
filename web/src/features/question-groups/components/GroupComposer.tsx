@@ -422,6 +422,7 @@ export function GroupComposer({
                               optionOrder: memberOptionOrder(
                                 input.type,
                                 item.optionOrder,
+                                member.input.type,
                               ),
                             }
                           : item,

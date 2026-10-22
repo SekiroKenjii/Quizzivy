@@ -3,6 +3,10 @@ import { isQuestionPromptContent } from "@/components/shared/content/questionCon
 import type { TFunction } from "i18next";
 import type { AdminQuestion } from "@/features/question-bank/api";
 import {
+  matchingProblems,
+  type QuestionValues,
+} from "@/features/question-bank/questionSchema";
+import {
   comparePlaceholders,
   hasMismatch,
 } from "@/features/question-bank/placeholders";
@@ -54,7 +58,37 @@ function unkeyed(question: AdminQuestion): boolean {
     case "matching": {
       const ids = new Set(options.map((option) => option.id));
       const items = question.matchItems ?? [];
-      return items.length === 0 || items.some((item) => !ids.has(item.correctOptionId));
+      const keys = items.map((item) => item.correctOptionId);
+      return (
+        items.length === 0 ||
+        keys.some((key) => !ids.has(key)) ||
+        (question.matchAllowReuse !== true && new Set(keys).size < keys.length)
+      );
+    }
+    default:
+      return false;
+  }
+}
+
+/**
+ * draftUnkeyed reads the same rule on the editor's live draft, which the
+ * schema keeps from saving: the selected question's outline row warns while
+ * its draft is unkeyed, not only once a stored question is (QC-R6B-2).
+ */
+export function draftUnkeyed(values: QuestionValues): boolean {
+  const ticked = values.options.filter((option) => option.isCorrect).length;
+  switch (values.type) {
+    case "tfng":
+      return ticked !== 1;
+    case "multiple_choice":
+      return values.selectCount != null && ticked !== values.selectCount;
+    case "matching": {
+      const problems = matchingProblems(values);
+      return (
+        (values.matchItems ?? []).length === 0 ||
+        problems.unset.size > 0 ||
+        problems.taken.size > 0
+      );
     }
     default:
       return false;

@@ -384,9 +384,11 @@ describe("matching", () => {
       }),
     );
     await user.click(screen.getByRole("button", { name: "Thêm mục" }));
-    expect(await screen.findByText("Tối đa 20 mục")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Thêm mục" }));
+    expect(await screen.findAllByText("Tối đa 20 mục")).toHaveLength(1);
     await user.click(screen.getByRole("button", { name: "Thêm lựa chọn" }));
-    expect(await screen.findByText("Tối đa 12 lựa chọn")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Thêm lựa chọn" }));
+    expect(await screen.findAllByText("Tối đa 12 lựa chọn")).toHaveLength(1);
     expect(screen.getByRole("textbox", { name: "Lựa chọn xii" })).toBeInTheDocument();
     expect(screen.getByRole("textbox", { name: "Mục T" })).toBeInTheDocument();
     expect(blockingIssue(last() ?? matching(), "x")).toBeNull();
