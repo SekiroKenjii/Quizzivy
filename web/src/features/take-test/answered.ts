@@ -18,7 +18,7 @@ export function answered(
   switch (answer.type) {
     case "choice":
       return question.type === "multiple_choice" && question.selectCount != null
-        ? answer.optionIds.length === question.selectCount
+        ? new Set(answer.optionIds).size === question.selectCount
         : answer.optionIds.length > 0;
     case "true_false":
       return typeof answer.value === "boolean";
@@ -34,7 +34,8 @@ export function answered(
     case "matching": {
       const items = question.matchItems ?? [];
       return (
-        items.length > 0 && items.every((item) => answer.pairs[item.id] !== undefined)
+        items.length > 0 &&
+        items.every((item) => typeof answer.pairs[item.id] === "string")
       );
     }
   }
@@ -64,7 +65,7 @@ export function progress(
         : "none";
     case "matching":
       return (question.matchItems ?? []).some(
-        (item) => answer.pairs[item.id] !== undefined,
+        (item) => typeof answer.pairs[item.id] === "string",
       )
         ? "partly"
         : "none";

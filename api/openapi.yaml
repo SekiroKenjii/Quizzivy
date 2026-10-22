@@ -11424,7 +11424,7 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409':
-          description: '`GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.'
+          description: '`GRADING_INCOMPLETE` — a `short_answer` or `essay` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.'
           content:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
@@ -14945,8 +14945,8 @@ paths:
         ATTEMPT_CLOSED`, and a race between a manual tap and an auto-submit
         yields one submission.
 
-        Objective types are graded immediately; `short_answer` is marked
-        `requiresManual`. Nothing is rejected based on audio play count (§11.4).
+        Objective types are graded immediately; `short_answer` and `essay` are
+        marked `requiresManual`. Nothing is rejected based on audio play count (§11.4).
       requestBody:
         content:
           application/json:

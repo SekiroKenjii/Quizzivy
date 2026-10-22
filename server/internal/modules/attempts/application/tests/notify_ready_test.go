@@ -33,7 +33,7 @@ func gradeAndFinish(t *testing.T, svc *application.Application, p paper) error {
 	ctx := context.Background()
 	if _, err := svc.Commands.Grade.Handle(ctx, command.Grade{
 		AttemptID: p.attempt, GraderID: p.admin, Scope: everyone,
-		Items: []domain.GradeItem{{QuestionID: p.essay, Points: 2.5}},
+		Items: []domain.GradeItem{{QuestionID: p.essay, Points: pts(2.5)}},
 	}); err != nil {
 		t.Fatalf("grade: %v", err)
 	}

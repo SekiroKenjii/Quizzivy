@@ -25,6 +25,8 @@ type composingStore struct {
 	saveCall int
 }
 
+func pts(n float64) *float64 { return &n }
+
 func (s *composingStore) Save(_ context.Context, in domain.SaveInput, _ time.Time) (domain.SaveResult, domain.Milestones, error) {
 	s.saveCall++
 	s.saved = in
@@ -69,7 +71,7 @@ func (r *composingReviews) SetNote(_ context.Context, _ access.Scope, _ string, 
 	return nil
 }
 
-func (r *composingReviews) Grade(_ context.Context, _ access.Scope, _, _ string, items []domain.GradeItem) (domain.Score, error) {
+func (r *composingReviews) Grade(_ context.Context, _ access.Scope, _ string, _ domain.Request, items []domain.GradeItem) (domain.Score, error) {
 	r.writes++
 	r.items = items
 	return domain.Score{}, nil
@@ -190,11 +192,11 @@ func TestANoteComposingLeavesOverItsLimitIsRefusedBeforeAnyWrite(t *testing.T) {
 func TestGradeCommentsAreStoredComposedAndPointsAreNot(t *testing.T) {
 	app, _, reviews := newComposing()
 	comment := norm.NFD.String("Trả lời đúng")
-	items := []domain.GradeItem{{QuestionID: "q-1", Points: 1.5, Comment: &comment}, {QuestionID: "q-2", Points: 0}}
+	items := []domain.GradeItem{{QuestionID: "q-1", Points: pts(1.5), Comment: &comment}, {QuestionID: "q-2", Points: pts(0)}}
 	if _, err := app.Commands.Grade.Handle(context.Background(), command.Grade{AttemptID: "a", GraderID: "g", Items: items}); err != nil {
 		t.Fatal(err)
 	}
-	if len(reviews.items) != 2 || *reviews.items[0].Comment != "Trả lời đúng" || reviews.items[0].Points != 1.5 || reviews.items[0].QuestionID != "q-1" || reviews.items[1].Comment != nil {
+	if len(reviews.items) != 2 || *reviews.items[0].Comment != "Trả lời đúng" || *reviews.items[0].Points != 1.5 || reviews.items[0].QuestionID != "q-1" || reviews.items[1].Comment != nil {
 		t.Fatalf("items=%+v", reviews.items)
 	}
 	if *items[0].Comment != norm.NFD.String("Trả lời đúng") {

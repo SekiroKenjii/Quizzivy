@@ -877,3 +877,104 @@ func TestTheLiveCountIsTheStudentsOwn(t *testing.T) {
 		t.Errorf("a classmate's live attempt counts %d answers on this student's card", *got)
 	}
 }
+
+func TestTheLiveCountFollowsTheNavigatorsRuleForTheNewTypes(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := repositories.NewPostgres(db.NewContext(pool))
+	ctx := context.Background()
+	a := createFor(t, store, w, legalInput(w))
+	attempt := sitAttempt(t, pool, w, a.ID, "in_progress", "0.00", false)
+
+	const o1, o2, i1, i2 = "\x00o1", "\x00o2", "\x00i1", "\x00i2"
+	cases := []struct {
+		name    string
+		kind    string
+		payload string
+		says    bool
+	}{
+		{"choose two with one pick", "choose_two", `{"type":"choice","optionIds":["` + o1 + `"]}`, false},
+		{"choose two with two picks", "choose_two", `{"type":"choice","optionIds":["` + o1 + `","` + o2 + `"]}`, true},
+		{"tfng with a pick", "tfng", `{"type":"choice","optionIds":["` + o1 + `"]}`, true},
+		{"matching with no pairs", "matching", `{"type":"matching","pairs":{}}`, false},
+		{"matching with one item of two", "matching", `{"type":"matching","pairs":{"` + i1 + `":"` + o1 + `"}}`, false},
+		{"matching with a null pair", "matching", `{"type":"matching","pairs":{"` + i1 + `":"` + o1 + `","` + i2 + `":null}}`, false},
+		{"matching with every item paired", "matching", `{"type":"matching","pairs":{"` + i1 + `":"` + o1 + `","` + i2 + `":"` + o1 + `"}}`, true},
+		{"matching pairs that are not an object", "matching", `{"type":"matching","pairs":["x"]}`, false},
+		{"an essay of spaces", "essay", `{"type":"text","value":"  "}`, false},
+		{"an essay with words", "essay", `{"type":"text","value":"Some argue that…"}`, true},
+	}
+	want := 0
+	for _, c := range cases {
+		question, options, items := askNewTypeInAttempt(t, pool, attempt, c.kind)
+		payload := strings.NewReplacer(o1, options[0], o2, options[1], i1, itemAt(items, 0), i2, itemAt(items, 1)).Replace(c.payload)
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO app.attempt_answers (attempt_id, question_id, payload)
+			VALUES ($1::uuid, $2::uuid, $3::jsonb)`, attempt, question, payload); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if c.says {
+			want++
+		}
+		if got := liveCount(t, store, w, a.ID); got == nil || *got != want {
+			t.Fatalf("%s: the count is %v, want %d", c.name, got, want)
+		}
+	}
+}
+
+func itemAt(items []string, i int) string {
+	if i < len(items) {
+		return items[i]
+	}
+	return "none"
+}
+
+func askNewTypeInAttempt(t *testing.T, pool *pgxpool.Pool, attemptID, kind string) (string, []string, []string) {
+	t.Helper()
+	ctx := context.Background()
+	kindOf := map[string]string{"choose_two": "multiple_choice", "tfng": "tfng", "matching": "matching", "essay": "essay"}[kind]
+	var selectCount *int
+	var reuse *bool
+	switch kind {
+	case "choose_two":
+		n := 2
+		selectCount = &n
+	case "matching":
+		yes := true
+		reuse = &yes
+	}
+	var question string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, select_count, match_allow_reuse)
+		SELECT sec.id, (SELECT max(q.ordinal) + 1 FROM app.test_version_questions q
+		                 WHERE q.test_version_section_id = sec.id),
+		       $2::app.question_type, 'Câu?', '1.00', $3, $4
+		  FROM app.attempts at
+		  JOIN app.test_version_sections sec ON sec.test_version_id = at.test_version_id
+		 WHERE at.id = $1::uuid
+		 ORDER BY sec.ordinal DESC LIMIT 1
+		RETURNING id::text`, attemptID, kindOf, selectCount, reuse).Scan(&question); err != nil {
+		t.Fatal(err)
+	}
+	if kind == "essay" {
+		return question, []string{"none", "none"}, nil
+	}
+	options := make([]string, 3)
+	for i := range options {
+		if err := pool.QueryRow(ctx, `INSERT INTO app.test_version_options (test_version_question_id, ordinal, text, is_correct)
+			VALUES ($1::uuid, $2, 'x', $3) RETURNING id::text`, question, i, kind != "matching" && i < 2).Scan(&options[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if kind != "matching" {
+		return question, options, nil
+	}
+	items := make([]string, 2)
+	for i := range items {
+		if err := pool.QueryRow(ctx, `INSERT INTO app.test_version_match_items (test_version_question_id, ordinal, text, correct_option_id)
+			VALUES ($1::uuid, $2, 'item', $3::uuid) RETURNING id::text`, question, i, options[0]).Scan(&items[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return question, options, items
+}

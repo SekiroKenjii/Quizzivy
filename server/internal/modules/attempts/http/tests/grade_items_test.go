@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"net/http/httptest"
 	"slices"
 	"testing"
 
@@ -17,91 +18,87 @@ import (
 	"quizzivy/internal/shared/cqrs"
 )
 
-func TestGradeShapeRefusalsSpeakTheCallersLanguage(t *testing.T) {
+func gradeThrough(t *testing.T, accept, items string, grade func(command.Grade) (domain.Score, error)) *httptest.ResponseRecorder {
+	t.Helper()
+	var body openapi.GradeAttemptJSONRequestBody
+	if err := json.Unmarshal([]byte(`{"items":`+items+`}`), &body); err != nil {
+		t.Fatal(err)
+	}
+	transport := attemptshttp.NewAttempts(&application.Application{Commands: application.Commands{
+		Grade: cqrs.HandlerFunc[command.Grade, domain.Score](func(_ context.Context, cmd command.Grade) (domain.Score, error) {
+			return grade(cmd)
+		}),
+	}}, nil, nil, nil)
+	return teacherRefusedIn(t, accept, func(ctx context.Context, w http.ResponseWriter) error {
+		response, err := transport.GradeAttempt(ctx, openapi.GradeAttemptRequestObject{Id: uuid.New(), Body: &body})
+		if err != nil {
+			return err
+		}
+		return response.VisitGradeAttemptResponse(w)
+	})
+}
+
+func TestEveryGradeShapeRefusalAnswers422WithItsCodeInTheCallersLanguage(t *testing.T) {
 	for _, tc := range []struct {
-		items, accept, message string
+		shape  domain.GradeShape
+		code   openapi.ErrorCode
+		vi, en string
 	}{
-		{`[{"questionId":"` + uuid.NewString() + `"}]`, "", "Câu này cần được chấm bằng điểm số."},
-		{`[{"questionId":"` + uuid.NewString() + `"}]`, "en", "This question needs a score in points."},
-		{`[{"questionId":"` + uuid.NewString() + `","band":6}]`, "", "Chỉ bài luận mới được chấm theo band."},
-		{`[{"questionId":"` + uuid.NewString() + `","band":6}]`, "en", "Only an essay is graded on a band."},
+		{domain.NeedsPoints, openapi.GRADENEEDSPOINTS, "Câu này cần được chấm bằng điểm số.", "This question needs a score in points."},
+		{domain.BandNotAllowed, openapi.GRADEBANDNOTALLOWED, "Chỉ bài luận mới được chấm theo band.", "Only an essay is graded on a band."},
+		{domain.NeedsBand, openapi.GRADENEEDSBAND, "Bài luận này được chấm bằng một band, không phải điểm số.", "This essay is graded on a band, not in points."},
+		{domain.CriteriaIncomplete, openapi.GRADECRITERIAINCOMPLETE, "Hãy chấm band cho từng tiêu chí của bài luận này, mỗi tiêu chí một lần.", "Give a band for each of this essay's criteria, once each."},
 	} {
-		var body openapi.GradeAttemptJSONRequestBody
-		if err := json.Unmarshal([]byte(`{"items":`+tc.items+`}`), &body); err != nil {
-			t.Fatal(err)
-		}
-		transport := attemptshttp.NewAttempts(&application.Application{}, nil, nil, nil)
-		recorder := teacherRefusedIn(t, tc.accept, func(ctx context.Context, w http.ResponseWriter) error {
-			response, err := transport.GradeAttempt(ctx, openapi.GradeAttemptRequestObject{Id: uuid.New(), Body: &body})
-			if err != nil {
-				return err
+		refused := uuid.NewString()
+		for accept, message := range map[string]string{"": tc.vi, "en": tc.en} {
+			recorder := gradeThrough(t, accept, `[{"questionId":"`+refused+`","points":1}]`, func(command.Grade) (domain.Score, error) {
+				return domain.Score{}, &domain.GradeShapeError{Shape: tc.shape, QuestionIDs: []string{refused}}
+			})
+			var refusal struct {
+				Error struct {
+					Code    openapi.ErrorCode `json:"code"`
+					Message string            `json:"message"`
+					Details struct {
+						QuestionIDs []string `json:"questionIds"`
+					} `json:"details"`
+				} `json:"error"`
 			}
-			return response.VisitGradeAttemptResponse(w)
-		})
-		var refusal openapi.ErrorResponse
-		if err := json.Unmarshal(recorder.Body.Bytes(), &refusal); err != nil {
-			t.Fatal(err)
-		}
-		if refusal.Error.Message != tc.message {
-			t.Errorf("%s with Accept-Language %q answered %q, want %q", tc.items, tc.accept, refusal.Error.Message, tc.message)
+			if err := json.Unmarshal(recorder.Body.Bytes(), &refusal); err != nil {
+				t.Fatalf("%s: %v in %s", tc.shape, err, recorder.Body.String())
+			}
+			if recorder.Code != http.StatusUnprocessableEntity || refusal.Error.Code != tc.code || refusal.Error.Message != message {
+				t.Errorf("%s in %q: answered %d %s %q, want 422 %s %q", tc.shape, accept, recorder.Code, refusal.Error.Code, refusal.Error.Message, tc.code, message)
+			}
+			if !slices.Equal(refusal.Error.Details.QuestionIDs, []string{refused}) {
+				t.Errorf("%s: details name %v, want %v", tc.shape, refusal.Error.Details.QuestionIDs, refused)
+			}
 		}
 	}
 }
 
-func TestAGradeItemThatIsNotAPointsGradeIsRefusedBeforeAnythingIsSaved(t *testing.T) {
-	points, band, criteria, both := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
-	for name, tc := range map[string]struct {
-		items   string
-		code    openapi.ErrorCode
-		refused []string
-	}{
-		"points only":     {items: `[{"questionId":"` + points + `","points":1}]`},
-		"no points":       {items: `[{"questionId":"` + points + `","points":1},{"questionId":"` + band + `"}]`, code: openapi.GRADENEEDSPOINTS, refused: []string{band}},
-		"a band":          {items: `[{"questionId":"` + band + `","band":6.5}]`, code: openapi.GRADEBANDNOTALLOWED, refused: []string{band}},
-		"criteria":        {items: `[{"questionId":"` + criteria + `","criteria":[{"criterionId":"` + uuid.NewString() + `","band":7}]}]`, code: openapi.GRADEBANDNOTALLOWED, refused: []string{criteria}},
-		"points and band": {items: `[{"questionId":"` + both + `","points":1,"band":6}]`, code: openapi.GRADEBANDNOTALLOWED, refused: []string{both}},
-		"both refusals":   {items: `[{"questionId":"` + points + `"},{"questionId":"` + both + `","band":6}]`, code: openapi.GRADEBANDNOTALLOWED, refused: []string{both}},
-	} {
-		var body openapi.GradeAttemptJSONRequestBody
-		if err := json.Unmarshal([]byte(`{"items":`+tc.items+`}`), &body); err != nil {
-			t.Fatal(err)
-		}
-		saved := false
-		transport := attemptshttp.NewAttempts(&application.Application{Commands: application.Commands{
-			Grade: cqrs.HandlerFunc[command.Grade, domain.Score](func(context.Context, command.Grade) (domain.Score, error) {
-				saved = true
-				return domain.Score{}, nil
-			}),
-		}}, nil, nil, nil)
-		recorder := teacherRefusedIn(t, "", func(ctx context.Context, w http.ResponseWriter) error {
-			response, err := transport.GradeAttempt(ctx, openapi.GradeAttemptRequestObject{Id: uuid.New(), Body: &body})
-			if err != nil {
-				return err
-			}
-			return response.VisitGradeAttemptResponse(w)
-		})
-		if tc.refused == nil {
-			if recorder.Code != http.StatusOK || !saved {
-				t.Errorf("%s: answered %d, saved %v", name, recorder.Code, saved)
-			}
-			continue
-		}
-		var refusal struct {
-			Error struct {
-				Code    openapi.ErrorCode `json:"code"`
-				Details struct {
-					QuestionIDs []string `json:"questionIds"`
-				} `json:"details"`
-			} `json:"error"`
-		}
-		if err := json.Unmarshal(recorder.Body.Bytes(), &refusal); err != nil {
-			t.Fatalf("%s: %v in %s", name, err, recorder.Body.String())
-		}
-		if recorder.Code != http.StatusUnprocessableEntity || refusal.Error.Code != tc.code || saved {
-			t.Errorf("%s: answered %d %s, saved %v", name, recorder.Code, refusal.Error.Code, saved)
-		}
-		if !slices.Equal(refusal.Error.Details.QuestionIDs, tc.refused) {
-			t.Errorf("%s: details name %v, want %v", name, refusal.Error.Details.QuestionIDs, tc.refused)
-		}
+func TestTheGradeBodyReachesTheCommandAsSentForTheRepositoryToJudge(t *testing.T) {
+	points, band, criteria, criterion := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
+	var got []domain.GradeItem
+	band7 := 7.0
+	recorder := gradeThrough(t, "", `[{"questionId":"`+points+`","points":1.5},{"questionId":"`+band+`","band":6.5,"points":2},`+
+		`{"questionId":"`+criteria+`","criteria":[{"criterionId":"`+criterion+`","band":7}]}]`, func(cmd command.Grade) (domain.Score, error) {
+		got = cmd.Items
+		return domain.Score{Earned: 3, Total: 9, Band: &band7}, nil
+	})
+	if recorder.Code != http.StatusOK {
+		t.Fatalf("answered %d: %s", recorder.Code, recorder.Body.String())
+	}
+	if len(got) != 3 || *got[0].Points != 1.5 || got[0].Band != nil || got[0].Criteria != nil {
+		t.Fatalf("points item %+v", got)
+	}
+	if *got[1].Band != 6.5 || *got[1].Points != 2 {
+		t.Errorf("band item %+v: the shape is the repository's to judge, so both reach it", got[1])
+	}
+	if got[2].Points != nil || got[2].Band != nil || !slices.Equal(got[2].Criteria, []domain.CriterionBand{{CriterionID: criterion, Band: 7}}) {
+		t.Errorf("criteria item %+v", got[2])
+	}
+	var score openapi.AttemptScore
+	if err := json.Unmarshal(recorder.Body.Bytes(), &score); err != nil || score.Band == nil || *score.Band != 7 {
+		t.Errorf("score %s (%v): the paper's band is not answered", recorder.Body.String(), err)
 	}
 }

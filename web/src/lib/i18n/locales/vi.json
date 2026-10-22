@@ -406,6 +406,7 @@
       "assignment.updated": "Đã cập nhật bài giao",
       "attempt.extended": "Đã gia hạn lượt làm bài vì bảo trì",
       "attempt.flagged": "Đã gắn cờ lượt làm bài",
+      "attempt.graded": "Đã chấm điểm lượt làm bài",
       "attempt.reset": "Đã đặt lại lượt làm bài",
       "attempt.unflagged": "Đã bỏ cờ lượt làm bài",
       "attempt.voided": "Đã huỷ lượt làm bài",

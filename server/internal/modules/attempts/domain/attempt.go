@@ -88,8 +88,11 @@ type Tally struct {
 	Next  int
 }
 
-// Score is what a closed attempt is worth so far.
+// Score is what a closed attempt is worth so far. Band is the essays'
+// points-weighted band, set only when every scored question is a graded
+// essay (bands.OfPaper).
 type Score struct {
+	Band          *float64
 	Earned        float64
 	Total         float64
 	PendingManual int
