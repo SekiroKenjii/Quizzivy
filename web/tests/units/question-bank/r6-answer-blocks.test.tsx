@@ -196,6 +196,22 @@ describe("an essay", () => {
     );
     expect(screen.getByRole("alert")).toHaveTextContent("Hai tiêu chí bị trùng tên.");
   });
+
+  it("marks two criteria the same when one was typed decomposed (QC-R6A-2)", () => {
+    renderArea({
+      ...retype(emptyQuestion(), "essay"),
+      prompt: "Viết",
+      rubric: [
+        { id: null, label: "Ý tưởng".normalize("NFC") },
+        { id: null, label: "Ý tưởng".normalize("NFD") },
+      ],
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("Hai tiêu chí bị trùng tên.");
+    expect(screen.getByRole("textbox", { name: "Tiêu chí 2" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+  });
 });
 
 describe("matching", () => {

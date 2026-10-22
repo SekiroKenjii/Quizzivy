@@ -175,7 +175,7 @@ function duplicateIndexes(rubric: readonly Criterion[]): ReadonlySet<number> {
   const first = new Map<string, number>();
   const out = new Set<number>();
   rubric.forEach((criterion, index) => {
-    const label = criterion.label.trim().toLowerCase();
+    const label = criterion.label.normalize("NFC").trim().toLowerCase();
     if (label === "") return;
     const earlier = first.get(label);
     if (earlier === undefined) first.set(label, index);
