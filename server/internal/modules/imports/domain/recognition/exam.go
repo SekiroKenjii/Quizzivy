@@ -66,6 +66,9 @@ type groupBuilder struct {
 	// prose holds the lines the instruction took after its first line, the heading's or the Roman section's, that
 	// read like a passage's sentence (proseLine, sectionProse): QC-R6GRM-2, QC-R6GRM-9, D-073.
 	prose []segment
+	// joined holds the instruction lines that may be a passage's sentence whatever follows them (vietnameseJoined,
+	// D-075).
+	joined []segment
 }
 
 func (g *groupBuilder) instructionText() string {
@@ -118,9 +121,12 @@ type sectionBuilder struct {
 	origin       domain.Origin
 	items        []item
 	source       []domain.SourceRef
-	// heading is the text of a Roman section heading that carries its instruction ("I. Choose the best answer."),
-	// while a broken line may still complete it (completesInstruction).
+	// heading is the text of a Roman section heading with text after its numeral, while a broken line may still
+	// complete it (completesInstruction).
 	heading string
+	// instructs reports whether that heading is an instruction ("I. Choose the best answer."), not a title
+	// ("I. GRAMMAR").
+	instructs bool
 }
 
 type exam struct {
@@ -410,11 +416,12 @@ func prose(text string) bool {
 }
 
 // sectionProse reports whether text, an imperative-led line that opens the first group of a Roman section whose
-// heading carries the instruction, reads like a passage's sentence (prose): the grammar cannot tell it from a second
-// instruction line, so the draft points at it as it does under a range heading (QC-R6GRM-9, D-073).
+// heading is itself an instruction, reads like a passage's sentence (prose): the grammar cannot tell it from a second
+// instruction line, so the draft points at it as it does under a range heading (QC-R6GRM-9, D-073). Under a Roman
+// title ("I. GRAMMAR") the line is the instruction's first, which is never pointed at (QC-R6GRM-14).
 func (e *exam) sectionProse(text string) bool {
 	_, ok := e.lastInstruction()
-	return e.group == nil && ok && prose(text)
+	return e.group == nil && ok && e.section.instructs && prose(text)
 }
 
 // bareHeading reports whether the open group is a range heading, or a run of them, with nothing under it yet.
@@ -474,6 +481,7 @@ func (e *exam) openSection(l *line, ordinal int) {
 	s.title, s.instructions = sectionTitle(text)
 	if _, end, ok := e.rules.roman(l.text); ok && visible(l.text[end:]) {
 		s.heading = text
+		s.instructs = isInstruction(matchable(l.text[end:])) || answerFormat(text)
 	}
 	e.sections = append(e.sections, s)
 	e.section = s
@@ -670,6 +678,9 @@ func (e *exam) textLine(l *line) {
 		if e.proseLine(text) {
 			e.group.prose = append(e.group.prose, whole)
 		}
+		if vietnameseJoined(text) {
+			e.group.joined = append(e.group.joined, whole)
+		}
 		e.group.instruction = append(e.group.instruction, whole)
 		e.group.source = append(e.group.source, whole.refs()...)
 	case e.completesInstruction(text):
@@ -682,6 +693,9 @@ func (e *exam) textLine(l *line) {
 		e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, accepting: true, source: whole.refs()}
 		if pointed {
 			e.group.prose = []segment{whole}
+		}
+		if vietnameseJoined(text) {
+			e.group.joined = []segment{whole}
 		}
 		e.section.items = append(e.section.items, item{group: e.group})
 	case e.group != nil && e.group.accepting && len(e.group.questions) == 0:

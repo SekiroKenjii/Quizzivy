@@ -1,6 +1,7 @@
 package recognition_test
 
 import (
+	"encoding/json"
 	"quizzivy/internal/modules/imports/domain"
 	"slices"
 	"strings"
@@ -485,7 +486,7 @@ func TestALongInstructionPointsAtAPossiblePassage(t *testing.T) {
 	} {
 		t.Run(c.passage, func(t *testing.T) {
 			d := recognize(t, exam(lines(c.heading, c.instruction, c.passage, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
-			got := notices(d, domain.CodeLongInstruction)
+			got := notices(d, domain.CodePassageInInstruction)
 			if len(got) != 1 || got[0].Severity != domain.Informational || got[0].Target != d.Sections[0].ID {
 				t.Fatalf("one informational finding on the section: %+v", got)
 			}
@@ -502,7 +503,7 @@ func TestALongInstructionPointsAtAPossiblePassage(t *testing.T) {
 		"a short later line":         exam(lines("Questions 1-2", "Answer the questions below.", "Read carefully.", "1. When did it open?", "2. Who paid?")),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := notices(recognize(t, doc), domain.CodeLongInstruction); len(got) != 0 {
+			if got := notices(recognize(t, doc), domain.CodePassageInInstruction); len(got) != 0 {
 				t.Fatalf("no finding: %+v", got)
 			}
 		})
@@ -532,13 +533,13 @@ func TestACommandLikePassageAfterAnyInstructionStaysTheStimulus(t *testing.T) {
 		}
 		t.Run("bare heading/"+passage, func(t *testing.T) {
 			d := recognize(t, exam(lines("Questions 1-2", passage, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. FALSE")))
-			if got := notices(d, domain.CodeLongInstruction); len(got) != 1 || got[0].Severity != domain.Informational {
+			if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || got[0].Severity != domain.Informational {
 				t.Fatalf("the line is pointed at: %+v", got)
 			}
 		})
 	}
 	d := recognize(t, exam(lines("Questions 1-2", "Choose the best answer for each question.", "1. When did it open?", "A. 1980\tB. 1990", "2. Who paid?", "A. city\tB. residents")), key(lines("1. B\t2. B")))
-	if got := notices(d, domain.CodeLongInstruction); len(got) != 0 {
+	if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
 		t.Fatalf("an instruction straight under a heading is not pointed at: %+v", got)
 	}
 }
@@ -600,51 +601,106 @@ func instructionsOf(d domain.Draft) string {
 	return strings.Join(text, " ")
 }
 
-// QC-R6GRM-10: a "và" joining a compound subject does not end the first clause, so a Vietnamese passage that opens
-// "Viết nhật ký và đọc sách là…" stays the stimulus in every layout.
-func TestAVietnameseCompoundSubjectStaysThePassage(t *testing.T) {
-	passage := "Viết nhật ký và đọc sách là hai thói quen tốt của học sinh."
-	for name, head := range map[string][]string{
-		"heading": {"Câu 1-2", "Chọn Đúng, Sai hoặc Không có thông tin."},
-		"roman":   {"I. Chọn Đúng, Sai hoặc Không có thông tin."},
-		"plain":   {"Chọn Đúng, Sai hoặc Không có thông tin."},
+// QC-R6GRM-10, QC-R6GRM-13, D-075: a Vietnamese line with "là"/"giúp"/"khiến"/"ngày càng" after a joining
+// "và"/"rồi" reads two ways: a second command ("Đọc đoạn văn và chọn những câu là ý chính") or a passage with a
+// compound subject ("Viết nhật ký và đọc sách là…"). In every layout it stays the instruction, never a line of the
+// stimulus, and the draft points at it, whether a passage follows or not. Where two instructions in a row leave text
+// unassigned, the draft is no more ready than before.
+func TestAVietnameseLineJoinedByVaStaysTheInstructionAndIsPointedAt(t *testing.T) {
+	passage := "Bảo tàng mở cửa năm 1990 sau nhiều năm vận động của người dân."
+	layouts := map[string][]string{
+		"heading second":     {"Câu 1-2", "Đọc đoạn văn sau."},
+		"roman second":       {"I. Đọc đoạn văn sau."},
+		"plain second":       {"Đọc đoạn văn sau."},
+		"roman title first":  {"I. ĐỌC HIỂU"},
+		"bare heading first": {"Câu 1-2"},
+		"no structure":       nil,
+	}
+	for _, line := range []string{
+		"Đọc đoạn văn và chọn những câu là ý chính của bài.",
+		"Đọc bài đọc và tìm các từ giúp nối các câu.",
+		"Đọc đoạn văn rồi cho biết điều khiến nhân vật thay đổi.",
+		"Đọc kỹ đoạn văn và gạch chân các từ là danh từ.",
+		"Đọc đoạn văn và tìm chi tiết cho thấy đời sống ngày càng tốt hơn.",
+		"Viết nhật ký và đọc sách là hai thói quen tốt của học sinh.",
+		"Viết thư rồi gửi bưu điện từng là cách liên lạc phổ biến.",
 	} {
-		d := recognize(t, exam(lines(append(head, passage, "1. Học sinh nên viết nhật ký.", "2. Đọc sách tốn thời gian.")...)), key(lines("1. Đúng\t2. Không có thông tin")))
-		if g := d.Sections[0].Items[0].Group; g == nil || g.Stimulus == nil || strings.Contains(d.Sections[0].Title+g.Instructions, "nhật ký") {
-			t.Fatalf("%s: the passage is the stimulus: %+v", name, d.Sections)
+		for name, head := range layouts {
+			for _, after := range [][]string{{passage}, nil} {
+				doc := exam(lines(append(append(append(slices.Clone(head), line), after...), "1. Bảo tàng mở cửa năm nào?", "A. 1980\tB. 1990", "2. Ai góp tiền?", "A. thành phố\tB. người dân")...))
+				d := recognize(t, doc, key(lines("1. B\t2. B")))
+				g := d.Sections[0].Items[0].Group
+				if g == nil || !strings.Contains(d.Sections[0].Title+" "+g.Instructions, line) || strings.Contains(stimulusText(g), line[:12]) {
+					t.Fatalf("%s, %s (passage %v): the line is the instruction: %q %+v", line, name, len(after) > 0, d.Sections[0].Title, g)
+				}
+				if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || got[0].Severity != domain.Informational || got[0].Count != 1 {
+					t.Fatalf("%s, %s (passage %v): one pointer at one line: %+v", line, name, len(after) > 0, got)
+				}
+				if name == "plain second" && len(notices(d, domain.CodeUnassignedText)) != 1 {
+					t.Fatalf("%s, %s: the first instruction is not lost silently: %+v", line, name, d.Notices)
+				}
+			}
 		}
-		if q := question(t, d, "1"); q.Type != "tfng" {
-			t.Fatalf("%s: %+v", name, q)
+	}
+	for _, line := range []string{"Đọc đoạn văn và trả lời câu hỏi.", "Đọc đoạn văn và cho biết câu nào là đúng.", "Đọc sách là thói quen tốt và bổ ích của học sinh."} {
+		d := recognize(t, exam(lines(line, passage, "1. Bảo tàng mở cửa năm nào?", "A. 1980\tB. 1990")), key(lines("1. B")))
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
+			t.Fatalf("%s is not pointed at: %+v", line, got)
 		}
 	}
 }
 
-// QC-R6GRM-9: in a Roman section whose heading carries the instruction, a line of five words or more that opens the
-// group with questions straight after it is pointed at, as under a range heading. A shorter line is not.
+// QC-R6GRM-9, QC-R6GRM-14: in a Roman section whose heading is an instruction, a line of five words or more that
+// opens the group with questions straight after it is pointed at, as under a range heading. A shorter line is not,
+// nor the first instruction line under a Roman title.
 func TestALongLineUnderARomanInstructionPointsAtAPossiblePassage(t *testing.T) {
 	for _, line := range []string{
 		"Choose your words carefully, the old saying goes, because they cannot be taken back.",
 		"Tìm việc làm ở thành phố ngày nay rất khó.",
 		"Read the passage below carefully.",
 	} {
-		d := recognize(t, exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
-		if got := notices(d, domain.CodeLongInstruction); len(got) != 1 || got[0].Severity != domain.Informational || got[0].Target != d.Sections[0].ID {
-			t.Fatalf("%s: one informational finding on the section: %+v", line, got)
+		for _, heading := range []string{"I. Write TRUE, FALSE or NOT GIVEN.", "I. Read the text below.", "I. TRUE, FALSE OR NOT GIVEN"} {
+			d := recognize(t, exam(lines(heading, line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
+			if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || got[0].Severity != domain.Informational || got[0].Target != d.Sections[0].ID {
+				t.Fatalf("%s / %s: one informational finding on the section: %+v", heading, line, got)
+			}
 		}
 	}
 	passage := "The museum opened in 1990 after a long campaign by local residents, who raised money for more than a decade."
 	for name, doc := range map[string]domain.EvidenceDocument{
-		"a four-word line":       exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a passage after it":     exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage below carefully.", passage, "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a format on the line":   exam(lines("I. Read the passage.", "Write TRUE, FALSE or NOT GIVEN for each statement.", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a title for a heading":  exam(lines("I. READING", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"two plain instructions": exam(lines("Read the passage and answer the questions.", "Write TRUE, FALSE or NOT GIVEN.", "Decide for yourself whether each statement is right.", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a four-word head line":  exam(lines("Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a four-word line":         exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a passage after it":       exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage below carefully.", passage, "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a format on the line":     exam(lines("I. Read the passage.", "Write TRUE, FALSE or NOT GIVEN for each statement.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"under a Roman title":      exam(lines("I. GRAMMAR", "Choose the best answer to complete each sentence.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"under a Vietnamese title": exam(lines("I. TRẮC NGHIỆM (3 điểm)", "Chọn đáp án đúng nhất cho mỗi câu sau.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a title for a heading":    exam(lines("I. READING", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a later group":            exam(lines("I. Choose the correct letter, A or B.", "1. When did it open?", "A. 1980\tB. 1990", "Decide for yourself which answer fits best here.", "2. Who paid?", "A. city\tB. residents")),
+		"two plain instructions":   exam(lines("Read the passage and answer the questions.", "Write TRUE, FALSE or NOT GIVEN.", "Decide for yourself whether each statement is right.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a four-word head line":    exam(lines("Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
 	} {
 		t.Run(name, func(t *testing.T) {
-			if got := notices(recognize(t, doc, key(lines("1. TRUE\t2. NOT GIVEN"))), domain.CodeLongInstruction); len(got) != 0 {
+			if got := notices(recognize(t, doc, key(lines("1. TRUE\t2. NOT GIVEN"))), domain.CodePassageInInstruction); len(got) != 0 {
 				t.Fatalf("no finding: %+v", got)
 			}
 		})
 	}
+}
+
+// stimulusText returns the plain text of a group's stimulus.
+func stimulusText(g *domain.DraftGroup) string {
+	var doc struct {
+		Blocks []struct {
+			Content []struct {
+				Text string `json:"text"`
+			} `json:"content"`
+		} `json:"blocks"`
+	}
+	_ = json.Unmarshal(g.Stimulus, &doc)
+	var b strings.Builder
+	for _, block := range doc.Blocks {
+		for _, c := range block.Content {
+			b.WriteString(c.Text)
+		}
+	}
+	return b.String()
 }

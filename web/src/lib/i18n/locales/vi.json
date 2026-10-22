@@ -5308,9 +5308,9 @@
           "title": "Lựa chọn nhắc đến lựa chọn khác",
           "help": "Lựa chọn này nhắc đến chữ cái của lựa chọn khác, ví dụ “Cả A và B”; nếu thứ tự lựa chọn bị trộn, câu sẽ sai. Hãy sửa nội dung lựa chọn, hoặc xác nhận nếu bạn sẽ không trộn thứ tự lựa chọn của câu này."
         },
-        "LONG_INSTRUCTION": {
-          "title": "Phần hướng dẫn này khá dài",
-          "help": "Nếu trong đó có đoạn là bài đọc, hãy chuyển đoạn đó vào Bài đọc của phần này."
+        "PASSAGE_IN_INSTRUCTION": {
+          "title": "Phần hướng dẫn này có thể chứa bài đọc",
+          "help": "Nếu một đoạn trong hướng dẫn này là bài đọc, hãy chuyển đoạn đó vào Bài đọc của phần này."
         },
         "COLORED_TEXT_IN_CONTENT": {
           "title": "Có chữ màu trong nội dung câu",
