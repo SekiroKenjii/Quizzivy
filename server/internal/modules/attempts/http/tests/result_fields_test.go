@@ -82,3 +82,36 @@ func TestTheResultQuestionCarriesItsBandCriteriaSkillAndMatches(t *testing.T) {
 		t.Errorf("a matching question carries a band: %v", matching)
 	}
 }
+
+func TestTheResultScoreCarriesTheGradersNameOnlyWhenThereIsOne(t *testing.T) {
+	grader := "Cô Thương"
+	student, attempt := uuid.New(), uuid.New()
+	for _, tc := range []struct {
+		name   string
+		grader *string
+	}{{"one grader", &grader}, {"no single grader", nil}} {
+		app := &application.Application{Queries: application.Queries{Result: cqrs.HandlerFunc[query.Result, domain.Result](func(context.Context, query.Result) (domain.Result, error) {
+			return domain.Result{Attempt: domain.Attempt{ID: attempt.String()}, Score: &domain.Score{Earned: 8, Total: 9, GradedBy: tc.grader}}, nil
+		})}}
+		transport := attemptshttp.NewAttempts(app, &groupMedia{student: student.String()}, nil, nil)
+		var got *openapi.AttemptScore
+		serveAs(t, student, func(ctx context.Context, w http.ResponseWriter) error {
+			response, err := transport.GetAttemptResult(ctx, openapi.GetAttemptResultRequestObject{Id: attempt})
+			if err != nil {
+				return err
+			}
+			if ok, is := response.(openapi.GetAttemptResult200JSONResponse); is {
+				got = ok.Attempt.Score
+			}
+			return response.VisitGetAttemptResultResponse(w)
+		})
+		switch {
+		case got == nil:
+			t.Errorf("%s: no score", tc.name)
+		case tc.grader == nil && got.GradedBy != nil:
+			t.Errorf("%s: gradedBy %+v, want none", tc.name, got.GradedBy)
+		case tc.grader != nil && (got.GradedBy == nil || got.GradedBy.Name != *tc.grader):
+			t.Errorf("%s: gradedBy %+v, want %s", tc.name, got.GradedBy, *tc.grader)
+		}
+	}
+}
