@@ -117,6 +117,9 @@ const vi = {
   shiftKey: "Shift",
   pickBandFirst: "Chọn band trước (phím 3–9).",
   pickCriteriaFirst: "Hãy cho band ở mọi tiêu chí trước.",
+  leavePartialBody:
+    "Một bài luận mới có band ở vài tiêu chí. Bộ tiêu chí chưa đủ band thì không lưu được, nên rời trang sẽ bỏ các band đó.",
+  leaveWithoutSaving: "Rời đi, không lưu",
   gradeError: {
     GRADE_NEEDS_BAND: "Chọn band cho bài luận này.",
     GRADE_CRITERIA_INCOMPLETE:
@@ -258,6 +261,9 @@ const en = {
   shiftKey: "Shift",
   pickBandFirst: "Pick a band first (keys 3–9).",
   pickCriteriaFirst: "Give every criterion a band first.",
+  leavePartialBody:
+    "An essay has bands on only some of its criteria. A part-marked rubric can’t be saved, so leaving drops those bands.",
+  leaveWithoutSaving: "Leave without saving",
   gradeError: {
     GRADE_NEEDS_BAND: "Choose a band for this essay.",
     GRADE_CRITERIA_INCOMPLETE:
