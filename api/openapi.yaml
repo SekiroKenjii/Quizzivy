@@ -2285,7 +2285,7 @@ components:
           description: The band each rubric criterion was given, once graded. Absent when the essay has no criteria.
         explanation: { type: [string, 'null'] }
         explanationContent:
-          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/QuestionExplanationContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
         sampleAnswer: { type: [string, 'null'] }
@@ -3698,11 +3698,14 @@ components:
     QuestionContent:
       type: object
       description: |
-        Bounded semantic prose for prompts and explanations: paragraphs, headings,
-        lists and tables with marked text, breaks and safe links. No media, gaps,
-        source metadata or answer-key properties. ContentDocument aggregate budgets
-        and cross-node validation apply to original raw JSON. The companion string
-        must equal the exact plain projection. Explanations never contain gaps.
+        Bounded semantic prose: paragraphs, headings, lists and tables with
+        marked text, breaks and safe links. No media, gaps, source metadata or
+        answer-key properties. A group's instructions use it as it is; an
+        explanation is `QuestionExplanationContent`, which adds media, and a
+        prompt `QuestionPromptContent`, which adds gaps and media; their nested
+        blocks are these. ContentDocument aggregate budgets and cross-node
+        validation apply to original raw JSON. The companion string must equal
+        the exact plain projection.
         On question updates, omitting a rich field preserves its stored document
         only if the companion string is unchanged; otherwise the whole write is
         rejected. Explicit null removes the document.
@@ -3793,17 +3796,52 @@ components:
     QuestionPromptContent:
       type: object
       description: |
-        Bounded semantic question prompt without media or answer keys. Gaps are
+        Bounded semantic question prompt without answer keys. Gaps are
         supported only for fill_blank and must match blank gapId values exactly.
         Gap identity is stable within this question; labels never select answers.
         The companion prompt equals the exact plain projection. Omitted content
         on update preserves the stored document only when prompt is unchanged.
+
+        Media (DG-109, D-064): the document's own blocks, never a table cell or
+        a list item, may be an image or the audio marker, at most
+        `x-media-blocks` of them together. An image names a media asset by id
+        and never by file name; its alt text may be empty, which marks it
+        decorative, and it projects to its alt text. The audio marker names no
+        asset: it places the question's own audio (`mediaAssetId`, with its
+        `AudioPolicy` and play count) in the text, at most once, and projects
+        to nothing. A media block that projects to nothing adds no separator.
+        Until the bank's media task (R6-13) every write refuses a media block
+        with 422.
       x-go-type: json.RawMessage
+      x-media-blocks: 8
       additionalProperties: false
       required: [format, blocks]
       properties:
         format: { type: string, const: semantic_v1 }
-        blocks: { $ref: '#/components/schemas/QuestionPromptContentBlocks' }
+        blocks: { $ref: '#/components/schemas/QuestionPromptDocumentBlocks' }
+    QuestionPromptDocumentBlocks:
+      type: array
+      description: A prompt's own blocks, where media may stand.
+      minItems: 1
+      maxItems: 2048
+      items: { $ref: '#/components/schemas/QuestionPromptDocumentBlock' }
+    QuestionPromptDocumentBlock:
+      oneOf:
+        - $ref: '#/components/schemas/QuestionPromptContentParagraph'
+        - $ref: '#/components/schemas/QuestionPromptContentHeading'
+        - $ref: '#/components/schemas/QuestionPromptContentList'
+        - $ref: '#/components/schemas/QuestionPromptContentTable'
+        - $ref: '#/components/schemas/QuestionContentImage'
+        - $ref: '#/components/schemas/QuestionPromptAudio'
+      discriminator:
+        propertyName: type
+        mapping:
+          paragraph: '#/components/schemas/QuestionPromptContentParagraph'
+          heading: '#/components/schemas/QuestionPromptContentHeading'
+          list: '#/components/schemas/QuestionPromptContentList'
+          table: '#/components/schemas/QuestionPromptContentTable'
+          image: '#/components/schemas/QuestionContentImage'
+          audio: '#/components/schemas/QuestionPromptAudio'
     QuestionPromptContentBlocks:
       type: array
       minItems: 1
@@ -3882,6 +3920,80 @@ components:
         rowSpan: { type: integer, minimum: 1, maximum: 50 }
         colSpan: { type: integer, minimum: 1, maximum: 12 }
         content: { $ref: '#/components/schemas/QuestionPromptContentBlocks' }
+
+    QuestionExplanationContent:
+      type: object
+      description: |
+        A question's explanation: the prose of `QuestionContent`, without gaps,
+        plus media in the document's own blocks (DG-109, D-064), never in a
+        table cell or a list item, at most `x-media-blocks` of them. An image
+        is as in a prompt. An audio block names its own asset and plays without
+        a policy or a count. Explanation media is reachable by a student only
+        through the result, under the gate that shows explanations; no student
+        operation signs it before then. Until the bank's media task (R6-13)
+        every write refuses a media block with 422. The companion string, the
+        update rules and the budgets are `QuestionContent`'s.
+      x-go-type: json.RawMessage
+      x-media-blocks: 8
+      additionalProperties: false
+      required: [format, blocks]
+      properties:
+        format: { type: string, const: semantic_v1 }
+        blocks: { $ref: '#/components/schemas/QuestionExplanationDocumentBlocks' }
+    QuestionExplanationDocumentBlocks:
+      type: array
+      description: An explanation's own blocks, where media may stand.
+      minItems: 1
+      maxItems: 2048
+      items: { $ref: '#/components/schemas/QuestionExplanationDocumentBlock' }
+    QuestionExplanationDocumentBlock:
+      oneOf:
+        - $ref: '#/components/schemas/QuestionContentParagraph'
+        - $ref: '#/components/schemas/QuestionContentHeading'
+        - $ref: '#/components/schemas/QuestionContentList'
+        - $ref: '#/components/schemas/QuestionContentTable'
+        - $ref: '#/components/schemas/QuestionContentImage'
+        - $ref: '#/components/schemas/QuestionExplanationAudio'
+      discriminator:
+        propertyName: type
+        mapping:
+          paragraph: '#/components/schemas/QuestionContentParagraph'
+          heading: '#/components/schemas/QuestionContentHeading'
+          list: '#/components/schemas/QuestionContentList'
+          table: '#/components/schemas/QuestionContentTable'
+          image: '#/components/schemas/QuestionContentImage'
+          audio: '#/components/schemas/QuestionExplanationAudio'
+    QuestionContentImage:
+      type: object
+      description: |
+        An image in a prompt or an explanation, by media asset id. `alt` is the
+        text a screen reader reads and the plain projection carries; empty
+        marks the image decorative. It is never filled from a file name, and no
+        file name travels with the node.
+      additionalProperties: false
+      required: [type, assetId, alt]
+      properties:
+        type: { type: string, enum: [image] }
+        assetId: { type: string, format: uuid }
+        alt: { type: string, maxLength: 1000 }
+    QuestionPromptAudio:
+      type: object
+      description: |
+        Where the question's own audio is drawn in its prompt. It names no
+        asset: the recording, its policy and its play count are the question's
+        (`mediaAssetId`, `audio`), so a prompt holds at most one.
+      additionalProperties: false
+      required: [type]
+      properties:
+        type: { type: string, enum: [audio] }
+    QuestionExplanationAudio:
+      type: object
+      description: A recording in an explanation, by media asset id, played without a policy or a count.
+      additionalProperties: false
+      required: [type, assetId]
+      properties:
+        type: { type: string, enum: [audio] }
+        assetId: { type: string, format: uuid }
 
     OptionContent:
       type: object
@@ -4528,7 +4640,7 @@ components:
           items: { $ref: '#/components/schemas/AdminQuestionBlank' }
         points: { $ref: '#/components/schemas/Points' }
         explanationContent:
-          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/QuestionExplanationContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
         explanation: { type: [string, 'null'] }
@@ -4831,7 +4943,7 @@ components:
           oneOf: [{ $ref: '#/components/schemas/QuestionSkill' }, { type: 'null' }]
           description: The skill frozen with the version (R4). Present under every review policy, for the skill tiles.
         explanationContent:
-          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/QuestionExplanationContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
           description: Absent unless review.showExplanations permits the frozen explanation.
@@ -7055,7 +7167,7 @@ components:
           exclusiveMinimum: 0
           multipleOf: 0.01
         explanationContent:
-          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/QuestionExplanationContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
         explanation: { type: [string, 'null'] }
@@ -7185,7 +7297,7 @@ components:
           exclusiveMinimum: 0
           multipleOf: 0.01
         explanationContent:
-          oneOf: [{ $ref: '#/components/schemas/QuestionContent' }, { type: 'null' }]
+          oneOf: [{ $ref: '#/components/schemas/QuestionExplanationContent' }, { type: 'null' }]
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
         explanation: { type: [string, 'null'] }
@@ -8353,6 +8465,8 @@ paths:
         - { in: body, name: /bundle/group/recordings/-/assetId, kind: media }
         - { in: body, name: /bundle/questions/-/id, kind: none }
         - { in: body, name: /bundle/questions/-/input/mediaAssetId, kind: media }
+        - { in: body, name: /bundle/questions/-/input/promptContent/blocks/-/assetId, kind: media }
+        - { in: body, name: /bundle/questions/-/input/explanationContent/blocks/-/assetId, kind: media }
         - { in: body, name: /bundle/questions/-/input/options/-/id, kind: none }
         - { in: body, name: /bundle/questions/-/input/blanks/-/id, kind: none }
         - { in: body, name: /bundle/questions/-/input/matchItems/-/id, kind: none }
@@ -8424,6 +8538,8 @@ paths:
         - { in: body, name: /bundle/group/recordings/-/assetId, kind: media }
         - { in: body, name: /bundle/questions/-/id, kind: none }
         - { in: body, name: /bundle/questions/-/input/mediaAssetId, kind: media }
+        - { in: body, name: /bundle/questions/-/input/promptContent/blocks/-/assetId, kind: media }
+        - { in: body, name: /bundle/questions/-/input/explanationContent/blocks/-/assetId, kind: media }
         - { in: body, name: /bundle/questions/-/input/options/-/id, kind: none }
         - { in: body, name: /bundle/questions/-/input/blanks/-/id, kind: none }
         - { in: body, name: /bundle/questions/-/input/matchItems/-/id, kind: none }
@@ -9261,6 +9377,8 @@ paths:
       operationId: createQuestion
       x-resource:
         - { in: body, name: /mediaAssetId, kind: media }
+        - { in: body, name: /promptContent/blocks/-/assetId, kind: media }
+        - { in: body, name: /explanationContent/blocks/-/assetId, kind: media }
         - { in: body, name: /options/-/id, kind: none }
         - { in: body, name: /blanks/-/id, kind: none }
         - { in: body, name: /matchItems/-/id, kind: none }
@@ -9357,6 +9475,8 @@ paths:
       x-resource:
         - { in: path, name: id, kind: question }
         - { in: body, name: /mediaAssetId, kind: media }
+        - { in: body, name: /promptContent/blocks/-/assetId, kind: media }
+        - { in: body, name: /explanationContent/blocks/-/assetId, kind: media }
         - { in: body, name: /options/-/id, kind: none }
         - { in: body, name: /blanks/-/id, kind: none }
         - { in: body, name: /matchItems/-/id, kind: none }
