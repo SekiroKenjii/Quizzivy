@@ -2,6 +2,7 @@ package recognition
 
 import (
 	"quizzivy/internal/modules/imports/domain"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -50,7 +51,9 @@ func (q *questionBuilder) instructionText() string {
 type groupBuilder struct {
 	id          string
 	label       string
-	instruction *segment
+	instruction []segment
+	heading     bool
+	first, last int
 	stimulus    []segment
 	questions   []*questionBuilder
 	accepting   bool
@@ -58,10 +61,11 @@ type groupBuilder struct {
 }
 
 func (g *groupBuilder) instructionText() string {
-	if g.instruction == nil {
-		return ""
+	texts := make([]string, 0, len(g.instruction))
+	for _, s := range g.instruction {
+		texts = append(texts, strings.TrimSpace(s.text()))
 	}
-	return strings.TrimSpace(g.instruction.text())
+	return strings.Join(texts, " ")
 }
 
 func (g *groupBuilder) admits(q *questionBuilder) bool {
@@ -71,12 +75,22 @@ func (g *groupBuilder) admits(q *questionBuilder) bool {
 	if g.label != "" {
 		return q.label.sub > 0 && q.label.parent() == g.label
 	}
+	if g.heading && q.label.sub == 0 && q.label.number >= g.first && q.label.number <= g.last {
+		return true
+	}
 	return q.label.sub == 0 && q.instruction == nil
 }
 
 type item struct {
 	question *questionBuilder
 	group    *groupBuilder
+}
+
+func (i item) questions() []*questionBuilder {
+	if i.group != nil {
+		return i.group.questions
+	}
+	return []*questionBuilder{i.question}
 }
 
 func (i item) instruction() string {
@@ -130,6 +144,7 @@ func parseExam(source string, lines []*line, rules examRules) *exam {
 		case e.keySection(l):
 		case e.titleLine(l):
 		case e.anotherPaper(l):
+		case e.rangeLine(l):
 		case e.sectionLine(l):
 		case e.questionLine(l):
 		case e.optionLine(l):
@@ -181,7 +196,7 @@ func (e *exam) titleLine(l *line) bool {
 		return false
 	}
 	text := strings.TrimSpace(l.String())
-	if e.rules.text && namedSection.MatchString(text) {
+	if (e.rules.text && namedSection.MatchString(text)) || rangeHeading(text) {
 		return false
 	}
 	if utf8.RuneCountInString(text) > maxTitle {
@@ -225,6 +240,53 @@ func (e *exam) sectionLine(l *line) bool {
 	return false
 }
 
+// rangeLine opens a group under a question-range heading ("Questions 1-4"). The heading, and the instruction lines
+// that follow it before the first question, are the group's instruction, so they reach every question it holds.
+func (e *exam) rangeLine(l *line) bool {
+	first, last, ok := headingRange(l.String())
+	if !ok {
+		return false
+	}
+	e.closeQuestion()
+	e.closeGroup()
+	e.ensureSection()
+	whole := segment{l, 0, len(l.text)}
+	e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, heading: true, first: first, last: last, accepting: true, source: whole.refs()}
+	e.section.items = append(e.section.items, item{group: e.group})
+	l.consumeAll()
+	return true
+}
+
+// extendsHeading reports whether text belongs to the instruction under the open group's range heading: the group
+// has neither questions nor stimulus yet, and text is an instruction or a line of the IELTS answer legend. Any other
+// paragraph, a passage among them, ends the instruction, whatever punctuation the line before it lacks.
+func (e *exam) extendsHeading(text string) bool {
+	g := e.group
+	if g == nil || !g.heading || !g.accepting || len(g.questions) > 0 || len(g.stimulus) > 0 {
+		return false
+	}
+	return isInstruction(text) || headingLegend.MatchString(text)
+}
+
+// bareHeading reports whether the open group is a range heading with nothing under it yet.
+func (e *exam) bareHeading() bool {
+	g := e.group
+	return g != nil && g.heading && len(g.instruction) == 1 && len(g.questions) == 0 && len(g.stimulus) == 0
+}
+
+// takeBareHeading removes the open bare heading's group, and the inferred part it alone made, and returns the
+// heading's segments.
+func (e *exam) takeBareHeading() []segment {
+	g, s := e.group, e.section
+	e.group = nil
+	s.items = slices.DeleteFunc(s.items, func(it item) bool { return it.group == g })
+	if s.origin == domain.InferredStructure && len(s.items) == 0 {
+		e.sections = slices.DeleteFunc(e.sections, func(other *sectionBuilder) bool { return other == s })
+		e.section = nil
+	}
+	return g.instruction
+}
+
 func (e *exam) romanInSequence(value int, rest []rune) bool {
 	if value == e.lastRoman+1 {
 		return true
@@ -236,15 +298,24 @@ func (e *exam) headingRest(l *line, end int) bool {
 	if !visible(l.text[end:]) {
 		return false
 	}
-	_, isOption := optionStart(l.text[end:])
+	isOption := optionStart(l.text[end:])
 	return !isOption
 }
 
 func (e *exam) openSection(l *line, ordinal int) {
 	e.closeQuestion()
+	var heading []segment
+	if e.bareHeading() {
+		// A range heading straight above a section heading names that section's questions: it joins the section's
+		// source rather than leaving an empty part or unassigned text behind.
+		heading = e.takeBareHeading()
+	}
 	e.closeGroup()
 	text := strings.TrimSpace(l.String())
 	s := &sectionBuilder{id: identity(e.source, l.pieces[0].block.ID, "section"), ordinal: ordinal, tasks: tasksOf(text), origin: domain.SourceExplicit, source: l.refs(0, len(l.text))}
+	for _, h := range heading {
+		s.source = append(h.refs(), s.source...)
+	}
 	s.title, s.instructions = sectionTitle(text)
 	e.sections = append(e.sections, s)
 	e.section = s
@@ -353,7 +424,7 @@ func (e *exam) adoptParent(lb label) {
 	if q == nil || q.label.text != parent || len(q.options) > 0 {
 		return
 	}
-	g := &groupBuilder{id: identity(q.id, "group"), label: parent, instruction: q.instruction, stimulus: q.stem, accepting: true, source: q.source}
+	g := &groupBuilder{id: identity(q.id, "group"), label: parent, instruction: instructionOf(q), stimulus: q.stem, accepting: true, source: q.source}
 	s := q.section
 	for i := range s.items {
 		if s.items[i].question == q {
@@ -437,11 +508,14 @@ func (e *exam) textLine(l *line) {
 	case e.question != nil && len(e.question.options) == 0:
 		e.question.stem = append(e.question.stem, whole)
 		e.question.source = append(e.question.source, whole.refs()...)
+	case e.extendsHeading(text):
+		e.group.instruction = append(e.group.instruction, whole)
+		e.group.source = append(e.group.source, whole.refs()...)
 	case isInstruction(text) && !e.continuesStimulus(text):
 		e.closeQuestion()
 		e.closeGroup()
 		e.ensureSection()
-		e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: &whole, accepting: true, source: whole.refs()}
+		e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, accepting: true, source: whole.refs()}
 		e.section.items = append(e.section.items, item{group: e.group})
 	case e.group != nil && e.group.accepting && len(e.group.questions) == 0:
 		e.group.stimulus = append(e.group.stimulus, whole)
@@ -514,7 +588,7 @@ func (e *exam) dissolveEmptyGroup(g *groupBuilder) {
 	for i := range items {
 		if items[i].group == g {
 			e.section.items = append(items[:i], items[i+1:]...)
-			for _, s := range append(append([]segment{}, g.stimulus...), instructionSegments(g)...) {
+			for _, s := range append(append([]segment{}, g.stimulus...), g.instruction...) {
 				unconsume(s)
 			}
 			return
@@ -522,11 +596,11 @@ func (e *exam) dissolveEmptyGroup(g *groupBuilder) {
 	}
 }
 
-func instructionSegments(g *groupBuilder) []segment {
-	if g.instruction == nil {
+func instructionOf(q *questionBuilder) []segment {
+	if q.instruction == nil {
 		return nil
 	}
-	return []segment{*g.instruction}
+	return []segment{*q.instruction}
 }
 
 func unconsume(s segment) {
@@ -560,8 +634,8 @@ func (e *exam) splitByInstruction(items []item) []*sectionBuilder {
 		}
 		current := out[len(out)-1]
 		current.items = append(current.items, it)
-		if it.question != nil {
-			it.question.section = current
+		for _, q := range it.questions() {
+			q.section = current
 		}
 	}
 	return out
