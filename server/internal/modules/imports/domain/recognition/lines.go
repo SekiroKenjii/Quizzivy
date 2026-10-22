@@ -7,6 +7,8 @@ import (
 	"sort"
 	"strings"
 	"unicode"
+
+	"golang.org/x/text/unicode/norm"
 )
 
 type piece struct {
@@ -189,11 +191,22 @@ func continuesInstruction(l *line, tail []rune) bool {
 }
 
 // capsTitle reports whether text is an upper-case title of two words or more that names nothing an instruction
-// counts or lists ("THE HISTORY OF TEA", not "NOT GIVEN." or "TWO WORDS"): a passage title, not the rest of the line.
+// counts or lists ("THE HISTORY OF TEA", not "NOT GIVEN.", "TWO WORDS", "A, B, C OR D" or "KHÔNG QUÁ HAI TỪ"): a
+// passage title, not the rest of the line.
 func capsTitle(text []rune) bool {
 	plain := strings.TrimSpace(matchable(text))
-	return len(strings.Fields(plain)) >= 2 && strings.ToUpper(plain) == plain && plain != strings.ToLower(plain) && !instructionWord.MatchString(plain)
+	return len(strings.Fields(plain)) >= 2 && strings.ToUpper(plain) == plain && plain != strings.ToLower(plain) && !instructionWord.MatchString(plain) && !formatTail(plain)
 }
+
+// formatTail reports whether a tail names an answer format on its own: True / False / Not given, a word limit,
+// "Choose N", or nothing but option letters. A title that only holds such words ("ĐÚNG HAY SAI?", "PLAN A OR B")
+// does not.
+func formatTail(plain string) bool {
+	plain = norm.NFC.String(plain)
+	return tasksOf(plain).has(taskTFNG) || chooseCount.MatchString(plain) || wordLimit.MatchString(plain) || vietnameseWordLimit.MatchString(plain) || letterRun.MatchString(strings.TrimRight(plain, " .:;"))
+}
+
+var letterRun = regexp.MustCompile(`^[A-H](?:\s*,\s*[A-H])*\s*,?\s*(?:(?i:or|and|hoặc|và)\s+|[-–]\s*)[A-H]$`)
 
 var instructionWord = regexp.MustCompile(`(?i)\b(?:true|false|not given|yes|no|words?|letters?|answers?|numbers?|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b`)
 
