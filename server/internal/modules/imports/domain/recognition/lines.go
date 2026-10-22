@@ -195,7 +195,7 @@ func capsTitle(text []rune) bool {
 	return len(strings.Fields(plain)) >= 2 && strings.ToUpper(plain) == plain && plain != strings.ToLower(plain) && !instructionWord.MatchString(plain)
 }
 
-var instructionWord = regexp.MustCompile(`(?i)\b(?:true|false|not given|yes|no|words?|letters?|answers?|numbers?|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b`)
+var instructionWord = regexp.MustCompile(`(?i)\b(?:true|false|not given|yes|no|words?|letters?|answers?|numbers?|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b|\b[A-H]\s*(?:,|or\b)\s*[A-H]\b|đúng|sai|không|thông tin|từ|chữ|câu`)
 
 func opensStructure(text []rune) bool {
 	plain := strings.TrimSpace(matchable(text))
