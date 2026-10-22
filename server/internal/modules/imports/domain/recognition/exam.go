@@ -2,6 +2,7 @@ package recognition
 
 import (
 	"quizzivy/internal/modules/imports/domain"
+	"slices"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -52,6 +53,7 @@ type groupBuilder struct {
 	label       string
 	instruction []segment
 	heading     bool
+	first, last int
 	stimulus    []segment
 	questions   []*questionBuilder
 	accepting   bool
@@ -72,6 +74,9 @@ func (g *groupBuilder) admits(q *questionBuilder) bool {
 	}
 	if g.label != "" {
 		return q.label.sub > 0 && q.label.parent() == g.label
+	}
+	if g.heading && q.label.sub == 0 && q.label.number >= g.first && q.label.number <= g.last {
+		return true
 	}
 	return q.label.sub == 0 && q.instruction == nil
 }
@@ -238,32 +243,48 @@ func (e *exam) sectionLine(l *line) bool {
 // rangeLine opens a group under a question-range heading ("Questions 1-4"). The heading, and the instruction lines
 // that follow it before the first question, are the group's instruction, so they reach every question it holds.
 func (e *exam) rangeLine(l *line) bool {
-	if !rangeHeading(l.String()) {
+	first, last, ok := headingRange(l.String())
+	if !ok {
 		return false
 	}
 	e.closeQuestion()
 	e.closeGroup()
 	e.ensureSection()
 	whole := segment{l, 0, len(l.text)}
-	e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, heading: true, accepting: true, source: whole.refs()}
+	e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, heading: true, first: first, last: last, accepting: true, source: whole.refs()}
 	e.section.items = append(e.section.items, item{group: e.group})
 	l.consumeAll()
 	return true
 }
 
 // extendsHeading reports whether text belongs to the instruction under the open group's range heading: the group
-// has neither questions nor stimulus yet, and text is an instruction, a line of the IELTS answer legend, or the
-// rest of an instruction line that did not end its sentence.
+// has neither questions nor stimulus yet, and text is an instruction or a line of the IELTS answer legend. Any other
+// paragraph, a passage among them, ends the instruction, whatever punctuation the line before it lacks.
 func (e *exam) extendsHeading(text string) bool {
 	g := e.group
 	if g == nil || !g.heading || !g.accepting || len(g.questions) > 0 || len(g.stimulus) > 0 {
 		return false
 	}
-	if isInstruction(text) || headingLegend.MatchString(text) {
-		return true
+	return isInstruction(text) || headingLegend.MatchString(text)
+}
+
+// bareHeading reports whether the open group is a range heading with nothing under it yet.
+func (e *exam) bareHeading() bool {
+	g := e.group
+	return g != nil && g.heading && len(g.instruction) == 1 && len(g.questions) == 0 && len(g.stimulus) == 0
+}
+
+// takeBareHeading removes the open bare heading's group, and the inferred part it alone made, and returns the
+// heading's segments.
+func (e *exam) takeBareHeading() []segment {
+	g, s := e.group, e.section
+	e.group = nil
+	s.items = slices.DeleteFunc(s.items, func(it item) bool { return it.group == g })
+	if s.origin == domain.InferredStructure && len(s.items) == 0 {
+		e.sections = slices.DeleteFunc(e.sections, func(other *sectionBuilder) bool { return other == s })
+		e.section = nil
 	}
-	last := strings.TrimSpace(g.instruction[len(g.instruction)-1].text())
-	return len(g.instruction) > 1 && !strings.ContainsRune(".?!:;", []rune(last)[len([]rune(last))-1])
+	return g.instruction
 }
 
 func (e *exam) romanInSequence(value int, rest []rune) bool {
@@ -283,9 +304,18 @@ func (e *exam) headingRest(l *line, end int) bool {
 
 func (e *exam) openSection(l *line, ordinal int) {
 	e.closeQuestion()
+	var heading []segment
+	if e.bareHeading() {
+		// A range heading straight above a section heading names that section's questions: it joins the section's
+		// source rather than leaving an empty part or unassigned text behind.
+		heading = e.takeBareHeading()
+	}
 	e.closeGroup()
 	text := strings.TrimSpace(l.String())
 	s := &sectionBuilder{id: identity(e.source, l.pieces[0].block.ID, "section"), ordinal: ordinal, tasks: tasksOf(text), origin: domain.SourceExplicit, source: l.refs(0, len(l.text))}
+	for _, h := range heading {
+		s.source = append(h.refs(), s.source...)
+	}
 	s.title, s.instructions = sectionTitle(text)
 	e.sections = append(e.sections, s)
 	e.section = s

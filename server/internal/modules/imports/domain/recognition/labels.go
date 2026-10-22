@@ -24,16 +24,21 @@ var (
 	rangeScore    = regexp.MustCompile(`^\s*(?i:points?|marks?|điểm|diem)\b`)
 )
 
-// rangeHeading reports whether text opens with a question-range heading: the second number follows the first, and
-// the range is not a score ("Question 1 - 2 points").
-func rangeHeading(text string) bool {
+// headingRange reads the questions a question-range heading names: the second number follows the first, and the
+// range is not a score ("Question 1 - 2 points").
+func headingRange(text string) (first, last int, ok bool) {
 	m := questionRange.FindStringSubmatchIndex(text)
 	if m == nil {
-		return false
+		return 0, 0, false
 	}
-	first, _ := strconv.Atoi(text[m[2]:m[3]])
-	last, _ := strconv.Atoi(text[m[4]:m[5]])
-	return last > first && !rangeScore.MatchString(text[m[1]:])
+	first, _ = strconv.Atoi(text[m[2]:m[3]])
+	last, _ = strconv.Atoi(text[m[4]:m[5]])
+	return first, last, last > first && !rangeScore.MatchString(text[m[1]:])
+}
+
+func rangeHeading(text string) bool {
+	_, _, ok := headingRange(text)
+	return ok
 }
 
 type label struct {

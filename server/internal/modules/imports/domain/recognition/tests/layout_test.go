@@ -3,6 +3,7 @@ package recognition_test
 import (
 	"quizzivy/internal/modules/imports/domain"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -184,5 +185,60 @@ func TestAQuestionNamingAScoreIsNotAHeading(t *testing.T) {
 	d := recognize(t, exam(lines("TEST", "Question 1 - 2 points", "Which is red?", "A. sky\tB. apple")), key(lines("1. B")))
 	if q := question(t, d, "1"); len(q.Options) != 2 {
 		t.Fatalf("question 1 stays a question: %+v", q)
+	}
+}
+
+// QC-R6LAY-1: an instruction under a heading that lacks its full stop still ends at the paragraph; the passage after
+// it stays the group's stimulus.
+func TestAPassageAfterAnUnpunctuatedHeadingInstructionStaysTheStimulus(t *testing.T) {
+	passage := "The museum opened in 1990 after a long campaign by local residents, who raised money for more than a decade."
+	for name, doc := range map[string]domain.EvidenceDocument{
+		"file": exam(lines("READING TEST", "Questions 1-2", "Answer the questions below", "Write NO MORE THAN TWO WORDS for each answer", passage, "1. When did it open?", "2. Who raised money?")),
+		"text": textExam("READING TEST", "", "Questions 1-2", "Write TRUE, FALSE or NOT GIVEN", passage, "1. The museum opened in 1990.", "Answer: TRUE", "2. Entry is free.", "Answer: NOT GIVEN"),
+	} {
+		t.Run(name, func(t *testing.T) {
+			d := recognize(t, doc)
+			g := d.Sections[0].Items[0].Group
+			if g == nil || g.Stimulus == nil || !strings.Contains(text(t, g.Stimulus), "The museum opened in 1990") {
+				t.Fatalf("the passage is the stimulus: %+v", d.Sections)
+			}
+			if strings.Contains(d.Sections[0].Title+d.Sections[0].Instructions, "museum") {
+				t.Fatalf("the passage is not part of the instruction: %q / %q", d.Sections[0].Title, d.Sections[0].Instructions)
+			}
+		})
+	}
+	d := recognize(t, exam(lines("READING TEST", "Questions 1-2", "Answer the questions below", "Write NO MORE THAN TWO WORDS for each answer", passage, "1. When did it open?", "2. Who raised money?")), key(lines("1. in 1990\t2. residents")))
+	if q := question(t, d, "1"); q.MaxWords == nil || *q.MaxWords != 2 {
+		t.Fatalf("the instruction still reaches the questions: %+v", q)
+	}
+}
+
+// QC-R6LAY-2: questions whose stem opens with an imperative ("Pick one") still belong to the heading that names them.
+func TestAHeadingKeepsTheQuestionsItNames(t *testing.T) {
+	d := recognize(t, exam(lines("Questions 1-2", "1. Pick one", "A. a\tB. b\tC. c", "2. Pick one", "A. a\tB. b\tC. c")), key(lines("1. A\t2. B")))
+	if got := notices(d, domain.CodeUnassignedText); len(got) != 0 {
+		t.Fatalf("the heading is assigned: %+v", got)
+	}
+	if g := d.Sections[0].Items[0].Group; g == nil || len(g.Questions) != 2 {
+		t.Fatalf("both questions sit under the heading: %+v", d.Sections[0].Items)
+	}
+}
+
+// QC-R6LAY-3: a heading straight above a section heading leaves no empty part.
+func TestAHeadingAboveASectionHeadingJoinsTheSection(t *testing.T) {
+	d := recognize(t, exam(withStatements(p(plain("ENGLISH TEST")), p(plain("Questions 1-4")), p(plain("I. Write TRUE, FALSE or NOT GIVEN.")))), key(lines("1. T\t2. F\t3. NG\t4. T")))
+	if len(d.Sections) != 1 || d.Sections[0].Title != "I. Write TRUE, FALSE or NOT GIVEN." || len(d.Sections[0].Items) != 4 {
+		t.Fatalf("one section: %+v", d.Sections)
+	}
+	if got := notices(d, domain.CodeUnassignedText); len(got) != 0 {
+		t.Fatalf("the heading is assigned: %+v", got)
+	}
+}
+
+// QC-R6LAY-4: an upper-case passage title after a soft break is not the rest of the instruction.
+func TestAnUpperCaseTitleAfterASoftBreakIsNotPartOfTheInstruction(t *testing.T) {
+	d := recognize(t, exam(lines("I. Read the passage and answer the questions\nTHE HISTORY OF TEA", "Tea came to Europe in the 1600s.", "1. When did tea come to Europe?")), key(lines("I.\t1. 1600s")))
+	if d.Sections[0].Title != "I. Read the passage and answer the questions" {
+		t.Fatalf("title: %q", d.Sections[0].Title)
 	}
 }

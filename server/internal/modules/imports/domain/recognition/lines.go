@@ -2,6 +2,7 @@ package recognition
 
 import (
 	"quizzivy/internal/modules/imports/domain"
+	"regexp"
 	"slices"
 	"sort"
 	"strings"
@@ -178,7 +179,7 @@ func paragraphLines(source string, b *domain.EvidenceBlock) []*line {
 // its sentence and the tail opens nothing of its own (a question, an option, a section or a key).
 func continuesInstruction(l *line, tail []rune) bool {
 	text := strings.TrimSpace(l.String())
-	if text == "" || strings.ContainsRune(".?!:;", []rune(text)[len([]rune(text))-1]) || opensStructure(tail) {
+	if text == "" || strings.ContainsRune(".?!:;", []rune(text)[len([]rune(text))-1]) || opensStructure(tail) || capsTitle(tail) {
 		return false
 	}
 	if _, end, ok := roman(l.text); ok && visible(l.text[end:]) {
@@ -186,6 +187,15 @@ func continuesInstruction(l *line, tail []rune) bool {
 	}
 	return namedSection.MatchString(text) || rangeHeading(text) || isInstruction(text)
 }
+
+// capsTitle reports whether text is an upper-case title of two words or more that names nothing an instruction
+// counts or lists ("THE HISTORY OF TEA", not "NOT GIVEN." or "TWO WORDS"): a passage title, not the rest of the line.
+func capsTitle(text []rune) bool {
+	plain := strings.TrimSpace(matchable(text))
+	return len(strings.Fields(plain)) >= 2 && strings.ToUpper(plain) == plain && plain != strings.ToLower(plain) && !instructionWord.MatchString(plain)
+}
+
+var instructionWord = regexp.MustCompile(`(?i)\b(?:true|false|not given|yes|no|words?|letters?|answers?|numbers?|one|two|three|four|five|six|seven|eight|nine|ten|\d+)\b`)
 
 func opensStructure(text []rune) bool {
 	plain := strings.TrimSpace(matchable(text))
