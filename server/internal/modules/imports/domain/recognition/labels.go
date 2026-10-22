@@ -19,7 +19,22 @@ var (
 	keyHeading   = regexp.MustCompile(`^\s*(?i:đáp\s*án|dap\s*an|answer\s*keys?|answers|keys?)\s*[:.]?\s*$`)
 	inlineKey    = regexp.MustCompile(`(?i)(?:^|\s)(?:answer|đáp\s*án|key)\s*:\s*(\S.*?)\s*$`)
 	answerOnly   = regexp.MustCompile(`^\s*(?i:answer|đáp\s*án|key)\s*:\s*\S`)
+	// questionRange is a heading that names the questions an instruction covers, as "Questions 1-4" or "Câu 5 đến 8".
+	questionRange = regexp.MustCompile(`^\s*(?i:questions?|câu|cau)\s+(\d{1,3})\s*(?:[-–—]|(?i:to|and|đến|den)\s)\s*(\d{1,3})\b`)
+	rangeScore    = regexp.MustCompile(`^\s*(?i:points?|marks?|điểm|diem)\b`)
 )
+
+// rangeHeading reports whether text opens with a question-range heading: the second number follows the first, and
+// the range is not a score ("Question 1 - 2 points").
+func rangeHeading(text string) bool {
+	m := questionRange.FindStringSubmatchIndex(text)
+	if m == nil {
+		return false
+	}
+	first, _ := strconv.Atoi(text[m[2]:m[3]])
+	last, _ := strconv.Atoi(text[m[4]:m[5]])
+	return last > first && !rangeScore.MatchString(text[m[1]:])
+}
 
 type label struct {
 	text        string

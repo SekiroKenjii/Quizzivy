@@ -1,0 +1,188 @@
+package recognition_test
+
+import (
+	"quizzivy/internal/modules/imports/domain"
+	"slices"
+	"testing"
+)
+
+// The fixtures below are written for these tests; no real paper is copied into the repo.
+
+var statements = []string{"1. The museum opens every day.", "2. Tickets are free for children.", "3. The café closes at six.", "4. Guides speak French."}
+
+func withStatements(head ...block) []block { return append(head, lines(statements...)...) }
+
+func TestASoftLineBreakInsideAnInstructionKeepsItWhole(t *testing.T) {
+	for _, instruction := range []string{
+		"I. Write TRUE,\nFALSE or\nNOT GIVEN.",
+		"I. Ghi Đúng, Sai hoặc\nKhông có thông tin.",
+		"I. Do the following statements agree with the passage? Write\nTRUE, FALSE or\nNOT GIVEN.",
+	} {
+		t.Run(instruction, func(t *testing.T) {
+			d := recognize(t, exam(withStatements(p(plain(instruction)))), key(lines("1. T\t2. F\t3. T\t4. F")))
+			if len(d.Sections) != 1 || len(d.Sections[0].Items) != 4 || d.Sections[0].Items[0].Group != nil {
+				t.Fatalf("the tail of the instruction is not a passage: %+v", d.Sections)
+			}
+			for _, label := range []string{"1", "2", "3", "4"} {
+				if q := question(t, d, label); q.Type != "tfng" {
+					t.Fatalf("question %s: %+v", label, q)
+				}
+			}
+			if got := notices(d, domain.CodeUnassignedText); len(got) != 0 {
+				t.Fatalf("nothing is left over: %+v", got)
+			}
+		})
+	}
+}
+
+func TestASoftLineBreakInsideChooseNOrAWordLimitStillReadsTheCount(t *testing.T) {
+	d := recognize(t, exam(
+		[]block{p(plain("I. Choose\nTWO\nletters, A-E."))},
+		lines("1. Which two activities does the club offer?", "A. hiking\tB. painting\tC. chess\tD. cooking\tE. rowing"),
+		[]block{p(plain("II. Answer the questions. Write NO MORE THAN\nTWO WORDS for each answer."))},
+		lines("2. Where does Anna work?"),
+	), key(lines("1. B, D\t2. in a shop")))
+	if q := question(t, d, "1"); q.SelectCount == nil || *q.SelectCount != 2 {
+		t.Fatalf("Choose TWO across breaks: %+v", q)
+	}
+	if q := question(t, d, "2"); q.Type != "short_answer" || q.MaxWords == nil || *q.MaxWords != 2 {
+		t.Fatalf("word limit across a break: %+v", q)
+	}
+	if d.Sections[1].Title != "II. Answer the questions. Write NO MORE THAN TWO WORDS for each answer." {
+		t.Fatalf("the title is the whole instruction: %q", d.Sections[1].Title)
+	}
+}
+
+func TestASoftLineBreakBeforeAQuestionOrOptionStillSplits(t *testing.T) {
+	d := recognize(t, exam(
+		lines("I. Choose the best answer"),
+		[]block{p(plain("1. Which is red?\nA. sky\tB. apple"))},
+		[]block{p(plain("Choose the word\n2. Which is blue?\nA. sky\tB. apple"))},
+	), key(lines("1. B\t2. A")))
+	for label, want := range map[string]string{"1": "B", "2": "A"} {
+		q := question(t, d, label)
+		if len(q.Options) != 2 || !slices.Equal(answerLabels(q), []string{want}) {
+			t.Fatalf("question %s keeps its own line and options: %+v", label, q)
+		}
+	}
+}
+
+func TestAnInstructionUnderAQuestionsHeadingReachesItsQuestions(t *testing.T) {
+	t.Run("Choose N", func(t *testing.T) {
+		d := recognize(t, exam(lines("Questions 1-2", "Choose TWO letters, A-E.", "1. Which two activities does the club offer?", "A. hiking\tB. painting\tC. chess\tD. cooking\tE. rowing")), key(lines("1. B, D")))
+		if q := question(t, d, "1"); q.SelectCount == nil || *q.SelectCount != 2 {
+			t.Fatalf("selectCount from the instruction under the heading: %+v", q)
+		}
+		if d.Title != "" || d.Sections[0].Title != "Questions 1-2 Choose TWO letters, A-E." {
+			t.Fatalf("the heading is not the paper's title: %q / %q", d.Title, d.Sections[0].Title)
+		}
+	})
+	t.Run("IELTS three lines", func(t *testing.T) {
+		d := recognize(t, exam(lines("Questions 1-2", "Answer the questions below.", "Write NO MORE THAN THREE WORDS AND/OR A NUMBER for each answer.", "1. Where does the guide live?", "2. Who made the rule?")), key(lines("1. in Hue\t2. the editor")))
+		for _, label := range []string{"1", "2"} {
+			if q := question(t, d, label); q.MaxWords == nil || *q.MaxWords != 3 {
+				t.Fatalf("question %s: %+v", label, q)
+			}
+		}
+		if got := notices(d, domain.CodeUnassignedText); len(got) != 0 {
+			t.Fatalf("every instruction line is assigned: %+v", got)
+		}
+	})
+	t.Run("one line", func(t *testing.T) {
+		d := recognize(t, exam(lines(append([]string{"Questions 1-4: Write TRUE, FALSE or NOT GIVEN."}, statements...)...)))
+		for _, label := range []string{"1", "2", "3", "4"} {
+			if q := question(t, d, label); q.Type != "tfng" {
+				t.Fatalf("question %s: %+v", label, q)
+			}
+		}
+	})
+	t.Run("PART heading", func(t *testing.T) {
+		d := recognize(t, exam(lines(append([]string{"PART 1", "Write TRUE, FALSE or NOT GIVEN."}, statements...)...)), key(lines("1. T\t2. F\t3. T\t4. F")))
+		for _, label := range []string{"1", "2", "3", "4"} {
+			if q := question(t, d, label); q.Type != "tfng" {
+				t.Fatalf("question %s: %+v", label, q)
+			}
+		}
+	})
+	t.Run("Vietnamese range", func(t *testing.T) {
+		d := recognize(t, exam(lines("ĐỀ KIỂM TRA", "Câu 1-2: Chọn HAI đáp án đúng. Choose TWO answers.", "Câu 1. Which two are fruit?", "A. apple\tB. sky\tC. pear", "Câu 2. Which two are blue?", "A. sky\tB. sea\tC. pear")), key(lines("1. A, C\t2. A, B")))
+		for _, label := range []string{"1", "2"} {
+			if q := question(t, d, label); q.SelectCount == nil || *q.SelectCount != 2 {
+				t.Fatalf("question %s: %+v", label, q)
+			}
+		}
+	})
+}
+
+func TestTheIELTSAnswerLegendUnderAHeadingIsTheInstruction(t *testing.T) {
+	d := recognize(t, exam(lines(append([]string{
+		"READING TEST",
+		"Questions 1-4",
+		"Do the following statements agree with the information given in the passage?",
+		"In boxes 1-4 on your answer sheet, write",
+		"TRUE if the statement agrees with the information",
+		"FALSE if the statement contradicts the information",
+		"NOT GIVEN if there is no information on this",
+	}, statements...)...)), key(lines("1. TRUE\t2. NOT GIVEN\t3. TRUE\t4. NG")))
+	for label, want := range map[string]string{"1": "T", "2": "NG", "3": "T", "4": "NG"} {
+		if q := question(t, d, label); q.Type != "tfng" || !slices.Equal(answerLabels(q), []string{want}) {
+			t.Fatalf("question %s: %+v", label, q)
+		}
+	}
+}
+
+// QC-R6IMP-11: a section keyed only T and NG is tfng once its instruction is read, not true_false mixed with
+// short answers.
+func TestAHeadingLayoutKeyedOnlyTrueAndNotGivenIsTFNG(t *testing.T) {
+	d := recognize(t, exam(lines(append([]string{"Questions 1-4", "Do the statements agree with the passage?", "Write TRUE, FALSE or NOT GIVEN."}, statements...)...)), key(lines("1. TRUE\t2. NOT GIVEN\t3. TRUE\t4. NG")))
+	for label, want := range map[string]string{"1": "T", "2": "NG", "3": "T", "4": "NG"} {
+		if q := question(t, d, label); q.Type != "tfng" || !slices.Equal(answerLabels(q), []string{want}) {
+			t.Fatalf("question %s: %+v", label, q)
+		}
+	}
+}
+
+func TestEachQuestionsHeadingStartsItsOwnPart(t *testing.T) {
+	d := recognize(t, exam(lines(append(append([]string{"READING TEST", "Questions 1-4", "Write TRUE, FALSE or NOT GIVEN."}, statements...),
+		"Questions 5-6",
+		"Choose TWO letters, A-E.",
+		"5. Which two rooms are new?",
+		"A. hall\tB. shop\tC. café\tD. library\tE. garden",
+		"Questions 7-8",
+		"Answer the questions below. Write NO MORE THAN TWO WORDS for each answer.",
+		"7. Who built it?",
+		"8. When does it close?",
+	)...)), key(lines("1. T\t2. F\t3. NG\t4. T\t5. B, D\t7. the king\t8. at six")))
+	if len(d.Sections) != 3 {
+		t.Fatalf("one part for each heading: %+v", d.Sections)
+	}
+	if q := question(t, d, "4"); q.Type != "tfng" || text(t, q.Prompt) != "Guides speak French." {
+		t.Fatalf("the next heading is not part of question 4: %+v %s", q, text(t, q.Prompt))
+	}
+	if q := question(t, d, "5"); q.SelectCount == nil || *q.SelectCount != 2 {
+		t.Fatalf("question 5: %+v", q)
+	}
+	for _, label := range []string{"7", "8"} {
+		if q := question(t, d, label); q.MaxWords == nil || *q.MaxWords != 2 {
+			t.Fatalf("question %s: %+v", label, q)
+		}
+	}
+}
+
+func TestAHeadingInsideARomanSectionKeepsTheSection(t *testing.T) {
+	d := recognize(t, exam(lines(append(append([]string{"ENGLISH TEST", "I. Reading", "Questions 1-4", "Write TRUE, FALSE or NOT GIVEN."}, statements...), "II. Writing", "5. Write about your town.")...)), key(lines("1. T\t2. F\t3. NG\t4. T")))
+	if len(d.Sections) != 2 || d.Sections[0].Title != "I. Reading" {
+		t.Fatalf("the roman sections stand: %+v", d.Sections)
+	}
+	g := d.Sections[0].Items[0].Group
+	if g == nil || g.Instructions != "Questions 1-4 Write TRUE, FALSE or NOT GIVEN." || len(g.Questions) != 4 || g.Questions[0].Type != "tfng" {
+		t.Fatalf("the heading's group carries the instruction: %+v", g)
+	}
+}
+
+func TestAQuestionNamingAScoreIsNotAHeading(t *testing.T) {
+	d := recognize(t, exam(lines("TEST", "Question 1 - 2 points", "Which is red?", "A. sky\tB. apple")), key(lines("1. B")))
+	if q := question(t, d, "1"); len(q.Options) != 2 {
+		t.Fatalf("question 1 stays a question: %+v", q)
+	}
+}
