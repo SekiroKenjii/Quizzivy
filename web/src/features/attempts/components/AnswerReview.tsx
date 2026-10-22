@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 import type { AdminQuestion, ReviewAnswer } from "../api";
 import { OPTION, optionKey } from "./answerStyles";
 import { EssayMarksReview, MatchingReview, OverLimit } from "./AnswerReviewTypes";
-import { tfngLabel } from "../tfng";
+import { tfngLabelKey } from "@/components/shared/content/trueFalse";
 import type { TFunction } from "i18next";
 
 type ReviewQuestion = Pick<
@@ -192,8 +192,8 @@ function Body({
               >
                 <span className={OPTION.key}>{optionKey(index)}</span>
                 <span className="text-sm">
-                  {question.type === "tfng" && tfngLabel(index) !== null ? (
-                    t(tfngLabel(index)!)
+                  {question.type === "tfng" && tfngLabelKey(index) !== null ? (
+                    t(tfngLabelKey(index)!)
                   ) : (
                     <OptionText
                       text={option.text}
