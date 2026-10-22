@@ -38,7 +38,8 @@ func TestQuestionProseValidationAppliesToDirectInputs(t *testing.T) {
 // TestMediaInProseIsRefusedUntilTheBankStoresIt pins D-064's ruling 7: the
 // contract describes DG-109's image and audio blocks, and every bank write
 // refuses them with a field error naming the field, valid as they are, until
-// R6-13 validates ownership, the question's audio and the freeze.
+// R6-13 validates ownership, the question's audio and the freeze. T-R6.3 owns
+// the message.
 func TestMediaInProseIsRefusedUntilTheBankStoresIt(t *testing.T) {
 	text := "Look."
 	image := json.RawMessage(`{"format":"semantic_v1","blocks":[{"type":"paragraph","content":[{"type":"text","text":"Look.","marks":[]}]},{"type":"image","assetId":"01935000-0000-7000-8000-00000000000a","alt":""}]}`)
@@ -51,7 +52,7 @@ func TestMediaInProseIsRefusedUntilTheBankStoresIt(t *testing.T) {
 	} {
 		var invalid *domain.ValidationError
 		err := in.ValidateContent()
-		if !errors.As(err, &invalid) || len(invalid.Fields) != 1 || invalid.Fields[0].Field != strings.TrimSpace(name) || !strings.Contains(invalid.Fields[0].Message, "hình ảnh hoặc âm thanh") {
+		if !errors.As(err, &invalid) || len(invalid.Fields) != 1 || invalid.Fields[0].Field != strings.TrimSpace(name) {
 			t.Errorf("%s: %v", name, err)
 		}
 	}

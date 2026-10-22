@@ -90,7 +90,8 @@ func TestQuestionMediaContractCases(t *testing.T) {
 
 // TestTodaysQuestionParsersStillRefuseEveryMediaBlock pins the rule that holds
 // until R6-13: the parsers the bank, publish and the projections use today
-// accept no media node of DG-109's shapes, so the bank write answers 422.
+// accept no media node of DG-109's shapes, so the bank write refuses the
+// field (400 VALIDATION_FAILED with the field named).
 func TestTodaysQuestionParsersStillRefuseEveryMediaBlock(t *testing.T) {
 	for _, tc := range mediaFixtures(t) {
 		if !tc.Valid {
