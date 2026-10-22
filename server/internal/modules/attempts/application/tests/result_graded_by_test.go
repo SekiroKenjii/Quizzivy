@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/modules/attempts/repositories"
 	"quizzivy/internal/platform/db"
+	"quizzivy/internal/shared/retention"
 	"testing"
 )
 
@@ -248,9 +249,9 @@ func TestAPaperNobodyGradedByHandNamesNobody(t *testing.T) {
 	}
 }
 
-func TestAnAnswerWhoseQuestionWasRemovedDoesNotKeepTheGraderOut(t *testing.T) {
+func TestAnAnswerRetentionRemovedDoesNotKeepTheGraderOut(t *testing.T) {
 	p, score := essayResult(t)
-	if _, err := newPool(t).Exec(context.Background(), `UPDATE app.attempt_answers SET payload = '{"removed": true}' WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
+	if _, err := newPool(t).Exec(context.Background(), `UPDATE app.attempt_answers SET payload = '`+retention.RemovedAnswer+`'::jsonb WHERE attempt_id = $1::uuid AND question_id = $2::uuid`,
 		p.attempt, p.rubric); err != nil {
 		t.Fatal(err)
 	}

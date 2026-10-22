@@ -131,15 +131,15 @@ func (s *Postgres) markedQuestions(ctx context.Context, a domain.AttemptRecord, 
 // those still waits, one account graded them all, and it has not been
 // anonymised. It is nil otherwise; an override of an auto mark grades no
 // paper. An answer still waiting has no grader yet, so it alone keeps the
-// name out. One whose question was removed waits for nobody and counts for
-// nothing.
+// name out. An answer retention removed waits for nobody and counts for
+// nothing, as in the answered rule.
 func (s *Postgres) graderName(ctx context.Context, attemptID string) (*string, error) {
 	var name *string
 	if err := s.QueryRow(ctx, `
 		WITH manual AS (
 		  SELECT graded_by FROM app.attempt_answers
 		   WHERE attempt_id = $1::uuid AND requires_manual
-		     AND NOT (payload @> '{"removed": true}' AND NOT payload ? 'type')
+		     AND payload <> '`+retention.RemovedAnswer+`'::jsonb
 		), one AS (
 		  SELECT min(graded_by::text)::uuid AS id FROM manual
 		  HAVING count(*) > 0 AND count(graded_by) = count(*) AND count(DISTINCT graded_by) = 1
