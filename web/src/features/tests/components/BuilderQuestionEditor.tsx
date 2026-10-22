@@ -165,8 +165,8 @@ function TypeMenu({
 }: Readonly<{ value: QuestionValues; onChange: (value: QuestionValues) => void }>) {
   const { t } = useTranslation();
   const locked = typeLocked(value);
-  const Current = QUESTION_TYPE_ICONS[value.type];
-  const typeName = t(`questionEditor.type.${value.type}`);
+  const Current = QUESTION_TYPE_ICONS[editorType(value.type)];
+  const typeName = t(`questionEditor.type.${editorType(value.type)}`);
   function choose(type: QuestionType) {
     if (type === editorType(value.type)) return;
     onChange(retype(value, type));

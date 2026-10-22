@@ -17,9 +17,9 @@ const KNOWN = new Set<string>(QUESTION_TYPES);
 /**
  * QuestionTypeControl is the Question editor's segmented choice of the seven
  * types it offers (T-R6.9a); a tfng question shows as True / False, whose
- * switch makes it one. From 768px it keeps one row and scrolls sideways when the card is
- * narrower, as the deck's does; below 768px its options wrap, onto two rows
- * at 360px, and stretch to the row. While gaps bind answers
+ * switch makes it one. Its options wrap when the card is narrower than the
+ * seven, so every type stays in view (QC-R6AC-2); below 768px they also
+ * stretch to the row. While gaps bind answers
  * only "Fill in the blank" stays available, and the line under the control
  * says why. Choosing a type keeps the prompt and the points (`retype`).
  */
@@ -41,8 +41,7 @@ export function QuestionTypeControl({
         label={t("questionEditor.typeLabel")}
         value={shown}
         onChange={choose}
-        scroll
-        className="self-start max-[767px]:flex max-[767px]:w-full max-[767px]:flex-wrap max-[767px]:[&>button]:flex-auto max-[767px]:[&>button]:justify-center max-[767px]:[&>button]:px-2.5"
+        className="flex max-w-full flex-wrap self-start max-[767px]:w-full max-[767px]:[&>button]:flex-auto max-[767px]:[&>button]:justify-center max-[767px]:[&>button]:px-2.5"
         options={QUESTION_TYPES.map((type) => {
           const blocked = locked && type !== "fill_blank" && type !== shown;
           return {

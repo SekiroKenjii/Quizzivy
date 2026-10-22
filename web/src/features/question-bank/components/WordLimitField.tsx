@@ -40,9 +40,7 @@ export function WordLimitField({
         aria-invalid={invalid}
         className="h-8 w-28 rounded-[7px] px-2.5"
         onChange={(event) =>
-          onChange(
-            event.target.value === "" ? null : Number.parseInt(event.target.value, 10),
-          )
+          onChange(event.target.value.trim() === "" ? null : Number(event.target.value))
         }
       />
       {invalid ? (

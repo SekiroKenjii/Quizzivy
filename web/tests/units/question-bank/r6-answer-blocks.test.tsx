@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { describe, expect, it } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Toaster } from "@/components/ui/sonner";
 import { AnswerArea } from "@/features/question-bank/components/AnswerArea";
@@ -9,6 +9,7 @@ import {
   emptyQuestion,
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
+import { retype } from "@/features/question-bank/questionType";
 
 type Option = QuestionValues["options"][number];
 
@@ -97,7 +98,9 @@ describe("“Students choose exactly N” on a multiple choice", () => {
   it("is off by default, starts at two and asks for exactly N ticks", async () => {
     const { user, last } = renderArea({ type: "multiple_choice", options: four });
     expect(screen.queryByRole("spinbutton")).toBeNull();
-    await user.click(screen.getByRole("switch", { name: "Học viên chọn đúng" }));
+    await user.click(
+      screen.getByRole("switch", { name: "Học viên chọn đúng số đáp án" }),
+    );
     expect(last().selectCount).toBe(2);
     expect(
       screen.getByRole("group", { name: /đánh dấu 2 đáp án đúng/ }),
@@ -105,22 +108,33 @@ describe("“Students choose exactly N” on a multiple choice", () => {
     expect(screen.getByText(/Mỗi lựa chọn đúng được phần điểm của mình/)).toBeVisible();
 
     const count = screen.getByRole("spinbutton", { name: "Số đáp án học viên chọn" });
+    expect(count).toHaveAttribute("max", "3");
+    await user.clear(count);
+    // QC-R6AB-2: an empty box falls back to the plain hint, never "NaN".
+    expect(
+      screen.getByRole("group", { name: /đánh dấu mọi đáp án đúng/ }),
+    ).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("NaN");
+    await user.type(count, "2.5");
+    expect(screen.getByRole("alert")).toBeInTheDocument();
     await user.clear(count);
     await user.type(count, "3");
     expect(last().selectCount).toBe(3);
     expect(
-      screen.getByText("Đánh dấu đúng 3 đáp án đúng, bằng số đáp án học viên chọn."),
+      screen.getByText("Đánh dấu đủ 3 đáp án đúng, bằng số đáp án học viên chọn."),
     ).toBeVisible();
     expect(blockingIssue(last(), "x")).toBe("questionEditor.errors.selectCountTicks");
 
     await user.clear(count);
     await user.type(count, "4");
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Học viên chọn từ 2 đến 7 đáp án, và ít hơn số phương án.",
+      "Học viên chọn từ 2 đến 7 đáp án, và ít hơn số đáp án đã cho.",
     );
     expect(blockingIssue(last(), "x")).not.toBeNull();
 
-    await user.click(screen.getByRole("switch", { name: "Học viên chọn đúng" }));
+    await user.click(
+      screen.getByRole("switch", { name: "Học viên chọn đúng số đáp án" }),
+    );
     expect(last().selectCount).toBeNull();
     expect(blockingIssue(last(), "x")).toBeNull();
   });
@@ -142,5 +156,203 @@ describe("a short answer's word limit", () => {
     expect(blockingIssue(last(), "x")).toBeNull();
     await user.clear(limit);
     expect(last().maxWords).toBeNull();
+    // QC-R6AB-5: a fraction is refused, not cut down to 1.
+    await user.type(limit, "1.5");
+    expect(last().maxWords).toBe(1.5);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(blockingIssue(last(), "x")).not.toBeNull();
+  });
+});
+
+describe("an essay", () => {
+  it("defaults to nine points from the starter's one and back, keeps points the teacher set and says it is graded on a band", () => {
+    const essay = retype({ ...emptyQuestion(), prompt: "Viết" }, "essay");
+    expect(essay).toMatchObject({ type: "essay", points: 9, rubric: [], options: [] });
+    expect(retype({ ...emptyQuestion(), points: 4 }, "essay").points).toBe(4);
+    expect(retype(essay, "matching").points).toBe(1);
+    expect(retype({ ...essay, points: 18 }, "short_answer").points).toBe(18);
+    renderArea(essay);
+    expect(screen.getByText("Bạn chấm theo band từ 3 đến 9.")).toBeVisible();
+    expect(screen.getByRole("textbox", { name: "Đáp án mẫu" })).toBeInTheDocument();
+  });
+
+  it("fills the IELTS Writing preset, reorders, renames and removes criteria, and stops at six", async () => {
+    const { user, last } = renderArea({
+      ...retype(emptyQuestion(), "essay"),
+      prompt: "Viết",
+    });
+    await user.click(
+      screen.getByRole("button", { name: "Dùng tiêu chí IELTS Writing" }),
+    );
+    expect(last().rubric!.map((criterion) => criterion.label)).toEqual([
+      "Hoàn thành yêu cầu đề bài",
+      "Mạch lạc và liên kết",
+      "Vốn từ vựng",
+      "Độ đa dạng và chính xác ngữ pháp",
+    ]);
+    expect(
+      screen.queryByRole("button", { name: "Dùng tiêu chí IELTS Writing" }),
+    ).toBeNull();
+    // QC-R6AC-6: paused at full strength, still in the Tab order, and a no-op.
+    const up = screen.getByRole("button", { name: "Đưa tiêu chí 1 lên" });
+    expect(up).toHaveAttribute("aria-disabled", "true");
+    expect(up).toBeEnabled();
+    await user.click(up);
+    expect(last().rubric![0]!.label).toBe("Hoàn thành yêu cầu đề bài");
+
+    await user.click(screen.getByRole("button", { name: "Đưa tiêu chí 1 xuống" }));
+    expect(last().rubric![0]!.label).toBe("Mạch lạc và liên kết");
+    await user.click(screen.getByRole("button", { name: "Xoá tiêu chí 4" }));
+    expect(last().rubric).toHaveLength(3);
+    // QC-R6AC-3: focus lands on "Add criterion", not the page.
+    expect(screen.getByRole("button", { name: "Thêm tiêu chí" })).toHaveFocus();
+
+    for (let i = 0; i < 3; i++)
+      await user.click(screen.getByRole("button", { name: "Thêm tiêu chí" }));
+    expect(last().rubric).toHaveLength(6);
+    await user.click(screen.getByRole("button", { name: "Thêm tiêu chí" }));
+    expect(await screen.findByText("Tối đa 6 tiêu chí")).toBeInTheDocument();
+    expect(last().rubric).toHaveLength(6);
+    expect(blockingIssue(last(), "x")).toBe("questionEditor.errors.criterionRequired");
+
+    await user.type(
+      screen.getByRole("textbox", { name: "Tiêu chí 4" }),
+      "vốn TỪ vựng ",
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent("Hai tiêu chí bị trùng tên.");
+  });
+
+  it("marks two criteria the same when one was typed decomposed (QC-R6A-2)", () => {
+    renderArea({
+      ...retype(emptyQuestion(), "essay"),
+      prompt: "Viết",
+      rubric: [
+        { id: null, label: "Ý tưởng".normalize("NFC") },
+        { id: null, label: "Ý tưởng".normalize("NFD") },
+      ],
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("Hai tiêu chí bị trùng tên.");
+    expect(screen.getByRole("textbox", { name: "Tiêu chí 2" })).toHaveAttribute(
+      "aria-invalid",
+      "true",
+    );
+  });
+});
+
+describe("matching", () => {
+  function matching(over: Partial<QuestionValues> = {}): QuestionValues {
+    return {
+      ...emptyQuestion(),
+      type: "matching",
+      prompt: "Nối",
+      options: [option("cat"), option("dog"), option("bird")],
+      matchAllowReuse: false,
+      matchItems: [
+        { id: null, text: "meow", correctOption: 0 },
+        { id: null, text: "woof", correctOption: 1 },
+      ],
+      ...over,
+    };
+  }
+
+  it("letters the items, numbers the options in roman, tags an unused option Extra and says how it is marked", () => {
+    renderArea(matching());
+    expect(screen.getByRole("textbox", { name: "Mục A" })).toHaveValue("meow");
+    expect(screen.getByRole("textbox", { name: "Mục B" })).toHaveValue("woof");
+    expect(screen.getByRole("textbox", { name: "Lựa chọn iii" })).toHaveValue("bird");
+    expect(screen.getAllByText("Thừa")).toHaveLength(1);
+    expect(screen.getByText("Thừa")).toHaveAttribute(
+      "title",
+      "Không nối với mục nào, nên dùng làm phương án gây nhiễu",
+    );
+    expect(
+      screen.getByText(/Chấm tự động khi học viên nộp bài. Mỗi mục được phần điểm/),
+    ).toBeVisible();
+  });
+
+  it("removing an option unsets the items that used it and renumbers the rest", async () => {
+    const { user, last } = renderArea(
+      matching({
+        matchItems: [
+          { id: null, text: "meow", correctOption: 0 },
+          { id: null, text: "tweet", correctOption: 2 },
+        ],
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Xoá lựa chọn i" }));
+    expect(last().options.map((entry) => entry.text)).toEqual(["dog", "bird"]);
+    expect(last().matchItems!.map((item) => item.correctOption)).toEqual([-1, 1]);
+    expect(
+      screen.getByRole("combobox", { name: "Lựa chọn đúng cho mục A" }),
+    ).toHaveAttribute("aria-invalid", "true");
+    expect(blockingIssue(last(), "x")).toBe("questionEditor.errors.matchItemUnset");
+    // QC-R6AC-1: the trigger shows the numeral only, as the deck does.
+    expect(
+      screen.getByRole("combobox", { name: "Lựa chọn đúng cho mục B" }),
+    ).toHaveTextContent(/^ii$/);
+    // QC-R6AC-3: focus lands on "Add option".
+    expect(screen.getByRole("button", { name: "Thêm lựa chọn" })).toHaveFocus();
+  });
+
+  it("keeps two items and two options, saying why, and returns an item to Choose…", async () => {
+    const { user, last } = renderArea(
+      matching({ options: [option("cat"), option("dog")] }),
+    );
+    const removeItem = screen.getByRole("button", { name: "Xoá mục A" });
+    expect(removeItem).toHaveAttribute("aria-disabled", "true");
+    await user.click(removeItem);
+    expect(await screen.findByText("Câu nối cần ít nhất 2 mục")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Xoá lựa chọn i" }));
+    expect(
+      await screen.findByText("Câu nối cần ít nhất 2 lựa chọn"),
+    ).toBeInTheDocument();
+    expect(last()?.options ?? [option("cat"), option("dog")]).toHaveLength(2);
+
+    await user.click(screen.getByRole("combobox", { name: "Lựa chọn đúng cho mục A" }));
+    await user.click(
+      within(await screen.findByRole("listbox")).getByRole("option", { name: "Chọn…" }),
+    );
+    expect(last().matchItems![0]!.correctOption).toBe(-1);
+  });
+
+  it("picks an item's option from the select and flags one option on two items unless reuse is on", async () => {
+    const { user, last } = renderArea(matching());
+    await user.click(screen.getByRole("combobox", { name: "Lựa chọn đúng cho mục B" }));
+    await user.click(
+      within(await screen.findByRole("listbox")).getByRole("option", {
+        name: /^i\s*cat$/,
+      }),
+    );
+    expect(last().matchItems![1]!.correctOption).toBe(0);
+    expect(screen.getByText(/Mỗi lựa chọn chỉ nối với một mục/)).toBeInTheDocument();
+    expect(blockingIssue(last(), "x")).toBe("questionEditor.errors.matchOptionTaken");
+
+    await user.click(
+      screen.getByRole("switch", { name: "Mỗi lựa chọn có thể dùng nhiều lần" }),
+    );
+    expect(last().matchAllowReuse).toBe(true);
+    expect(blockingIssue(last(), "x")).toBeNull();
+  });
+
+  it("toasts the bounds of 20 items and 12 options", async () => {
+    const options = Array.from({ length: 12 }, (_, i) => option(`o${i}`));
+    const { user, last } = renderArea(
+      matching({
+        options,
+        matchAllowReuse: true,
+        matchItems: Array.from({ length: 20 }, (_, i) => ({
+          id: null,
+          text: `i${i}`,
+          correctOption: i % 12,
+        })),
+      }),
+    );
+    await user.click(screen.getByRole("button", { name: "Thêm mục" }));
+    expect(await screen.findByText("Tối đa 20 mục")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Thêm lựa chọn" }));
+    expect(await screen.findByText("Tối đa 12 lựa chọn")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Lựa chọn xii" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Mục T" })).toBeInTheDocument();
+    expect(blockingIssue(last() ?? matching(), "x")).toBeNull();
   });
 });

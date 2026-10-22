@@ -69,7 +69,7 @@ export function OptionsEditor({
     options,
   });
   const ticked = options.filter((option) => option.isCorrect).length;
-  const choosing = multiple && selectCount !== null;
+  const choosing = multiple && selectCount !== null && Number.isInteger(selectCount);
   const sentence = multiple ? multipleSentence(problems, selectCount, ticked) : null;
   let hintText = t("questionEditor.optionsHint");
   if (choosing) hintText = t("questionEditor.optionsHintCount", { count: selectCount });
@@ -269,14 +269,14 @@ function SelectCountField({
             type="number"
             inputMode="numeric"
             min={MIN_SELECT_COUNT}
-            max={MAX_SELECT_COUNT}
+            max={Math.max(MIN_SELECT_COUNT, Math.min(MAX_SELECT_COUNT, options - 1))}
             step={1}
             value={Number.isNaN(count) ? "" : count}
             aria-label={t("questionEditor.chooseExactlyCount")}
             aria-invalid={outOfRange}
             aria-describedby={outOfRange ? error : undefined}
             className="h-8 w-16 rounded-[7px] px-2.5"
-            onChange={(event) => onChange(Number.parseInt(event.target.value, 10))}
+            onChange={(event) => onChange(wholeOrNaN(event.target.value))}
           />
         ) : null}
       </div>
@@ -380,6 +380,11 @@ function WithDistractors({
       </div>
     </>
   );
+}
+
+/** wholeOrNaN reads a number box as typed, so 2.5 shows the range error instead of becoming 2. */
+function wholeOrNaN(text: string): number {
+  return text.trim() === "" ? Number.NaN : Number(text);
 }
 
 function multipleSentence(

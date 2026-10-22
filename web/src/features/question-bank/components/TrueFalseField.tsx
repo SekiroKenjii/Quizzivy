@@ -99,7 +99,9 @@ export function TrueFalseField({
               >
                 <span className={cn("size-2 rounded-full", on && "bg-success")} />
               </span>
-              <span className="min-w-max flex-[1_1_auto]">{choice.label}</span>
+              <span className="min-w-0 flex-[1_1_auto] break-words">
+                {choice.label}
+              </span>
               {on ? (
                 <CircleCheck
                   aria-hidden="true"
