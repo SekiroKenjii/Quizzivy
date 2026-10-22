@@ -12,6 +12,7 @@ import {
   ChevronDown,
   ChevronRight,
   ChevronUp,
+  CircleAlert,
   Ellipsis,
   FileText,
   GripVertical,
@@ -36,6 +37,7 @@ import type { GroupBundle } from "@/features/question-groups/api";
 import { QUESTION_TYPE_ICONS } from "@/features/question-bank/components/questionTypeIcons";
 import { sharedContentLine, type SharedContentLine } from "../sharedContentLine";
 import { gapBoundMembers } from "../outlineUnits";
+import { draftUnkeyed } from "../publishProblem";
 
 const SHARED_ICONS = {
   passage: FileText,
@@ -438,6 +440,8 @@ function MemberRow({
     transition: null,
   });
   const Icon = QUESTION_TYPE_ICONS[input?.type ?? "single_choice"];
+  const problemId = useId();
+  const problem = input && draftUnkeyed(input) ? t("builder.noCorrectAnswer") : null;
   return (
     <div
       ref={setNodeRef}
@@ -477,6 +481,7 @@ function MemberRow({
       <button
         type="button"
         className="flex min-w-0 flex-1 items-center gap-1 text-left"
+        aria-describedby={problem ? problemId : undefined}
         onClick={onSelect}
       >
         <span className="text-muted-fg w-4.5 shrink-0 text-xs tabular-nums">
@@ -486,6 +491,11 @@ function MemberRow({
         <span className="min-w-0 flex-1 truncate px-1 py-0.75 leading-4">
           {input?.prompt || t("builder.untitledQuestion")}
         </span>
+        {problem ? (
+          <CircleAlert className="text-warning size-3.5 shrink-0" aria-hidden="true">
+            <title>{problem}</title>
+          </CircleAlert>
+        ) : null}
         {input ? (
           <span
             className={cn(
@@ -499,6 +509,11 @@ function MemberRow({
           </span>
         ) : null}
       </button>
+      {problem ? (
+        <span id={problemId} className="sr-only">
+          {problem}
+        </span>
+      ) : null}
       {onMove ? (
         <MemberActions
           number={number}

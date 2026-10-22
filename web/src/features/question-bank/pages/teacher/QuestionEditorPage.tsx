@@ -39,7 +39,7 @@ import {
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
 import { PageHead } from "@/layouts/shell/PageHead";
-import { ApiError } from "@/lib/api/errors";
+import { ApiError, fieldMessages } from "@/lib/api/errors";
 
 const BANK = "/teacher/question-bank";
 const FRAME = "@container/qe flex w-full min-w-0 flex-col gap-4.5";
@@ -165,9 +165,13 @@ function Editor({
         void navigate(`${BANK}/${saved.id}`, { replace: true });
       }
     },
+    // A refusal's field reasons follow its message, so one only the server
+    // catches ("İdea" beside "idea") still says what to fix (QC-R6AC-4).
     onError: (cause) =>
       setError(
-        cause instanceof ApiError ? cause.message : t("questionEditor.saveFailed"),
+        cause instanceof ApiError
+          ? [cause.message, ...fieldMessages(cause)].join(" ")
+          : t("questionEditor.saveFailed"),
       ),
   });
 

@@ -1,3 +1,5 @@
+import { adoptIds } from "../../adoptIds";
+import { useReportUnkeyed } from "../../useReportUnkeyed";
 import { draftUnkeyed, publishProblem } from "../../publishProblem";
 import {
   lazy,
@@ -544,6 +546,17 @@ function Builder({ test }: Readonly<{ test: Test }>) {
 
   async function onCreateQuestion() {
     setPublishError(null);
+    // The new question opens at once, so the selected draft must save first;
+    // a draft the save refuses keeps it from adding a question it could not
+    // open (QC-R6B-12).
+    try {
+      await flushQuestion.current?.();
+    } catch (cause) {
+      setPublishError(
+        cause instanceof ApiError ? cause.message : t("builder.saveBeforeSwitchFailed"),
+      );
+      return;
+    }
     setCreating(true);
     try {
       const created = await createQuestion(starterQuestion(t));
@@ -1706,11 +1719,18 @@ function QuestionForm({
   );
 
   const storedReads = useRef(aiReadsOf(values));
+  const lastSave = useRef<{ sent: QuestionValues; saved: QuestionValues } | null>(null);
   const autosave = useAutosave<QuestionValues>({
     refuse,
     save: async (next) => {
       await queryClient.cancelQueries({ queryKey: ["teacher-question", questionId] });
-      const saved = await updateQuestion(questionId, next);
+      const body = adoptIds(
+        next,
+        lastSave.current?.sent ?? null,
+        lastSave.current?.saved ?? null,
+      );
+      const saved = await updateQuestion(questionId, body);
+      lastSave.current = { sent: next, saved: toFormValues(saved) };
       storedReads.current = aiReadsOf(next);
       queryClient.setQueryData(["teacher-question", questionId], saved);
       void queryClient.invalidateQueries({ queryKey: ["teacher-questions"] });
@@ -1731,17 +1751,7 @@ function QuestionForm({
     onStatus(status);
   }, [onStatus, status]);
 
-  // The page passes a fresh callback each render, so the latest one is read
-  // through a ref and only a change of the draft's keyed state reports.
-  const reportUnkeyed = useRef(onUnkeyed);
-  useEffect(() => {
-    reportUnkeyed.current = onUnkeyed;
-  });
-  const unkeyed = draftUnkeyed(values);
-  useEffect(() => {
-    reportUnkeyed.current(unkeyed);
-  }, [unkeyed]);
-  useEffect(() => () => reportUnkeyed.current(false), []);
+  useReportUnkeyed(draftUnkeyed(values), onUnkeyed);
 
   const ai: QuestionAi = {
     prepare: async () => {
