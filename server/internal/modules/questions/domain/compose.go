@@ -12,7 +12,8 @@ import (
 // them, the transcript, the sample answer, the alt text, the tags, the options, the accepted answers, the matching items
 // and the rubric's labels. A prose document and
 // its plain companion are composed together, so the companion still equals the document's projection when it did before.
-// A text that composing leaves over its limit comes back as a *ValidationError naming the field.
+// A text that composing leaves over its limit comes back as a *ValidationError naming the field. An empty sample answer
+// on a type that has none is dropped, since the store keeps that column null for every other type.
 func (in Input) Composed() (Input, error) {
 	var c content.Composer
 	out := in
@@ -25,6 +26,9 @@ func (in Input) Composed() (Input, error) {
 	out.ExplanationContent, out.Explanation = composeProse(&c, in.ExplanationContent, in.Explanation, validation.Pair("explanationContent",
 		"Lời giải có định dạng không hợp lệ hoặc không khớp văn bản.", "The formatted explanation is not valid or does not match its plain text."))
 	out.SampleAnswer = c.Optional("sampleAnswer", in.SampleAnswer, 0)
+	if out.SampleAnswer != nil && *out.SampleAnswer == "" && in.Type != ShortAnswer && in.Type != Essay {
+		out.SampleAnswer = nil
+	}
 	out.Transcript = c.Optional("transcript", in.Transcript, 0)
 	out.MediaAlt = c.Optional("mediaAlt", in.MediaAlt, MaxMediaAltLength)
 	out.Tags = c.Each("tags", in.Tags, 0)

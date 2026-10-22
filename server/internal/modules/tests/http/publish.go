@@ -74,6 +74,9 @@ func publishViolations(ctx context.Context, violations []domain.Violation) opena
 			Rule:    openapi.PublishValidationErrorRule(v.Rule),
 			Message: v.Message,
 		}
+		if v.English != "" {
+			out[i].Message = httpx.Text(ctx, v.Message, v.English)
+		}
 		if v.SectionID != "" {
 			id := httpapi.ParseUUID(v.SectionID)
 			out[i].SectionId = &id

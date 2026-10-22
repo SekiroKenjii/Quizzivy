@@ -61,7 +61,8 @@ func readFrozenGroup(ctx context.Context, tx pgx.Tx, id, lock string) (domain.Gr
 func readFrozenMembers(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundle) error {
 	rows, err := tx.Query(ctx, `SELECT q.id::text,q.type::text,q.prompt,q.prompt_content,q.explanation_content,q.points::text,
 		q.media_asset_id::text,q.media_asset_kind::text,q.audio_max_plays,q.audio_allow_seek,q.audio_show_transcript_after,coalesce(q.audio_allow_pause,true),
-		q.transcript,q.explanation,q.sample_answer,m.ordinal,m.option_order,q.level,q.skill,q.media_alt
+		q.transcript,q.explanation,q.sample_answer,m.ordinal,m.option_order,q.level,q.skill,q.media_alt,
+		q.select_count,q.max_words,q.match_allow_reuse
 		FROM app.test_version_group_members m JOIN app.test_version_questions q ON q.id=m.question_id
 		WHERE m.group_id=$1 ORDER BY m.ordinal`, bundle.Group.ID)
 	if err != nil {
@@ -78,7 +79,8 @@ func readFrozenMembers(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundl
 		var maxPlays *int
 		in := &question.Input
 		if err := rows.Scan(&question.ID, &in.Type, &in.Prompt, &in.PromptContent, &in.ExplanationContent, &in.Points,
-			&in.MediaAssetID, &question.MediaAssetKind, &maxPlays, &allow, &show, &pause, &in.Transcript, &in.Explanation, &in.SampleAnswer, &ordinal, &member.OptionOrder, &in.Level, &in.Skill, &in.MediaAlt); err != nil {
+			&in.MediaAssetID, &question.MediaAssetKind, &maxPlays, &allow, &show, &pause, &in.Transcript, &in.Explanation, &in.SampleAnswer, &ordinal, &member.OptionOrder, &in.Level, &in.Skill, &in.MediaAlt,
+			&in.SelectCount, &in.MaxWords, &in.MatchAllowReuse); err != nil {
 			return err
 		}
 		if ordinal != len(bundle.Questions) {
@@ -99,7 +101,66 @@ func readFrozenMembers(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundl
 	if err := readFrozenOptions(ctx, tx, bundle, byID); err != nil {
 		return err
 	}
-	return readFrozenBlanks(ctx, tx, bundle, byID)
+	if err := readFrozenBlanks(ctx, tx, bundle, byID); err != nil {
+		return err
+	}
+	if err := readFrozenMatchItems(ctx, tx, bundle, byID); err != nil {
+		return err
+	}
+	return readFrozenRubric(ctx, tx, bundle, byID)
+}
+
+func readFrozenMatchItems(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundle, byID map[string]int) error {
+	rows, err := tx.Query(ctx, `WITH positions AS (
+		  SELECT o.test_version_question_id AS question_id, o.id, row_number() OVER (PARTITION BY o.test_version_question_id ORDER BY o.ordinal) - 1 AS position
+		    FROM app.test_version_options o JOIN app.test_version_group_members m ON m.question_id=o.test_version_question_id WHERE m.group_id=$1
+		)
+		SELECT i.test_version_question_id::text,i.id::text,i.text,coalesce(p.position,-1)::int
+		FROM app.test_version_match_items i JOIN app.test_version_group_members m ON m.question_id=i.test_version_question_id
+		LEFT JOIN positions p ON p.question_id=i.test_version_question_id AND p.id=i.correct_option_id
+		WHERE m.group_id=$1 ORDER BY i.test_version_question_id,i.ordinal`, bundle.Group.ID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, itemID string
+		var item questions.MatchItemInput
+		if err := rows.Scan(&id, &itemID, &item.Text, &item.CorrectOption); err != nil {
+			return err
+		}
+		index, exists := byID[id]
+		if !exists {
+			return &domain.GroupError{Rule: groupMembershipRule}
+		}
+		item.ID = &itemID
+		bundle.Questions[index].Input.MatchItems = append(bundle.Questions[index].Input.MatchItems, item)
+	}
+	return rows.Err()
+}
+
+func readFrozenRubric(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundle, byID map[string]int) error {
+	rows, err := tx.Query(ctx, `SELECT c.test_version_question_id::text,c.id::text,c.label
+		FROM app.test_version_rubric_criteria c JOIN app.test_version_group_members m ON m.question_id=c.test_version_question_id
+		WHERE m.group_id=$1 ORDER BY c.test_version_question_id,c.ordinal`, bundle.Group.ID)
+	if err != nil {
+		return err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var id, criterionID string
+		var criterion questions.RubricCriterionInput
+		if err := rows.Scan(&id, &criterionID, &criterion.Label); err != nil {
+			return err
+		}
+		index, exists := byID[id]
+		if !exists {
+			return &domain.GroupError{Rule: groupMembershipRule}
+		}
+		criterion.ID = &criterionID
+		bundle.Questions[index].Input.Rubric = append(bundle.Questions[index].Input.Rubric, criterion)
+	}
+	return rows.Err()
 }
 
 func readFrozenOptions(ctx context.Context, tx pgx.Tx, bundle *domain.GroupBundle, byID map[string]int) error {

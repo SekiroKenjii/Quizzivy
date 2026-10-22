@@ -10,6 +10,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 )
 
@@ -83,39 +84,89 @@ func freezeQuestion(ctx context.Context, tx pgx.Tx, sectionID string, q domain.D
 		       (test_version_section_id, ordinal, source_question_id, type, prompt,
 		        media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek,
 		        audio_show_transcript_after, transcript, points, explanation, sample_answer, prompt_content, explanation_content, level, skill, media_alt,
-		        audio_allow_pause)
+		        audio_allow_pause, select_count, max_words, match_allow_reuse)
 		VALUES ($1, $2, $3, $4::app.question_type, $5, $6, $7::app.media_kind, $8, $9, $10,
-		        $11, $12::numeric, $13, $14, $15, $16, $17, $18, $19, $20)
+		        $11, $12::numeric, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23)
 		RETURNING id::text`,
 		sectionID, q.Ordinal, q.SourceID, q.Type, q.Prompt,
 		q.MediaAssetID, q.MediaAssetKind, q.MaxPlays, q.AllowSeek, q.ShowTranscript,
 		q.Transcript, q.Points, q.Explanation, q.SampleAnswer, q.PromptContent, q.ExplanationContent, q.Level, q.Skill, q.MediaAlt,
-		q.AllowPause).Scan(&id); err != nil {
+		q.AllowPause, q.SelectCount, q.MaxWords, q.MatchAllowReuse).Scan(&id); err != nil {
 		return "", fmt.Errorf("publish: freeze question: %w", err)
 	}
 
-	if err := freezeOptions(ctx, tx, id, q.Options); err != nil {
+	optionIDs, err := freezeOptions(ctx, tx, id, q.Options)
+	if err != nil {
 		return "", err
 	}
 	if err := freezeBlanks(ctx, tx, id, q.Blanks); err != nil {
 		return "", err
 	}
+	if err := freezeMatchItems(ctx, tx, id, q.MatchItems, optionIDs); err != nil {
+		return "", err
+	}
+	if err := freezeRubric(ctx, tx, id, q.Rubric); err != nil {
+		return "", err
+	}
 	return id, nil
 }
 
-func freezeOptions(ctx context.Context, tx pgx.Tx, questionID string, options []domain.DraftOption) error {
+func freezeOptions(ctx context.Context, tx pgx.Tx, questionID string, options []domain.DraftOption) ([]string, error) {
 	if len(options) == 0 {
-		return nil
+		return nil, nil
 	}
-	rows := make([][]any, len(options))
-	for i, o := range options {
-		rows[i] = []any{questionID, o.Ordinal, o.Text, o.IsCorrect, o.Content}
+	ordered := slices.Clone(options)
+	slices.SortStableFunc(ordered, func(a, b domain.DraftOption) int { return a.Ordinal - b.Ordinal })
+	ids := make([]string, len(ordered))
+	rows := make([][]any, len(ordered))
+	for i, o := range ordered {
+		id, err := uuid.NewV7()
+		if err != nil {
+			return nil, fmt.Errorf("publish: mint option id: %w", err)
+		}
+		ids[i] = id.String()
+		rows[i] = []any{ids[i], questionID, o.Ordinal, o.Text, o.IsCorrect, o.Content}
 	}
 	if _, err := tx.CopyFrom(ctx,
 		pgx.Identifier{"app", "test_version_options"},
-		[]string{"test_version_question_id", "ordinal", "text", "is_correct", "content"},
+		[]string{"id", frozenOwner, "ordinal", "text", "is_correct", "content"},
 		pgx.CopyFromRows(rows)); err != nil {
-		return fmt.Errorf("publish: freeze options: %w", err)
+		return nil, fmt.Errorf("publish: freeze options: %w", err)
+	}
+	return ids, nil
+}
+
+func freezeMatchItems(ctx context.Context, tx pgx.Tx, questionID string, items []domain.DraftMatchItem, optionIDs []string) error {
+	if len(items) == 0 {
+		return nil
+	}
+	ordinals, texts, keys := make([]int, len(items)), make([]string, len(items)), make([]string, len(items))
+	for i, item := range items {
+		if item.CorrectOption < 0 || item.CorrectOption >= len(optionIDs) {
+			return fmt.Errorf("publish: match item %d names option %d of %d", i, item.CorrectOption, len(optionIDs))
+		}
+		ordinals[i], texts[i], keys[i] = item.Ordinal, item.Text, optionIDs[item.CorrectOption]
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.test_version_match_items (test_version_question_id, ordinal, text, correct_option_id)
+		SELECT $1, i.ordinal, i.text, i.option FROM unnest($2::int[], $3::text[], $4::uuid[]) AS i(ordinal, text, option)`,
+		questionID, ordinals, texts, keys); err != nil {
+		return fmt.Errorf("publish: freeze match items: %w", err)
+	}
+	return nil
+}
+
+func freezeRubric(ctx context.Context, tx pgx.Tx, questionID string, rubric []domain.DraftCriterion) error {
+	if len(rubric) == 0 {
+		return nil
+	}
+	ordinals, labels := make([]int, len(rubric)), make([]string, len(rubric))
+	for i, criterion := range rubric {
+		ordinals[i], labels[i] = criterion.Ordinal, criterion.Label
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.test_version_rubric_criteria (test_version_question_id, ordinal, label)
+		SELECT $1, c.ordinal, c.label FROM unnest($2::int[], $3::text[]) AS c(ordinal, label)`,
+		questionID, ordinals, labels); err != nil {
+		return fmt.Errorf("publish: freeze rubric: %w", err)
 	}
 	return nil
 }

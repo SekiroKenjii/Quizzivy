@@ -246,7 +246,8 @@ func loadVersionQuestions(ctx context.Context, tx pgx.Tx, versionID string) (map
 	rows, err := tx.Query(ctx, `SELECT q.test_version_section_id::text, q.ordinal, q.id::text, coalesce(q.source_question_id::text, ''),
 		       q.type::text, q.prompt, q.media_asset_id::text, q.media_asset_kind::text, q.media_alt,
 		       q.audio_max_plays, q.audio_allow_seek, q.audio_show_transcript_after, q.audio_allow_pause,
-		       q.transcript, q.points::text, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content
+		       q.transcript, q.points::text, q.explanation, q.sample_answer, q.prompt_content, q.explanation_content,
+		       q.select_count, q.max_words, q.match_allow_reuse
 		  FROM app.test_version_sections s
 		  JOIN app.test_version_questions q ON q.test_version_section_id = s.id
 		 WHERE s.test_version_id = $1
@@ -261,7 +262,8 @@ func loadVersionQuestions(ctx context.Context, tx pgx.Tx, versionID string) (map
 		var q domain.DraftQuestion
 		if err := rows.Scan(&sectionID, &q.Ordinal, &q.FrozenID, &q.SourceID, &q.Type, &q.Prompt,
 			&q.MediaAssetID, &q.MediaAssetKind, &q.MediaAlt, &q.MaxPlays, &q.AllowSeek, &q.ShowTranscript, &q.AllowPause,
-			&q.Transcript, &q.Points, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent); err != nil {
+			&q.Transcript, &q.Points, &q.Explanation, &q.SampleAnswer, &q.PromptContent, &q.ExplanationContent,
+			&q.SelectCount, &q.MaxWords, &q.MatchAllowReuse); err != nil {
 			return nil, fmt.Errorf("diff: scan version question: %w", err)
 		}
 		bySection[sectionID] = append(bySection[sectionID], q)
@@ -285,6 +287,9 @@ func loadVersionQuestions(ctx context.Context, tx pgx.Tx, versionID string) (map
 			list[i].Options = options[list[i].FrozenID]
 			list[i].Blanks = blanks[list[i].FrozenID]
 		}
+	}
+	if err := attachTypeChildren(ctx, tx, frozenChildren, bySection, frozenKey); err != nil {
+		return nil, err
 	}
 	return bySection, nil
 }

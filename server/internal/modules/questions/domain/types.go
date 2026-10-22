@@ -2,6 +2,7 @@ package domain
 
 import (
 	"fmt"
+	"quizzivy/internal/shared/matchkey"
 	"strings"
 	"unicode/utf8"
 )
@@ -116,7 +117,8 @@ func validateMatchItems(in Input, errs *ValidationError) {
 		field := fmt.Sprintf("matchItems[%d].correctOption", i)
 		switch {
 		case item.CorrectOption < 0 || item.CorrectOption >= len(in.Options):
-			errs.AddIn(field, "Mục phải nối với một lựa chọn của câu này.", "An item must match one of this question's choices.")
+			errs.AddIn(field, fmt.Sprintf("Mục %s chưa nối với lựa chọn nào của câu này.", matchkey.Item(i)),
+				fmt.Sprintf("Item %s has no matching choice in this question.", matchkey.Item(i)))
 		case !reuse && taken[item.CorrectOption]:
 			errs.AddIn(field, "Lựa chọn này đã nối với một mục khác.", "This choice already answers another item.")
 		}
