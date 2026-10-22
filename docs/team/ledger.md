@@ -7,46 +7,84 @@ start at [README.md](README.md) "Resuming".
 
 ## Checkpoint
 
-- **As of:** 2026-10-14, 12:30 UTC.
-- **Base:** `develop` at `b64b4940`, the back-merge of v0.11.7 (#629). `main` is at `325ff84c`
-  (v0.11.7), live since 11:35 UTC. No pull request is open, and every earlier integration branch
-  is merged into `develop`.
-- **Objective:** R5 (v0.12.0), the Admin console and email (`docs/plan/75-r5.md`).
-  `work/redesign-r5` is cut from `develop` at `b64b4940`; every R5 feature PR targets it. The
-  next free migration number is **00128** (T-5 governs).
+- **As of:** 2026-10-22, 17:45 UTC (D-078: the release PR carries the checkpoint, R6-10 drafted
+  its part).
+- **Base:** `work/redesign-r6` at `96a2260c` (#813), cut as `release/0.13.0` for `main`. It holds
+  `develop` (`0bab38fa`, #765) and `main` (`f1ef076f`, v0.12.2): `git log` of either against it
+  is empty. #814 merges `work/redesign-r6` into `develop`. `main` is at `f1ef076f` (v0.12.2).
+- **Objective:** ship v0.13.0 (R6, question types and scoring, `docs/plan/76-r6.md`). The next
+  free migration number is **00155** (T-5 governs).
 - **Shipped since the last checkpoint:**
-  - **v0.11.6 (E1)**, `9821c7fd` (#625): `moveTestQuestion`, a question dragged into and out of
-    a shared-context group, with no migration.
-  - **v0.11.7**, `325ff84c` (#628): a group copy dragged straight back out restores its bank
-    original (`questions.copied_from_id`, 00126 and 00127).
-- **The `/admin` alias** (T-R3.3, kept in v0.10.0 by the owner on 2026-10-12) is now T-R5.36 in
-  `75-r5.md`, ordered before T-R5.11, whose `GET` and `POST /admin/classes` the alias would
-  rewrite. It still waits on seven days of production `legacy_admin_path` counts, read by the
-  user.
-- **The tags** are the owner's to push, because the session's proxy refuses tag pushes. The
-  remote has tags up to `v0.9.0`:
-  - `v0.10.0` on `4abfe63d`, `v0.10.1` on `4098f784`;
-  - `v0.11.0` on `d979082c`, `v0.11.1` on `707fdbfb`, `v0.11.2` on `170285a2`;
-  - `v0.11.3` on `5849da00`, `v0.11.4` on `2beb7dcf`, `v0.11.5` on `5231b258`;
-  - `v0.11.6` on `9821c7fd`, `v0.11.7` on `325ff84c`.
-- **Waiting on the user:**
-  - The seven days of `legacy_admin_path` counts and a Neon branch of production (T-R5.1,
-    T-R5.36).
-  - T-R0.8's external setup for R5: the Resend domain and `SECRETS_KEY` as a Fly secret (needed
-    before R5 reaches `main`, not to build it).
-  - O-R5.4 before T-R5.9b merges; O-R5.1, O-R5.3, O-R5.5 and O-R5.6 have defaults.
-  - The v0.11.7 round trip on a real test.
-  - The settings column's threshold: 256px as built, or 384px (F-12's floor).
-  - The real-phone and iOS checks of D4.
-  - Thuong's review of "Tự luận".
-  - Dropping the scratch database `qa_d412`.
-  - Rotating the admin password shared in chat on 2026-10-13.
-  - Deleting `QUIZZIVY_AI_TEST_KEY` from the environment once it is no longer needed.
-  - O-R4.20 and O-R4.21.
-  - The local MinIO objects left by E2E runs.
+  - **v0.12.0 (R5)**, `3db49c36` (#756), on 2026-10-21: the Admin console, email through the
+    outbox and Resend, set-password links, the organization settings and sign-in policy, roles,
+    the user import and the data export, the audit log, the retention sweep and the AI credits
+    page, with migrations 00128 to 00141 (`docs/plan/75-r5.md`). Back-merged to `develop` by
+    #757 (`998a7321`).
+  - **v0.12.1**, `5f1b0dcb` (#758): every Admin console page in the teacher workspace's page frame
+    (DG-205, spec 0.117), web only. Ported to `develop` by #760.
+  - **v0.12.2**, `f1ef076f` (#759): Settings → Plan & usage is the centre's usage limits (CR-002,
+    D-060, D-061, spec 0.118), with migrations 00142 to 00144. Ported to `develop` by #765, the
+    commit `work/redesign-r6` was cut from.
+- **R6 on `work/redesign-r6`** (cut 2026-10-21 21:23 UTC), every task merged and QC clear:
+  - N-01 (#761, #763: authentication before validation, and #371's declared 400s), N-02 (#762)
+    and R6-00 (#764, #766: the paused-control sweep) on `develop` before the cut; N-03 found
+    nothing to change.
+  - T-R6.1a #767 (00145 to 00149) and T-R6.1b #769 (00150 to 00153); T-R6.2 #768; T-R6.2b #772
+    (00154); T-R6.3 #770, #771, #773; T-R6.4 to T-R6.8 #775 to #778, #781, #782, #785, #789;
+    T-R6.5b #793; T-R6.9a #779, #786, #795 and T-R6.9b #807; T-R6.10 #780, #788; T-R6.10b
+    #810; T-R6.11 #787, #790, #794; T-R6.12 #799; T-R6.13 #774, #783; T-R6.14 and T-R6.15
+    #813; T-R6.16 #806.
+  - Follow-ups: R6-15 #784 and R6-17 #792, #797, #800, #803, #804, #808, #809 (the import's
+    instruction grammar, D-073, D-075, D-076); R6-18 #791 and R6-19 #802 (the import review
+    editor); R6-20 #805 and #812 (grading). R6-21 (#811, authoring S4s) is in QC and not in the
+    release.
+  - R6-10 found and fixed in #813 that the student's result showed a True / False / Not given
+    answer by its stored English text in vi (`tfngTextLabelKey`). R6-10 ran every local CI step
+    on the merged base, `pnpm e2e:live` 20 of 20 with an import worker; the five canaries are
+    untouched since the cut.
+- **The release** is `release/0.13.0` → `main`: the web version 0.13.0, spec 0.119 ("Changes
+  since v0.118"), `docs/setup/deploy.md`'s "Rolling out v0.13.0 (R6)" with its Neon rehearsal and
+  rollback, `76-r6.md`'s checklist, and this checkpoint. Its release notes, vi first, say "Tự
+  luận" is now "Trả lời ngắn" (D-066).
+- **The tags** are the owner's to push, because the session's proxy refuses tag pushes. The remote
+  has tags up to `v0.12.0` (on `3db49c36`); still owed:
+  - `v0.12.1` on `5f1b0dcb`, `v0.12.2` on `f1ef076f`;
+  - `v0.13.0` on `main`'s merge of `release/0.13.0`, after the deploy.
+- **Waiting on the user, for v0.13.0:**
+  - The Neon-branch rehearsal of 00145 to 00154 with its timings, 00153's above all
+    (`deploy.md`, "Rehearsing v0.13.0 on a Neon branch"); deferred to release time on
+    2026-10-22.
+  - The exam-window and import check, and a look for long transactions, before the merge.
+  - The go, the deploy and the smoke, the back-merge and the tags.
+- **Open items after R6** (`docs/plan/40-open-items.md`); each ships on its default:
+  - O-R6.1 (D-071): marks visible before Finish grading; the owner's call.
+  - O-R6.2: the undrawn authoring panels need design sign-off (DG-60, DG-113, DG-228).
+  - O-R6.3: matching keys on the Student page (DG-194, D-063's default).
+  - O-R6.4: a hint line and an image caption (DG-189), not built.
+  - O-R6.5: the rubric model is interim (DG-61).
+  - O-R6.6: the essay scale, 3–9 in half steps, for the design team to redraw (DG-86).
+  - O-R6.7: topic tiles (DG-85); the proposed rule needs tags frozen at publish, a data-model
+    change.
+  - O-R6.8: YES / NO / NOT GIVEN is not built.
+  - O-R6.9: essays are not recognised by the Word import.
+  - O-R6.10: inline media in passages and a second recording in one question, not planned.
+- **Still waiting from earlier** (`plan.md` §4): closing #368, #384 items 1 to 3 and #370 step 1,
+  which N-03 found fixed; the v0.11.7 round trip on a real test; the real-phone and iOS checks of
+  D4; O-R4.20 and O-R4.21; the settings column's threshold; rotating the admin password shared
+  on 2026-10-13, deleting `QUIZZIVY_AI_TEST_KEY`, dropping `qa_d412` and the local MinIO objects.
+- **Notes for the next checkpoint:**
+  - Open S4s are listed per PR in the QC reports (`qc/parts/`, outside the repository), among
+    them R6TM-6 and R6TM-7, GF-5 and GF-7, QC 789-1 and 789-2, R6S-8 to R6S-11, QC-R6B-6 and
+    R6B-7.
+  - Running the live suite locally more than about once an hour trips the sign-in limit
+    (`perEmail` 20 an hour, `server/internal/core/router/ratelimits.go`): restart the local API to
+    reset it. One full run stays under the limit.
+  - E2E 10 (`import.live.spec.ts`) needs the Word converter image and the worker; without them it
+    fails, which is the environment, not a regression.
 - **Design team:**
   - DG-212, "Finished" after a reload mid-play.
   - DG-213 to DG-216, E1's states that the deck does not draw.
+  - R6's requests: DG-60, DG-61, DG-85, DG-86, DG-113, DG-194, DG-227 and DG-228.
 
 ## Roster and models
 
@@ -511,10 +549,7 @@ and any reversal of the defaults above.
 
 ## Next action
 
-- R5 on `work/redesign-r5`, by `75-r5.md`'s order: the backend tasks first, at most four at a
-  time, with T-R5.2 (email) and T-R5.5 (organization) early because most of the rest waits on
-  them; T-R5.36 before T-R5.11; T-R5.20 (AdminLayout) alongside; the screens as their layout and
-  API land; the close-out last.
-- In parallel on `develop`: the open GitHub issues, each checked against `develop` before work.
-  The findings table was swept on 2026-10-14 (#634); F-28, F-39, F-40, F-41, F-48's DST half and
-  F-49 stay open with the owners in their rows.
+- Release v0.13.0: the owner's rehearsal, checks and go, then `release/0.13.0` → `main`, the
+  deploy and smoke (`deploy.md`, "Rolling out v0.13.0 (R6)"), the back-merge and the tags.
+- Then R7 (v0.14.0, collaboration, `docs/plan/77-r7.md`), on `work/redesign-r7` cut from
+  `develop` after the back-merge; its first migration is 00155.
