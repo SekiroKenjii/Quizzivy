@@ -141,17 +141,7 @@ func (s *Postgres) loadChildren(ctx context.Context, q db.Querier, questions []d
 	if len(questions) == 0 {
 		return nil
 	}
-	ids := make([]string, len(questions))
-	var matching, essays []string
-	for i, question := range questions {
-		ids[i] = question.ID
-		switch question.Type {
-		case domain.Matching:
-			matching = append(matching, question.ID)
-		case domain.Essay:
-			essays = append(essays, question.ID)
-		}
-	}
+	ids, matching, essays := childIDs(questions)
 	options, err := s.loadOptionsFor(ctx, q, ids)
 	if err != nil {
 		return err
@@ -178,14 +168,30 @@ func (s *Postgres) loadChildren(ctx context.Context, q db.Querier, questions []d
 		if got, ok := blanks[question.ID]; ok {
 			question.Blanks = got
 		}
-		if question.Type == domain.Matching {
+		switch question.Type {
+		case domain.Matching:
 			question.MatchItems = keyedItems(items[question.ID], question.Options)
-		}
-		if question.Type == domain.Essay {
+		case domain.Essay:
 			question.Rubric = append([]domain.RubricCriterion{}, rubric[question.ID]...)
 		}
 	}
 	return nil
+}
+
+// childIDs is every question's id, then those of the matching questions and
+// those of the essays.
+func childIDs(questions []domain.Question) (ids, matching, essays []string) {
+	ids = make([]string, len(questions))
+	for i, question := range questions {
+		ids[i] = question.ID
+		switch question.Type {
+		case domain.Matching:
+			matching = append(matching, question.ID)
+		case domain.Essay:
+			essays = append(essays, question.ID)
+		}
+	}
+	return ids, matching, essays
 }
 
 // keyedItems is items with each one's CorrectOption set to the index of the

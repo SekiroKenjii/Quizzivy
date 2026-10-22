@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	questions "quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/shared/content"
 	"strings"
 )
@@ -173,20 +174,26 @@ func (c *groupCopier) copyQuestions(questions []GroupQuestion) error {
 				c.blanks[sourceID][before[j]] = *blank.GapID
 			}
 		}
-		for j := range question.Input.Options {
-			id := c.next()
-			question.Input.Options[j].ID = &id
-		}
-		for j := range question.Input.MatchItems {
-			id := c.next()
-			question.Input.MatchItems[j].ID = &id
-		}
-		for j := range question.Input.Rubric {
-			id := c.next()
-			question.Input.Rubric[j].ID = &id
-		}
+		c.renameChildren(&question.Input)
 	}
 	return nil
+}
+
+// renameChildren gives a copied question's options, matching items and rubric
+// criteria fresh ids; an item names its option by index, so it follows.
+func (c *groupCopier) renameChildren(in *questions.Input) {
+	for j := range in.Options {
+		id := c.next()
+		in.Options[j].ID = &id
+	}
+	for j := range in.MatchItems {
+		id := c.next()
+		in.MatchItems[j].ID = &id
+	}
+	for j := range in.Rubric {
+		id := c.next()
+		in.Rubric[j].ID = &id
+	}
 }
 
 func (c *groupCopier) copyStimulus(stimulus *GroupStimulus) error {

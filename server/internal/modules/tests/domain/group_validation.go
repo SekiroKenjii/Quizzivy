@@ -117,27 +117,30 @@ func (v *groupValidator) memberQuestion(question GroupQuestion) error {
 }
 
 func (v *groupValidator) questionChildren(in questions.Input) bool {
-	for _, option := range in.Options {
-		if option.ID != nil && !v.claimID(*option.ID) {
-			return false
-		}
-	}
-	for _, blank := range in.Blanks {
-		if blank.ID != nil && !v.claimID(*blank.ID) {
-			return false
-		}
-	}
-	for _, item := range in.MatchItems {
-		if item.ID != nil && !v.claimID(*item.ID) {
-			return false
-		}
-	}
-	for _, criterion := range in.Rubric {
-		if criterion.ID != nil && !v.claimID(*criterion.ID) {
+	for _, id := range childIDs(in) {
+		if id != nil && !v.claimID(*id) {
 			return false
 		}
 	}
 	return true
+}
+
+// childIDs is every id a question's children carry, nil where one is new.
+func childIDs(in questions.Input) []*string {
+	ids := make([]*string, 0, len(in.Options)+len(in.Blanks)+len(in.MatchItems)+len(in.Rubric))
+	for _, option := range in.Options {
+		ids = append(ids, option.ID)
+	}
+	for _, blank := range in.Blanks {
+		ids = append(ids, blank.ID)
+	}
+	for _, item := range in.MatchItems {
+		ids = append(ids, item.ID)
+	}
+	for _, criterion := range in.Rubric {
+		ids = append(ids, criterion.ID)
+	}
+	return ids
 }
 
 func (v *groupValidator) asset(id, kind string) bool {

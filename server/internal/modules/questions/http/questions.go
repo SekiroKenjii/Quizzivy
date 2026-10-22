@@ -266,16 +266,7 @@ func ToQuestionInput(body openapi.QuestionInput) domain.Input {
 		MaxWords:           body.MaxWords,
 		MatchAllowReuse:    body.MatchAllowReuse,
 	}
-	if body.MatchItems != nil {
-		for _, item := range *body.MatchItems {
-			in.MatchItems = append(in.MatchItems, domain.MatchItemInput{ID: optionID(item.Id), Text: item.Text, CorrectOption: item.CorrectOption})
-		}
-	}
-	if body.Rubric != nil {
-		for _, criterion := range *body.Rubric {
-			in.Rubric = append(in.Rubric, domain.RubricCriterionInput{ID: optionID(criterion.Id), Label: criterion.Label})
-		}
-	}
+	in.MatchItems, in.Rubric = typeInputs(body)
 	if body.MediaAssetId != nil {
 		id := body.MediaAssetId.String()
 		in.MediaAssetID = &id
@@ -371,26 +362,7 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 		}
 	}
 	out.Options = &options
-	if q.Type == domain.Matching {
-		for i, o := range q.Options {
-			options[i].Key = httpapi.Ptr(matchkey.Option(o.Ordinal))
-		}
-		items := make([]openapi.AdminMatchItem, len(q.MatchItems))
-		for i, item := range q.MatchItems {
-			items[i] = openapi.AdminMatchItem{
-				Id: httpapi.ParseUUID(item.ID), Ordinal: item.Ordinal, Text: item.Text,
-				Key: matchkey.Item(item.Ordinal), CorrectOptionId: httpapi.ParseUUID(item.CorrectOptionID),
-			}
-		}
-		out.MatchItems = &items
-	}
-	if q.Type == domain.Essay {
-		rubric := make([]openapi.RubricCriterion, len(q.Rubric))
-		for i, criterion := range q.Rubric {
-			rubric[i] = openapi.RubricCriterion{Id: httpapi.ParseUUID(criterion.ID), Ordinal: criterion.Ordinal, Label: criterion.Label}
-		}
-		out.Rubric = &rubric
-	}
+	apiTypeParts(&out, q)
 
 	blanks := make([]openapi.AdminQuestionBlank, len(q.Blanks))
 	for i, b := range q.Blanks {
@@ -430,6 +402,48 @@ func (h Questions) TagQuestions(ctx context.Context, request openapi.TagQuestion
 		return nil, err
 	}
 	return openapi.TagQuestions200JSONResponse{Updated: updated}, nil
+}
+
+// typeInputs is the body's matching items and rubric criteria, nil when absent.
+func typeInputs(body openapi.QuestionInput) ([]domain.MatchItemInput, []domain.RubricCriterionInput) {
+	var items []domain.MatchItemInput
+	var rubric []domain.RubricCriterionInput
+	if body.MatchItems != nil {
+		for _, item := range *body.MatchItems {
+			items = append(items, domain.MatchItemInput{ID: optionID(item.Id), Text: item.Text, CorrectOption: item.CorrectOption})
+		}
+	}
+	if body.Rubric != nil {
+		for _, criterion := range *body.Rubric {
+			rubric = append(rubric, domain.RubricCriterionInput{ID: optionID(criterion.Id), Label: criterion.Label})
+		}
+	}
+	return items, rubric
+}
+
+// apiTypeParts sets a matching question's keys and items, or an essay's
+// rubric, on out, whose options are already q's.
+func apiTypeParts(out *openapi.AdminQuestion, q domain.Question) {
+	switch q.Type {
+	case domain.Matching:
+		for i, o := range q.Options {
+			(*out.Options)[i].Key = httpapi.Ptr(matchkey.Option(o.Ordinal))
+		}
+		items := make([]openapi.AdminMatchItem, len(q.MatchItems))
+		for i, item := range q.MatchItems {
+			items[i] = openapi.AdminMatchItem{
+				Id: httpapi.ParseUUID(item.ID), Ordinal: item.Ordinal, Text: item.Text,
+				Key: matchkey.Item(item.Ordinal), CorrectOptionId: httpapi.ParseUUID(item.CorrectOptionID),
+			}
+		}
+		out.MatchItems = &items
+	case domain.Essay:
+		rubric := make([]openapi.RubricCriterion, len(q.Rubric))
+		for i, criterion := range q.Rubric {
+			rubric[i] = openapi.RubricCriterion{Id: httpapi.ParseUUID(criterion.ID), Ordinal: criterion.Ordinal, Label: criterion.Label}
+		}
+		out.Rubric = &rubric
+	}
 }
 
 func writeRequest(ctx context.Context, id string, input domain.Input) (domain.WriteRequest, bool) {

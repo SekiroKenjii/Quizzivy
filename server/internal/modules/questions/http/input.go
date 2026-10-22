@@ -18,26 +18,7 @@ func ToAPIInput(in domain.Input) (openapi.StoredQuestionInput, error) {
 	out := openapi.StoredQuestionInput{Level: (*openapi.QuestionLevel)(in.Level), Skill: (*openapi.QuestionSkill)(in.Skill), Type: openapi.QuestionType(in.Type), Prompt: in.Prompt, PromptContent: in.PromptContent, Points: points,
 		Explanation: in.Explanation, ExplanationContent: in.ExplanationContent, SampleAnswer: in.SampleAnswer, Transcript: in.Transcript, MediaAlt: in.MediaAlt, Tags: &tags,
 		SelectCount: in.SelectCount, MaxWords: in.MaxWords, MatchAllowReuse: in.MatchAllowReuse}
-	if in.Type == domain.Matching {
-		items := make([]openapi.MatchItemInput, len(in.MatchItems))
-		for i, item := range in.MatchItems {
-			items[i] = openapi.MatchItemInput{Text: item.Text, CorrectOption: item.CorrectOption}
-			if item.ID != nil {
-				items[i].Id = httpapi.Ptr(httpapi.ParseUUID(*item.ID))
-			}
-		}
-		out.MatchItems = &items
-	}
-	if in.Type == domain.Essay {
-		rubric := make([]openapi.RubricCriterionInput, len(in.Rubric))
-		for i, criterion := range in.Rubric {
-			rubric[i] = openapi.RubricCriterionInput{Label: criterion.Label}
-			if criterion.ID != nil {
-				rubric[i].Id = httpapi.Ptr(httpapi.ParseUUID(*criterion.ID))
-			}
-		}
-		out.Rubric = &rubric
-	}
+	out.MatchItems, out.Rubric = apiTypeInputs(in)
 	if in.MediaAssetID != nil {
 		out.MediaAssetId = httpapi.Ptr(httpapi.ParseUUID(*in.MediaAssetID))
 	}
@@ -77,4 +58,31 @@ func ToAPIInput(in domain.Input) (openapi.StoredQuestionInput, error) {
 	}
 	out.Blanks = &blanks
 	return out, nil
+}
+
+// apiTypeInputs is a matching question's items and an essay's rubric as the
+// editable shape carries them, each nil on every other type.
+func apiTypeInputs(in domain.Input) (*[]openapi.MatchItemInput, *[]openapi.RubricCriterionInput) {
+	switch in.Type {
+	case domain.Matching:
+		items := make([]openapi.MatchItemInput, len(in.MatchItems))
+		for i, item := range in.MatchItems {
+			items[i] = openapi.MatchItemInput{Id: apiID(item.ID), Text: item.Text, CorrectOption: item.CorrectOption}
+		}
+		return &items, nil
+	case domain.Essay:
+		rubric := make([]openapi.RubricCriterionInput, len(in.Rubric))
+		for i, criterion := range in.Rubric {
+			rubric[i] = openapi.RubricCriterionInput{Id: apiID(criterion.ID), Label: criterion.Label}
+		}
+		return nil, &rubric
+	}
+	return nil, nil
+}
+
+func apiID(id *string) *openapi.Uuid {
+	if id == nil {
+		return nil
+	}
+	return httpapi.Ptr(httpapi.ParseUUID(*id))
 }

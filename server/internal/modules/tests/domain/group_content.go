@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"reflect"
 	"slices"
+
+	questions "quizzivy/internal/modules/questions/domain"
 )
 
 // SameContent reports whether q and other hold the same authored content, whatever their identities: the type, the
@@ -124,6 +126,13 @@ func (q GroupQuestion) contentKey() (contentKey, bool) {
 		key.Blanks = append(key.Blanks, blankKey{ID: textOf(blank.ID), GapID: textOf(blank.GapID), Ordinal: blank.Ordinal,
 			CaseSensitive: blank.CaseSensitive, AcceptedAnswers: sortedCopy(blank.AcceptedAnswers)})
 	}
+	key.typeParts(in)
+	return key, true
+}
+
+// typeParts compares what only some types carry: choose N, the word limit,
+// a matching question's reuse and items, and an essay's rubric.
+func (key *contentKey) typeParts(in questions.Input) {
 	if in.SelectCount != nil {
 		key.SelectCount = *in.SelectCount
 	}
@@ -139,7 +148,6 @@ func (q GroupQuestion) contentKey() (contentKey, bool) {
 	for _, criterion := range in.Rubric {
 		key.Rubric = append(key.Rubric, rubricKey{ID: textOf(criterion.ID), Label: criterion.Label})
 	}
-	return key, true
 }
 
 func textOf[T ~string](value *T) string {
