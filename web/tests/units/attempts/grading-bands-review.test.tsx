@@ -93,7 +93,10 @@ it("grades an essay on the paper review with its band, not a points box", async 
   const scale = await screen.findByRole("group", { name: "Band" });
   expect(screen.queryByLabelText("Points")).toBeNull();
   const save = screen.getByRole("button", { name: "Save & next" });
-  expect(save).toBeDisabled();
+  expect(save).toHaveAttribute("aria-disabled", "true");
+  await user.click(save);
+  expect(screen.getByRole("alert")).toHaveTextContent("Pick a band first (keys 3–9).");
+  expect(graded).toEqual([]);
   await user.click(within(scale).getByRole("button", { name: "Give band 6.5" }));
   await user.click(save);
   await waitFor(() =>
@@ -103,13 +106,14 @@ it("grades an essay on the paper review with its band, not a points box", async 
   );
 });
 
-it("keeps Save & next disabled on the paper review until every criterion has a band", async () => {
+it("keeps Save & next paused on the paper review until every criterion has a band", async () => {
   serve(essayPaper(true));
   const user = renderReview();
   const task = await screen.findByRole("group", { name: "Task achievement" });
   const save = screen.getByRole("button", { name: "Save & next" });
   await user.click(within(task).getByRole("button", { name: "Give band 7.0" }));
-  expect(save).toBeDisabled();
+  expect(save).toHaveAttribute("aria-disabled", "true");
+  expect(save).toBeEnabled();
   await user.click(
     within(screen.getByRole("group", { name: "Coherence and cohesion" })).getByRole(
       "button",

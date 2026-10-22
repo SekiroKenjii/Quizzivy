@@ -37,6 +37,21 @@ describe("bands", () => {
     expect(pointsOfBand(9, 2)).toBe(2);
   });
 
+  it("rounds a half-cent tie up, as the server's round(numeric, 2) does", () => {
+    // 3.5 × 1.17 ÷ 9 is exactly 0.455; floats land below it and round to 0.45.
+    expect(pointsOfBand(3.5, 1.17)).toBeCloseTo(0.46, 5);
+    let ties = 0;
+    for (const band of [3, 3.5, 4, 4.5, 5, 5.5, 6, 6.5, 7, 7.5, 8, 8.5, 9])
+      for (let cents = 1; cents <= 10000; cents++) {
+        const exact = (Math.round(band * 2) * cents) % 18;
+        if (exact !== 9) continue;
+        ties++;
+        const up = Math.ceil((Math.round(band * 2) * cents) / 18) / 100;
+        expect(pointsOfBand(band, cents / 100)).toBeCloseTo(up, 5);
+      }
+    expect(ties).toBeGreaterThan(0);
+  });
+
   it("reads band keys by code: the digit is the band, Shift the half above", () => {
     expect(bandOfKey({ code: "Digit6", shiftKey: false })).toBe(6);
     expect(bandOfKey({ code: "Digit6", shiftKey: true })).toBe(6.5);

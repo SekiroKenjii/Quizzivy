@@ -18,7 +18,8 @@ export type GradeMarks = Omit<GradeItem, "questionId" | "comment">;
  * GradingCard is the marking loop for one short answer: points three ways
  * (steppers, typing, the common values), a comment the student will read, save
  * and move on. An essay takes its band, or a band per rubric criterion,
- * instead, and Save & next waits until every criterion has one. Saved per
+ * instead, and Save & next looks paused until every criterion has one and,
+ * if pressed sooner, says what is missing. Saved per
  * question, so a half-graded paper survives a refresh. While `focusPoints` is
  * set it focuses the points box (an essay's first band), mounted or not, and
  * reports it through `onPointsFocused`, so the caller asks once per move.
@@ -56,6 +57,7 @@ export function GradingCard({
   const essay = question.type === "essay";
   const rubric = question.rubric ?? [];
   const [mark, setMark] = useState<EssayMark>(() => markOf(answer ?? {}));
+  const [missing, setMissing] = useState<string | null>(null);
   const max = question.points;
   const [points, setPoints] = useState<string>(
     answer?.manualScore == null ? "" : String(answer.manualScore),
@@ -74,7 +76,13 @@ export function GradingCard({
   };
   const marked = essay ? markBand(rubric, mark) !== null : valid;
   const save = () => {
-    if (!marked) return;
+    if (!marked) {
+      if (essay)
+        setMissing(
+          t(rubric.length ? "grading.pickCriteriaFirst" : "grading.pickBandFirst"),
+        );
+      return;
+    }
     onSave(
       essay ? markFields(rubric, mark) : { points: value },
       comment.trim() === "" ? null : comment.trim(),
@@ -89,8 +97,11 @@ export function GradingCard({
             <EssayBands
               rubric={rubric}
               mark={mark}
-              error={error}
-              onChange={(next) => setMark(next)}
+              error={error ?? missing}
+              onChange={(next) => {
+                setMissing(null);
+                setMark(next);
+              }}
             />
           </div>
         ) : (
@@ -179,7 +190,12 @@ export function GradingCard({
           </p>
         )}
         <div className="flex items-center gap-2 pt-1">
-          <Button type="button" disabled={!marked || pending} onClick={save}>
+          <Button
+            type="button"
+            disabled={pending || (!essay && !marked)}
+            aria-disabled={essay && !marked}
+            onClick={save}
+          >
             {t("review.saveNext")}
           </Button>
           <Button
