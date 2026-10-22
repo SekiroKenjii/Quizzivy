@@ -599,3 +599,52 @@ func instructionsOf(d domain.Draft) string {
 	}
 	return strings.Join(text, " ")
 }
+
+// QC-R6GRM-10: a "và" joining a compound subject does not end the first clause, so a Vietnamese passage that opens
+// "Viết nhật ký và đọc sách là…" stays the stimulus in every layout.
+func TestAVietnameseCompoundSubjectStaysThePassage(t *testing.T) {
+	passage := "Viết nhật ký và đọc sách là hai thói quen tốt của học sinh."
+	for name, head := range map[string][]string{
+		"heading": {"Câu 1-2", "Chọn Đúng, Sai hoặc Không có thông tin."},
+		"roman":   {"I. Chọn Đúng, Sai hoặc Không có thông tin."},
+		"plain":   {"Chọn Đúng, Sai hoặc Không có thông tin."},
+	} {
+		d := recognize(t, exam(lines(append(head, passage, "1. Học sinh nên viết nhật ký.", "2. Đọc sách tốn thời gian.")...)), key(lines("1. Đúng\t2. Không có thông tin")))
+		if g := d.Sections[0].Items[0].Group; g == nil || g.Stimulus == nil || strings.Contains(d.Sections[0].Title+g.Instructions, "nhật ký") {
+			t.Fatalf("%s: the passage is the stimulus: %+v", name, d.Sections)
+		}
+		if q := question(t, d, "1"); q.Type != "tfng" {
+			t.Fatalf("%s: %+v", name, q)
+		}
+	}
+}
+
+// QC-R6GRM-9: in a Roman section whose heading carries the instruction, a line of five words or more that opens the
+// group with questions straight after it is pointed at, as under a range heading. A shorter line is not.
+func TestALongLineUnderARomanInstructionPointsAtAPossiblePassage(t *testing.T) {
+	for _, line := range []string{
+		"Choose your words carefully, the old saying goes, because they cannot be taken back.",
+		"Tìm việc làm ở thành phố ngày nay rất khó.",
+		"Read the passage below carefully.",
+	} {
+		d := recognize(t, exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
+		if got := notices(d, domain.CodeLongInstruction); len(got) != 1 || got[0].Severity != domain.Informational || got[0].Target != d.Sections[0].ID {
+			t.Fatalf("%s: one informational finding on the section: %+v", line, got)
+		}
+	}
+	passage := "The museum opened in 1990 after a long campaign by local residents, who raised money for more than a decade."
+	for name, doc := range map[string]domain.EvidenceDocument{
+		"a four-word line":       exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a passage after it":     exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage below carefully.", passage, "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a format on the line":   exam(lines("I. Read the passage.", "Write TRUE, FALSE or NOT GIVEN for each statement.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a title for a heading":  exam(lines("I. READING", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"two plain instructions": exam(lines("Read the passage and answer the questions.", "Write TRUE, FALSE or NOT GIVEN.", "Decide for yourself whether each statement is right.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a four-word head line":  exam(lines("Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
+	} {
+		t.Run(name, func(t *testing.T) {
+			if got := notices(recognize(t, doc, key(lines("1. TRUE\t2. NOT GIVEN"))), domain.CodeLongInstruction); len(got) != 0 {
+				t.Fatalf("no finding: %+v", got)
+			}
+		})
+	}
+}
