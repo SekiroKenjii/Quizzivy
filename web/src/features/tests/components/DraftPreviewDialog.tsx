@@ -209,6 +209,7 @@ function asStudent(sectionId: string, q: AdminQuestion): StudentQuestion {
     promptContent: q.promptContent ?? null,
     points: q.points,
     media: q.media ?? null,
+    promptAssets: q.contentAssets ?? [],
     audio: q.audio ? studentAudioPolicy(q.audio) : null,
     options: (q.options ?? []).map((o) => ({
       id: o.id,

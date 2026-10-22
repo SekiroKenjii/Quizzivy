@@ -1,6 +1,6 @@
 import { questionGaps, gapBindingsMatch } from "@/components/shared/content/gaps";
 import {
-  questionContentSchema,
+  questionExplanationContentSchema,
   questionPromptContentSchema,
   isQuestionPromptContent,
 } from "@/components/shared/content/questionContent";
@@ -126,7 +126,7 @@ export const questionSchema = z
       .nullable()
       .default(null),
     promptContent: questionPromptContentSchema.nullable().optional(),
-    explanationContent: questionContentSchema.nullable().optional(),
+    explanationContent: questionExplanationContentSchema.nullable().optional(),
     prompt: z
       .string()
       .refine((text) => text.trim().length > 0, "questionEditor.errors.promptRequired"),

@@ -396,6 +396,8 @@ export function GroupComposer({
                 onAssetChange={(asset) => {
                   if (asset) onAsset(asset);
                 }}
+                assets={assetById}
+                onAsset={onAsset}
                 onRefresh={onRefresh}
                 clearPromptOnFocus={starters.has(member.id)}
                 settings={{

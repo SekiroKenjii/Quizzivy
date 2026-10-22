@@ -3,6 +3,7 @@ import { OptionText } from "@/components/shared/content/OptionText";
 import { useTranslation } from "react-i18next";
 import { AudioPlayer } from "@/features/media/components/AudioPlayer";
 import type { Answer } from "@/features/take-test/api";
+import { PromptMedia } from "@/features/take-test/components/PromptMedia";
 import { nfc } from "@/lib/nfc";
 import { countWords } from "@/lib/words";
 import { cn } from "@/lib/utils";
@@ -17,6 +18,7 @@ type ReviewQuestion = Pick<
   | "type"
   | "prompt"
   | "promptContent"
+  | "contentAssets"
   | "media"
   | "options"
   | "blanks"
@@ -35,7 +37,8 @@ type ShortAnswerPresentation = Readonly<{ label: string }>;
  * response. The R6 types: true / false / not given by its position labels,
  * "Choose N" with its picks against the key, matching as pairs against the
  * key, an essay with its word count, band and criteria, and a short answer
- * past its word limit with the over-limit badge.
+ * past its word limit with the over-limit badge. The prompt's images draw
+ * from `contentAssets`, signed for the grader (D-077).
  */
 export function AnswerReview({
   question,
@@ -49,37 +52,42 @@ export function AnswerReview({
   const { t } = useTranslation();
   const given = answer?.answer ?? null;
   return (
-    <div className="space-y-4">
-      <QuestionProse
-        className="text-sm"
-        text={question.prompt}
-        content={question.promptContent}
-      />
-      {question.media?.kind === "audio" && (
-        <AudioPlayer
-          src={question.media.url}
-          label={question.media.originalFilename}
-          durationMs={question.media.durationMs}
-          allowSeek
-          size="sm"
-          preload="metadata"
+    <PromptMedia assets={question.contentAssets}>
+      <div className="space-y-4">
+        <QuestionProse
+          className="text-sm"
+          text={question.prompt}
+          content={question.promptContent}
         />
-      )}
-      {answer?.answerRemoved === true ? (
-        <p data-slot="answer-removed" className="text-muted-foreground text-sm italic">
-          {t("review.answerRemoved")}
-        </p>
-      ) : (
-        <Body
-          question={question}
-          given={given}
-          shortAnswerPresentation={shortAnswerPresentation}
-        />
-      )}
-      {question.type === "essay" && answer?.answerRemoved !== true && (
-        <EssayMarksReview question={question} answer={answer} />
-      )}
-    </div>
+        {question.media?.kind === "audio" && (
+          <AudioPlayer
+            src={question.media.url}
+            label={question.media.originalFilename}
+            durationMs={question.media.durationMs}
+            allowSeek
+            size="sm"
+            preload="metadata"
+          />
+        )}
+        {answer?.answerRemoved === true ? (
+          <p
+            data-slot="answer-removed"
+            className="text-muted-foreground text-sm italic"
+          >
+            {t("review.answerRemoved")}
+          </p>
+        ) : (
+          <Body
+            question={question}
+            given={given}
+            shortAnswerPresentation={shortAnswerPresentation}
+          />
+        )}
+        {question.type === "essay" && answer?.answerRemoved !== true && (
+          <EssayMarksReview question={question} answer={answer} />
+        )}
+      </div>
+    </PromptMedia>
   );
 }
 

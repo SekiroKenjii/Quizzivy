@@ -1,4 +1,5 @@
 import { ReviewGroup } from "@/features/media";
+import { PromptMedia } from "@/features/take-test/components/PromptMedia";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { useRef, useState } from "react";
 import { Trans, useTranslation } from "react-i18next";
@@ -219,31 +220,37 @@ export function GradeByQuestion({
                     onRetry={() => void answers.refetch()}
                   />
                 ))}
-                <QuestionProse
-                  className="text-sm"
-                  text={data.question.prompt}
-                  content={data.question.promptContent}
-                />
-                {data.question.sampleAnswer != null && (
-                  <div className="bg-muted/30 rounded-md border p-4">
-                    <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
-                      <Eye className="size-3.5" aria-hidden="true" />
-                      {t("review.sampleAnswer")}
-                    </p>
-                    <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">
-                      {data.question.sampleAnswer}
-                    </p>
-                    {data.question.explanation != null && (
-                      <div className="text-muted-foreground mt-2 text-xs">
-                        <p>{t("byQuestion.rubric")}</p>
-                        <QuestionProse
-                          text={data.question.explanation}
-                          content={data.question.explanationContent}
-                        />
-                      </div>
-                    )}
-                  </div>
-                )}
+                <PromptMedia
+                  assets={data.question.contentAssets}
+                  onRetry={() => void answers.refetch()}
+                >
+                  <QuestionProse
+                    className="text-sm"
+                    text={data.question.prompt}
+                    content={data.question.promptContent}
+                  />
+                  {data.question.sampleAnswer != null && (
+                    <div className="bg-muted/30 rounded-md border p-4">
+                      <p className="text-muted-foreground flex items-center gap-1.5 text-xs">
+                        <Eye className="size-3.5" aria-hidden="true" />
+                        {t("review.sampleAnswer")}
+                      </p>
+                      <p className="mt-2 text-sm leading-relaxed whitespace-pre-wrap">
+                        {data.question.sampleAnswer}
+                      </p>
+                      {data.question.explanation != null && (
+                        <div className="text-muted-foreground mt-2 text-xs">
+                          <p>{t("byQuestion.rubric")}</p>
+                          <QuestionProse
+                            text={data.question.explanation}
+                            content={data.question.explanationContent}
+                            field="explanation"
+                          />
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </PromptMedia>
                 <p className="text-muted-foreground rounded-md border p-3 text-xs leading-relaxed">
                   {t("byQuestion.namesHidden")}{" "}
                   <button

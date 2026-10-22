@@ -1,4 +1,5 @@
 import { ReviewGroup } from "@/features/media";
+import { PromptMedia } from "@/features/take-test/components/PromptMedia";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -367,11 +368,17 @@ export default function AttemptReviewPage() {
                           {question.sampleAnswer}
                         </p>
                         {question.explanation != null && (
-                          <QuestionProse
-                            className="text-muted-fg mt-2 text-xs"
-                            text={question.explanation}
-                            content={question.explanationContent}
-                          />
+                          <PromptMedia
+                            assets={question.contentAssets}
+                            onRetry={() => void review.refetch()}
+                          >
+                            <QuestionProse
+                              className="text-muted-fg mt-2 text-xs"
+                              text={question.explanation}
+                              content={question.explanationContent}
+                              field="explanation"
+                            />
+                          </PromptMedia>
                         )}
                       </details>
                     )}

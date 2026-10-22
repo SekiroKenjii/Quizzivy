@@ -8,6 +8,8 @@ import { QuestionMediaField } from "@/features/question-bank/components/Question
 import { ExplanationField } from "@/features/question-bank/components/ExplanationField";
 import { QuestionPromptAnswers } from "@/features/question-bank/components/QuestionPromptAnswers";
 import { TagsField } from "@/features/question-bank/components/TagsField";
+import { useProseMedia } from "@/features/question-bank/useProseMedia";
+import { ProseMediaContext } from "@/components/shared/content/editor/proseMedia";
 import type {
   QuestionType,
   QuestionValues,
@@ -27,6 +29,10 @@ interface QuestionEditorProps {
   contextLabel?: string | null;
   onChange: (value: QuestionValues) => void;
   onAssetChange: (asset: MediaAsset | null) => void;
+  /** The signed files the question's prompt and explanation may show, by id. */
+  assets?: ReadonlyMap<string, MediaAsset> | undefined;
+  /** Hears of a file the prompt or the explanation took from upload or Media. */
+  onAsset?: ((asset: MediaAsset) => void) | undefined;
   /** Refetches the question so an expired media URL can be replaced. */
   onRefresh?: (() => void) | undefined;
   /** The host controls when question settings use its dialog. */
@@ -52,10 +58,22 @@ export function QuestionEditor({
   onRefresh,
   contextLabel = null,
   settings,
-  onChange,
+  onChange: update,
   onAssetChange,
+  assets,
+  onAsset,
 }: Readonly<QuestionEditorProps>) {
   const { t } = useTranslation();
+  const media = useProseMedia({
+    value,
+    onChange: update,
+    asset,
+    onAssetChange,
+    assets,
+    onAsset,
+    onRefresh,
+  });
+  const onChange = media.change;
   const locked = typeLocked(value);
 
   function switchType(type: QuestionType) {
@@ -64,7 +82,7 @@ export function QuestionEditor({
   }
 
   return (
-    <>
+    <ProseMediaContext value={media.host}>
       <div className="space-y-5">
         <div className="flex flex-wrap items-center gap-2">
           {contextLabel === null ? null : (
@@ -108,6 +126,7 @@ export function QuestionEditor({
           asset={asset}
           onChange={onChange}
           onAssetChange={onAssetChange}
+          onMedia={media.media}
           onRefresh={onRefresh}
         />
 
@@ -165,6 +184,7 @@ export function QuestionEditor({
           </div>
         </div>
       </PageAside>
-    </>
+      {media.dialogs}
+    </ProseMediaContext>
   );
 }

@@ -1,9 +1,6 @@
 import { z } from "zod";
 import { questionGaps } from "@/components/shared/content/gaps";
-import type {
-  ContentDocument,
-  SemanticContent,
-} from "@/components/shared/content/model";
+import type { ContentDocument, ProseBlock } from "@/components/shared/content/model";
 import { validateContent } from "@/components/shared/content/validation";
 import {
   questionContentSchema,
@@ -11,7 +8,6 @@ import {
 } from "@/components/shared/content/questionContent";
 import { optionContentSchema } from "@/components/shared/content/optionContent";
 import type { GroupBundle } from "./api";
-import { formProse } from "@/components/shared/content/questionContent";
 
 const policy = z.object({
   maxPlays: z.number().int().min(1).nullable(),
@@ -211,7 +207,7 @@ export function independentBundle(source: GroupBundle): GroupBundle {
   const questions = bundle.questions.map((question) => {
     const input = question.input;
     const gaps = input.promptContent
-      ? remapGaps(formProse(input.promptContent)!)
+      ? remapGaps(input.promptContent!)
       : new Map<string, string>();
     blankGaps.set(question.id, gaps);
     return {
@@ -266,7 +262,9 @@ export function independentBundle(source: GroupBundle): GroupBundle {
   };
 }
 
-function remapGaps(document: SemanticContent): Map<string, string> {
+function remapGaps(
+  document: Readonly<{ blocks: readonly ProseBlock[] }>,
+): Map<string, string> {
   const ids = new Map<string, string>();
   for (const gap of questionGaps(document)) {
     const id = crypto.randomUUID();

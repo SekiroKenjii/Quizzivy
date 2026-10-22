@@ -31,6 +31,7 @@ export function groupPreview(bundle: GroupBundle, assets: MediaAsset[]) {
           points: input.points,
           media: media.get(input.mediaAssetId ?? "") ?? null,
           mediaAlt: input.mediaAlt ?? null,
+          promptAssets: assets,
           audio: input.audio ? studentAudioPolicy(input.audio) : null,
           options: (input.options ?? []).map((option, index) => ({
             id: option.id ?? `${member.questionId}-option-${index}`,

@@ -17,7 +17,7 @@ export function pasteTransaction(
     const transaction = closeHistory(state.tr).replaceSelection(
       Slice.maxOpen(node.content),
     );
-    const parsed = fromEditorDoc(transaction.doc);
+    const parsed = fromEditorDoc(transaction.doc, profile);
     if (!parsed.ok || !validEditorProfile(parsed.value, profile)) return null;
     return transaction.setMeta("structuredPaste", true).scrollIntoView();
   } catch {

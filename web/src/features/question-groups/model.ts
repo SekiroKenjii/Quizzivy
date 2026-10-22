@@ -10,7 +10,6 @@ import {
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
 import type { GroupBundle } from "./api";
-import { formProse } from "@/components/shared/content/questionContent";
 
 type GroupQuestionInput = components["schemas"]["QuestionInput"];
 export type GroupMaterial = GroupBundle["group"]["stimuli"][number];
@@ -75,8 +74,8 @@ export function memberValues(full: GroupQuestionInput): QuestionValues {
     ...input,
     level: input.level ?? null,
     skill: input.skill ?? null,
-    promptContent: formProse(input.promptContent),
-    explanationContent: formProse(input.explanationContent),
+    promptContent: input.promptContent ?? null,
+    explanationContent: input.explanationContent ?? null,
     mediaAssetId: input.mediaAssetId ?? null,
     mediaAlt: input.mediaAlt ?? null,
     audio: input.audio ?? null,

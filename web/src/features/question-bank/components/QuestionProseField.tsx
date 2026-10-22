@@ -5,9 +5,9 @@ import { markdownToQuestionContent } from "@/components/shared/content/editor/ma
 import { questionContentToMarkdown } from "@/components/shared/content/editor/markdownSerializer";
 import { contentPlainText } from "@/components/shared/content/plainText";
 import {
+  holdsMedia,
   isQuestionContent,
-  type QuestionContent,
-  type QuestionPromptContent,
+  type StoredQuestionProse,
 } from "@/components/shared/content/questionContent";
 import { MarkdownProseEditor } from "./MarkdownProseEditor";
 import { ConversionPanel, ProseModeHeader } from "./ProseMode";
@@ -24,9 +24,11 @@ const EXPLANATION = { minHeight: 84, fontSize: 14 };
  * QuestionProseField is a prompt's or an explanation's field in the form it
  * is stored in: rich content in the rich editor, a Markdown string in the
  * Markdown editor; a field with no text opens as rich text. Only "Switch to
- * Markdown" and "Apply conversion" change the stored form. `clearOnFocus`
- * hides the builder's starter prompt in either form until it is replaced, and
- * `action` goes in the header, before the mode switch.
+ * Markdown" and "Apply conversion" change the stored form, and "Markdown" is
+ * disabled while the rich text holds an image or audio (DG-109), which
+ * Markdown cannot. `clearOnFocus` hides the builder's starter prompt in either
+ * form until it is replaced, and `action` goes in the header, before the mode
+ * switch.
  */
 export function QuestionProseField({
   text,
@@ -41,7 +43,7 @@ export function QuestionProseField({
   onChange,
 }: Readonly<{
   text: string;
-  content?: QuestionPromptContent | null | undefined;
+  content?: StoredQuestionProse | null | undefined;
   id: string;
   label: string;
   hint?: string | undefined;
@@ -49,7 +51,7 @@ export function QuestionProseField({
   clearOnFocus?: boolean;
   placeholder?: string | undefined;
   action?: ReactNode;
-  onChange: (text: string, content: QuestionContent | null) => void;
+  onChange: (text: string, content: StoredQuestionProse | null) => void;
 }>) {
   const { t } = useTranslation();
   const header = useRef<HTMLDivElement>(null);
@@ -76,6 +78,11 @@ export function QuestionProseField({
           hint={hint}
           mode={field.mode}
           onMode={field.ask}
+          markdownBlocked={
+            content != null && holdsMedia(content)
+              ? t("proseMode.mediaBlocksMarkdown")
+              : undefined
+          }
           action={action}
         />
       </div>
@@ -91,6 +98,7 @@ export function QuestionProseField({
           <RichProseEditor
             key="rich"
             content={content ?? null}
+            field={prompt ? "prompt" : "explanation"}
             id={id}
             label={label}
             describedBy={describedBy}

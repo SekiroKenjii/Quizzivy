@@ -1680,6 +1680,13 @@ function QuestionForm({
   const queryClient = useQueryClient();
   const [values, setValues] = useState<QuestionValues>(() => toFormValues(initial));
   const [asset, setAsset] = useState<MediaAsset | null>(initial.media ?? null);
+  const assets = useMemo(
+    () =>
+      new Map(
+        (initial.contentAssets ?? []).map((file) => [file.id.toLowerCase(), file]),
+      ),
+    [initial.contentAssets],
+  );
   const refuse = useCallback(
     (next: QuestionValues) => {
       const parsed = questionSchema.safeParse(next);
@@ -1746,6 +1753,7 @@ function QuestionForm({
       }}
       onAssetChange={setAsset}
       onRefresh={onRefresh}
+      assets={assets}
     />
   );
 }

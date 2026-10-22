@@ -22,7 +22,7 @@ import { kindOfName, type Rejection } from "@/features/media/limits";
 import type { LibraryAsset, MediaAsset, MediaKind } from "@/features/media/api";
 import {
   DEFAULT_AUDIO_POLICY,
-  type AudioPolicy,
+  startingAudioPolicy,
 } from "@/features/question-bank/audioPolicy";
 import type { QuestionValues } from "@/features/question-bank/questionSchema";
 import { useFileDrop } from "@/hooks/useFileDrop";
@@ -39,7 +39,15 @@ interface QuestionMediaFieldProps {
   onAssetChange: (asset: MediaAsset | null) => void;
   /** Refetches the question, minting a fresh signed URL when one expires. */
   onRefresh?: (() => void) | undefined;
+  /** Applies an attach or a removal, which also takes the audio marker out of a prompt left without audio (DG-109). */
+  onMedia?: ((patch: MediaPatch) => void) | undefined;
 }
+
+/** MediaPatch is what attaching or removing the question's media changes. */
+export type MediaPatch = Pick<
+  QuestionValues,
+  "mediaAssetId" | "audio" | "transcript" | "mediaAlt"
+>;
 
 /**
  * QuestionMediaField is the question's media block: "Question media", then a
@@ -58,6 +66,7 @@ export function QuestionMediaField({
   onChange,
   onAssetChange,
   onRefresh,
+  onMedia,
 }: Readonly<QuestionMediaFieldProps>) {
   const { t } = useTranslation();
   const fileInput = useRef<HTMLInputElement>(null);
@@ -69,12 +78,16 @@ export function QuestionMediaField({
     asked: null,
   });
 
+  function apply(patch: MediaPatch) {
+    if (onMedia) onMedia(patch);
+    else onChange({ ...value, ...patch });
+  }
+
   function attach(next: Attachable) {
     onAssetChange(next);
-    onChange({
-      ...value,
+    apply({
       mediaAssetId: next.id,
-      audio: next.kind === "audio" ? (value.audio ?? startingPolicy(next)) : null,
+      audio: next.kind === "audio" ? (value.audio ?? startingAudioPolicy(next)) : null,
       transcript: next.kind === "audio" ? value.transcript : null,
       mediaAlt: null,
     });
@@ -82,13 +95,7 @@ export function QuestionMediaField({
 
   function remove() {
     onAssetChange(null);
-    onChange({
-      ...value,
-      mediaAssetId: null,
-      audio: null,
-      transcript: null,
-      mediaAlt: null,
-    });
+    apply({ mediaAssetId: null, audio: null, transcript: null, mediaAlt: null });
   }
 
   const upload = useMediaUpload({
@@ -179,12 +186,6 @@ export function QuestionMediaField({
       />
     </div>
   );
-}
-
-function startingPolicy(asset: Attachable): AudioPolicy {
-  const stored = "defaultMaxPlays" in asset ? asset.defaultMaxPlays : null;
-  if (stored === null) return DEFAULT_AUDIO_POLICY;
-  return { ...DEFAULT_AUDIO_POLICY, maxPlays: stored === 0 ? null : stored };
 }
 
 function refusalTitle(rejection: Rejection, t: TFunction): string {

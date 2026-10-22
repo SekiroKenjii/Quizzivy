@@ -4541,6 +4541,7 @@
     "false": "Sai",
     "blank": "chỗ trống",
     "replayFreely": "Nghe lại thoải mái sau khi nộp",
+    "explanationAudio": "Âm thanh giải thích",
     "showTranscript": "Xem lời thoại",
     "noTranscript": "Lời thoại không được hiển thị.",
     "teacherComment": "Nhận xét của giáo viên",
@@ -4724,7 +4725,35 @@
     "words_one": "{{count}} từ",
     "words_other": "{{count}} từ",
     "imagesLeftOut_one": "Đã bỏ {{count}} hình ảnh trong nội dung sao chép.",
-    "imagesLeftOut_other": "Đã bỏ {{count}} hình ảnh trong nội dung sao chép."
+    "imagesLeftOut_other": "Đã bỏ {{count}} hình ảnh trong nội dung sao chép.",
+    "media": {
+      "image": "Hình ảnh",
+      "audio": "Âm thanh",
+      "upload": "Tải lên từ thiết bị",
+      "library": "Chọn từ Media",
+      "libraryHint": "Các tệp bạn đã tải lên",
+      "imageLimits": "JPG, PNG hoặc WebP · tối đa 10 MB",
+      "audioLimits": "MP3 hoặc M4A · tối đa 50 MB và 5 phút",
+      "imageNote": "Bạn cũng có thể dán ({{shortcut}}) hoặc thả hình ảnh vào nội dung. Mỗi hình được lưu vào Media.",
+      "promptAudioNote": "Đây là âm thanh của câu hỏi: áp dụng giới hạn số lần nghe, và phát tại vị trí bạn đặt.",
+      "explanationAudioNote": "Học viên nghe đoạn này sau bài thi, cùng phần giải thích.",
+      "placeAudio": "Đặt âm thanh của câu hỏi tại đây",
+      "placeAudioHint": "Chuyển đến vị trí con trỏ",
+      "audioBlocked": "Câu hỏi đang dùng hình ảnh làm media. Hãy gỡ hình trong mục Media của câu hỏi để thêm âm thanh.",
+      "onlyImages": "Chỉ có thể dán hoặc thả hình ảnh vào nội dung. Dùng nút Âm thanh để thêm bản ghi.",
+      "refused": "Không thể thêm tệp vào đây: nội dung chứa tối đa 8 hình ảnh và bản ghi.",
+      "wrongType": "Định dạng tệp này không được hỗ trợ",
+      "unavailable": "Không tải được tệp này",
+      "removeImage": "Gỡ hình ảnh",
+      "removeAudio": "Gỡ âm thanh",
+      "alt": "Văn bản thay thế",
+      "altPlaceholder": "Văn bản thay thế: mô tả hình ảnh cho trình đọc màn hình",
+      "altNudge": "Không có văn bản thay thế, trình đọc màn hình sẽ bỏ qua hình này. Chỉ để trống nếu hình chỉ để trang trí.",
+      "questionAudio": "Âm thanh của câu hỏi",
+      "questionAudioHint": "{{name}} · phát tại đây theo giới hạn số lần nghe của câu hỏi",
+      "questionAudioMissing": "Câu hỏi chưa có âm thanh. Hãy thêm trong mục Media của câu hỏi hoặc gỡ mục này.",
+      "pasteOnItsOwn": "Hãy thêm từng hình bằng nút Hình ảnh."
+    }
   },
   "groups": {
     "titleLabel": "Tên nhóm câu hỏi",
@@ -5926,7 +5955,8 @@
     "markdown": "Markdown",
     "switchWarning": "Markdown giữ văn bản, chữ đậm, chữ nghiêng, tiêu đề, danh sách, bảng và liên kết. Gạch chân, chỉ số trên và chỉ số dưới không có dạng Markdown nên sẽ bị bỏ.",
     "switchToMarkdown": "Chuyển sang Markdown",
-    "gapsBlockMarkdown": "Hãy bỏ hết chỗ trống khỏi nội dung để chuyển sang Markdown: các chỗ trống đang giữ đáp án được chấp nhận."
+    "gapsBlockMarkdown": "Hãy bỏ hết chỗ trống khỏi nội dung để chuyển sang Markdown: các chỗ trống đang giữ đáp án được chấp nhận.",
+    "mediaBlocksMarkdown": "Hãy gỡ hình ảnh và âm thanh để chuyển sang Markdown: Markdown không có dạng cho chúng."
   },
   "trueFalse": {
     "true": "Đúng",

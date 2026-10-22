@@ -1,7 +1,7 @@
 import { useCallback, useRef, useState } from "react";
 import type { EditorState } from "@tiptap/pm/state";
 import type { EditorView } from "@tiptap/pm/view";
-import type { SemanticContent } from "../model";
+import type { ProseDocument, SemanticContent } from "../model";
 import { fromEditorDoc } from "./adapter";
 import { pasteTransaction } from "./pasteTransaction";
 import type { EditorProfile } from "./profile";
@@ -12,7 +12,7 @@ type PendingPaste = {
   state: EditorState;
   view: EditorView;
   content: SemanticContent | null;
-  result: SemanticContent | null;
+  result: ProseDocument | null;
   imagesLeftOut: number;
 };
 
@@ -33,7 +33,7 @@ async function convertPaste(
     if (!converted) return refused;
     if (!converted.content) return { outcome: "refused", notice: "file" };
     const transaction = pasteTransaction(pending.state, converted.content, profile);
-    const parsed = transaction && fromEditorDoc(transaction.doc);
+    const parsed = transaction && fromEditorDoc(transaction.doc, profile);
     if (!parsed?.ok || parsed.value.format !== "semantic_v1") return refused;
     return {
       outcome: "preview",
