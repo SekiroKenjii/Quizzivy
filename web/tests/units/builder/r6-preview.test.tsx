@@ -1,5 +1,5 @@
 import "@/lib/i18n";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import type { AdminQuestion } from "@/features/question-bank/api";
 import type { GroupBundle } from "@/features/question-groups/api";
 import { emptyGroup, memberOptionOrder } from "@/features/question-groups/model";
@@ -72,6 +72,8 @@ describe("the builder's draft preview (QC-R6B-1)", () => {
       { id: B, key: "B", text: "woof" },
     ]);
     expect(student.matchAllowReuse).toBe(true);
+    expect(student.options!.map((option) => option.key)).toEqual(["i", "ii", "iii"]);
+    expect(asStudent(SECTION, chooseTwo).options![0]).not.toHaveProperty("key");
     expect(JSON.stringify(student)).not.toMatch(/correctOption|isCorrect/);
   });
 
@@ -93,6 +95,13 @@ describe("the builder's draft preview (QC-R6B-1)", () => {
     );
     expect(screen.getByText("meow")).toBeInTheDocument();
     expect(screen.getByText("woof")).toBeInTheDocument();
+    // QC-R6B-9: each item's choices carry the options' numerals as their names.
+    for (const item of ["A meow", "B woof"])
+      expect(
+        within(screen.getByRole("radiogroup", { name: item }))
+          .getAllByRole("radio")
+          .map((radio) => radio.getAttribute("aria-label")),
+      ).toEqual(["i", "ii", "iii"]);
     expect(screen.getByText(/^Chọn .+ đáp án\.$/)).toBeInTheDocument();
     expect(screen.getByText(/^Viết KHÔNG QUÁ .+ TỪ\.$/)).toBeInTheDocument();
   });
@@ -161,6 +170,8 @@ describe("the group's student preview (QC-R6B-1)", () => {
       { id: `${ids[0]}-item-1`, key: "B", text: "woof" },
     ]);
     expect(matched!.matchAllowReuse).toBe(false);
+    expect(matched!.options!.map((option) => option.key)).toEqual(["i", "ii"]);
+    expect(chosen!.options![0]).not.toHaveProperty("key");
     expect(chosen!.selectCount).toBe(2);
     expect(written!.maxWords).toBe(4);
     expect(JSON.stringify([matched, chosen, written])).not.toMatch(

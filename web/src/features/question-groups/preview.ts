@@ -1,7 +1,7 @@
 import type { components } from "@/lib/api/schema";
 import type { MediaAsset } from "@/features/media/api";
 import type { AdminQuestion } from "@/features/question-bank/api";
-import { matchItemKey } from "@/features/question-bank/matchKeys";
+import { matchItemKey, matchOptionKey } from "@/features/question-bank/matchKeys";
 import type { GroupBundle } from "./api";
 
 type AudioPolicy = components["schemas"]["AudioPolicy"];
@@ -58,6 +58,7 @@ export function groupPreview(bundle: GroupBundle, assets: MediaAsset[]) {
             id: option.id ?? `${member.questionId}-option-${index}`,
             text: option.text,
             content: option.content ?? null,
+            ...(input.type === "matching" ? { key: matchOptionKey(index) } : {}),
           })),
           blanks: (input.blanks ?? []).map((blank) => ({
             id: blank.id ?? `${member.questionId}-blank-${blank.ordinal}`,
@@ -124,6 +125,7 @@ export function asStudent(
       id: o.id,
       text: o.text,
       content: o.content ?? null,
+      ...(q.type === "matching" ? { key: o.key ?? matchOptionKey(o.ordinal) } : {}),
     })),
     blanks: (q.blanks ?? []).map((b) => ({
       id: b.id,

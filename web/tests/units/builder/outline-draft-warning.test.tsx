@@ -121,4 +121,15 @@ it("warns on the outline row while the selected choose N draft is unkeyed", asyn
   await waitFor(() =>
     expect(screen.queryAllByText("Chưa có đáp án đúng")).toHaveLength(0),
   );
+
+  // Too many ticks warn as well: three ticked where students choose two.
+  const markC = screen.getByRole("checkbox", { name: "Đánh dấu C là đáp án đúng" });
+  await user.click(markC);
+  expect(
+    await screen.findByText("Chưa có đáp án đúng", { selector: ".sr-only" }),
+  ).toBeInTheDocument();
+  await user.click(markC);
+  await waitFor(() =>
+    expect(screen.queryAllByText("Chưa có đáp án đúng")).toHaveLength(0),
+  );
 });
