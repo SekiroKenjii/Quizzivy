@@ -67,6 +67,21 @@ func deleteOtherChildren(ctx context.Context, tx pgx.Tx, table, questionID strin
 	return err
 }
 
+// replaceChildren rewrites the rows a question's input owns, in the write's
+// transaction: options, blanks, rubric and the media its prose names.
+func replaceChildren(ctx context.Context, tx pgx.Tx, id string, in domain.Input) error {
+	if err := replaceOptions(ctx, tx, id, in); err != nil {
+		return err
+	}
+	if err := replaceBlanks(ctx, tx, id, in); err != nil {
+		return err
+	}
+	if err := replaceRubric(ctx, tx, id, in); err != nil {
+		return err
+	}
+	return WriteMediaReferences(ctx, tx, id, in.PromptContent, in.ExplanationContent)
+}
+
 // replaceOptions makes the question's options the ones in the input, and its
 // matching items the input's. An option sent with an id the question holds is
 // updated in place, so its id survives the save; one sent without an id, or

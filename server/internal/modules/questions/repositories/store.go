@@ -247,16 +247,7 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 		return domain.Question{}, writeFailure(err)
 	}
 
-	if err := replaceOptions(ctx, tx, id, in.Input); err != nil {
-		return domain.Question{}, err
-	}
-	if err := replaceBlanks(ctx, tx, id, in.Input); err != nil {
-		return domain.Question{}, err
-	}
-	if err := replaceRubric(ctx, tx, id, in.Input); err != nil {
-		return domain.Question{}, err
-	}
-	if err := WriteMediaReferences(ctx, tx, id, in.Input.PromptContent, in.Input.ExplanationContent); err != nil {
+	if err := replaceChildren(ctx, tx, id, in.Input); err != nil {
 		return domain.Question{}, err
 	}
 
