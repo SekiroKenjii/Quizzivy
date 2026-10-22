@@ -2740,7 +2740,44 @@
     "tickExactly": "Đánh dấu đúng {{count}} đáp án đúng, bằng số đáp án học viên chọn.",
     "wordLimit": "Giới hạn số từ",
     "wordLimitHint": "Không bắt buộc. Học viên thấy số từ khi gõ; câu trả lời dài hơn được đánh dấu, không bị cắt.",
-    "wordLimitPlaceholder": "Không giới hạn"
+    "wordLimitPlaceholder": "Không giới hạn",
+    "matching": {
+      "items": "Các mục",
+      "itemsHint": "những gì học viên cần nối, kèm lựa chọn đúng",
+      "optionsHint": "danh sách học viên chọn",
+      "item": "Mục {{key}}",
+      "itemPlaceholder": "Nhập nội dung mục",
+      "option": "Lựa chọn {{key}}",
+      "optionPlaceholder": "Nhập lựa chọn",
+      "choose": "Chọn…",
+      "correctFor": "Lựa chọn đúng cho mục {{key}}",
+      "removeItem": "Xoá mục {{key}}",
+      "removeOption": "Xoá lựa chọn {{key}}",
+      "addItem": "Thêm mục",
+      "extra": "Thừa",
+      "extraTitle": "Không nối với mục nào, nên dùng làm phương án gây nhiễu",
+      "reuse": "Mỗi lựa chọn có thể dùng nhiều lần",
+      "maxItemsToast": "Tối đa {{count}} mục"
+    },
+    "rubric": {
+      "label": "Tiêu chí chấm",
+      "hint": "tối đa {{count}}. Band là trung bình các tiêu chí, làm tròn đến 0,5.",
+      "none": "Chưa có tiêu chí: bạn cho band trực tiếp khi chấm.",
+      "criterion": "Tiêu chí {{n}}",
+      "placeholder": "Đặt tên tiêu chí",
+      "moveUp": "Đưa tiêu chí {{n}} lên",
+      "moveDown": "Đưa tiêu chí {{n}} xuống",
+      "remove": "Xoá tiêu chí {{n}}",
+      "add": "Thêm tiêu chí",
+      "preset": "Dùng tiêu chí IELTS Writing",
+      "maxToast": "Tối đa {{count}} tiêu chí",
+      "ielts": {
+        "taskResponse": "Hoàn thành yêu cầu đề bài",
+        "coherence": "Mạch lạc và liên kết",
+        "lexical": "Vốn từ vựng",
+        "grammar": "Độ đa dạng và chính xác ngữ pháp"
+      }
+    }
   },
   "builder": {
     "dragInstructions": "Bấm phím cách để nhấc mục, dùng phím mũi tên để chuyển, rồi bấm phím cách để thả hoặc Esc để huỷ.",
