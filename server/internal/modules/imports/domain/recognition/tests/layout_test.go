@@ -508,3 +508,94 @@ func TestALongInstructionPointsAtAPossiblePassage(t *testing.T) {
 		})
 	}
 }
+
+// QC-R6GRM-5: a passage that opens like a command, after the instruction of a Roman section or of a plain one, is
+// the stimulus; straight under a bare heading it is still taken as the instruction, but pointed at (D-073).
+func TestACommandLikePassageAfterAnyInstructionStaysTheStimulus(t *testing.T) {
+	instruction := "Read the passage and decide if the statements are true or false."
+	for _, passage := range []string{
+		"Mark Twain once wrote that the museum was the finest in the state, and visitors still quote him today.",
+		"Make no mistake: the museum changed the town for ever when it opened in 1990.",
+		"Đọc sách là thói quen tốt giúp học sinh mở rộng hiểu biết về thế giới xung quanh.",
+	} {
+		for name, head := range map[string][]string{"roman": {"I. " + instruction}, "plain": {instruction}} {
+			t.Run(name+"/"+passage, func(t *testing.T) {
+				d := recognize(t, exam(lines(append(head, passage, "1. The museum opened in 1990.", "2. Entry is free.")...)), key(lines("1. TRUE\t2. FALSE")))
+				g := d.Sections[0].Items[0].Group
+				if g == nil || g.Stimulus == nil || strings.Contains(d.Sections[0].Title+g.Instructions, passage[:10]) {
+					t.Fatalf("the passage is the stimulus: %+v", d.Sections)
+				}
+				if q := question(t, d, "1"); q.Task != "" {
+					t.Fatalf("the passage sets no task: %+v", q)
+				}
+			})
+		}
+		t.Run("bare heading/"+passage, func(t *testing.T) {
+			d := recognize(t, exam(lines("Questions 1-2", passage, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. FALSE")))
+			if got := notices(d, domain.CodeLongInstruction); len(got) != 1 || got[0].Severity != domain.Informational {
+				t.Fatalf("the line is pointed at: %+v", got)
+			}
+		})
+	}
+	d := recognize(t, exam(lines("Questions 1-2", "Choose the best answer for each question.", "1. When did it open?", "A. 1980\tB. 1990", "2. Who paid?", "A. city\tB. residents")), key(lines("1. B\t2. B")))
+	if got := notices(d, domain.CodeLongInstruction); len(got) != 0 {
+		t.Fatalf("an instruction straight under a heading is not pointed at: %+v", got)
+	}
+}
+
+// QC-R6GRM-6: a Vietnamese predicate reads as a statement only in the first clause, so a second instruction line
+// that glosses its task after a comma or semicolon stays the instruction.
+func TestAVietnamesePredicateInALaterClauseKeepsTheInstruction(t *testing.T) {
+	for _, second := range []string{
+		"Chọn đáp án đúng, mỗi câu chỉ có một đáp án là đúng.",
+		"Điền vào chỗ trống, mỗi chỗ trống là một từ.",
+		"Chọn đáp án đúng; lưu ý câu 2 là câu khó.",
+		"Sắp xếp các từ sau thành câu hoàn chỉnh, từ đầu tiên đã được viết hoa giúp em.",
+	} {
+		d := recognize(t, exam(lines("Câu 1-2", "Đọc đoạn văn sau.", second, "Bảo tàng mở cửa năm 1990 sau nhiều năm vận động.", "1. Bảo tàng mở cửa năm nào?", "2. Ai góp tiền?")), key(lines("1. 1990\t2. người dân")))
+		if want := "Câu 1-2 Đọc đoạn văn sau. " + second; d.Sections[0].Title != want {
+			t.Fatalf("the line joins: %q", d.Sections[0].Title)
+		}
+	}
+}
+
+// QC-R6GRM-7, QC-R6GRM-8: a line that completes the answer format the instruction line before it began joins it in
+// every layout, unless what follows the format reads as a sentence of its own.
+func TestABrokenAnswerFormatJoinsInEveryLayout(t *testing.T) {
+	passage := "The museum opened in 1990 after a long campaign by local residents."
+	for name, prefix := range map[string]string{"roman": "I. ", "plain": ""} {
+		d := recognize(t, exam(lines(prefix+"Choose", "TWO letters, A-E.", passage, "1. Which TWO are true?", "A. a\tB. b\tC. c\tD. d\tE. e")), key(lines("1. B, D")))
+		if q := question(t, d, "1"); q.SelectCount == nil || *q.SelectCount != 2 {
+			t.Fatalf("%s: Choose / TWO: %+v", name, q)
+		}
+		d = recognize(t, exam(lines(prefix+"Chọn", "Đúng, Sai hoặc Không có thông tin", passage, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. Đúng\t2. Không có thông tin")))
+		if q := question(t, d, "2"); q.Type != "tfng" {
+			t.Fatalf("%s: Chọn / Đúng, Sai…: %+v", name, q)
+		}
+		d = recognize(t, exam(lines(prefix+"Write the correct letter,", "A, B or C, in boxes 1-2 on your answer sheet.", passage, "1. When?", "A. 1980\tB. 1990\tC. 2000")), key(lines("1. B")))
+		if text := d.Sections[0].Title + " " + instructionsOf(d); !strings.Contains(text, "Write the correct letter, A, B or C, in boxes 1-2") {
+			t.Fatalf("%s: the letters join: %q", name, text)
+		}
+	}
+	for _, c := range []struct{ head, line string }{
+		{"Choose", "A, B and C were the three rooms of the museum when it opened in 1990."},
+		{"Read the passage", "True or false, the story of the museum is a long one that began in 1980."},
+		{"Read the passage and answer", "no more than two words were spoken by the mayor when the museum opened in 1990."},
+	} {
+		d := recognize(t, exam(lines("Questions 1-2", c.head, c.line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. FALSE")))
+		if g := d.Sections[0].Items[0].Group; g == nil || g.Stimulus == nil || d.Sections[0].Title != "Questions 1-2 "+c.head {
+			t.Fatalf("%s: the sentence is the stimulus: %q", c.line, d.Sections[0].Title)
+		}
+	}
+}
+
+// instructionsOf joins the instructions of the first section's groups.
+func instructionsOf(d domain.Draft) string {
+	var text []string
+	for _, it := range d.Sections[0].Items {
+		if it.Group != nil {
+			text = append(text, it.Group.Instructions)
+		}
+	}
+	return strings.Join(text, " ")
+}
