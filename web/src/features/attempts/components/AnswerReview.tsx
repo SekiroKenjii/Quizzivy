@@ -8,11 +8,22 @@ import { countWords } from "@/lib/words";
 import { cn } from "@/lib/utils";
 import type { AdminQuestion, ReviewAnswer } from "../api";
 import { OPTION, optionKey } from "./answerStyles";
+import { EssayMarksReview, MatchingReview, OverLimit } from "./AnswerReviewTypes";
+import { tfngLabelKey } from "@/components/shared/content/trueFalse";
 import type { TFunction } from "i18next";
 
 type ReviewQuestion = Pick<
   AdminQuestion,
-  "type" | "prompt" | "promptContent" | "media" | "options" | "blanks"
+  | "type"
+  | "prompt"
+  | "promptContent"
+  | "media"
+  | "options"
+  | "blanks"
+  | "selectCount"
+  | "maxWords"
+  | "matchItems"
+  | "rubric"
 >;
 
 type ShortAnswerPresentation = Readonly<{ label: string }>;
@@ -21,7 +32,10 @@ type ShortAnswerPresentation = Readonly<{ label: string }>;
  * AnswerReview preserves full-review defaults and optionally presents a short
  * answer with grading metrics and its supplied label. An answer the centre's
  * retention policy removed shows the notice that says so in place of the
- * response.
+ * response. The R6 types: true / false / not given by its position labels,
+ * "Choose N" with its picks against the key, matching as pairs against the
+ * key, an essay with its word count, band and criteria, and a short answer
+ * past its word limit with the over-limit badge.
  */
 export function AnswerReview({
   question,
@@ -62,6 +76,9 @@ export function AnswerReview({
           shortAnswerPresentation={shortAnswerPresentation}
         />
       )}
+      {question.type === "essay" && answer?.answerRemoved !== true && (
+        <EssayMarksReview question={question} answer={answer} />
+      )}
     </div>
   );
 }
@@ -96,9 +113,14 @@ function Body({
     case "essay":
       return (
         <div className={shortAnswerStyle.panel}>
-          <p className={shortAnswerStyle.label}>
-            {shortAnswerPresentation?.label ?? t("review.studentAnswer")}
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <p className={shortAnswerStyle.label}>
+              {shortAnswerPresentation?.label ?? t("review.studentAnswer")}
+            </p>
+            {text !== null && question.type === "short_answer" && (
+              <OverLimit text={text} maxWords={question.maxWords} />
+            )}
+          </div>
           {text === null ? (
             <p className="text-muted-foreground text-sm">{t("review.unanswered")}</p>
           ) : (
@@ -141,10 +163,27 @@ function Body({
         </div>
       );
     }
+    case "matching":
+      return <MatchingReview question={question} given={given} />;
     default: {
       const chosen = chosenOptions(question, given);
       return (
         <div className="space-y-2">
+          {question.type === "multiple_choice" && question.selectCount != null && (
+            <p className="text-muted-foreground text-xs">
+              {chosen.size > question.selectCount
+                ? t("review.chooseOver", {
+                    n: question.selectCount,
+                    picked: chosen.size,
+                  })
+                : t("review.chooseCount", {
+                    n: question.selectCount,
+                    correct: (question.options ?? []).filter(
+                      (option) => option.isCorrect && chosen.has(option.id),
+                    ).length,
+                  })}
+            </p>
+          )}
           {(question.options ?? []).map((option, index) => {
             const picked = chosen.has(option.id);
             return (
@@ -158,11 +197,15 @@ function Body({
               >
                 <span className={OPTION.key}>{optionKey(index)}</span>
                 <span className="text-sm">
-                  <OptionText
-                    text={option.text}
-                    content={option.content}
-                    type={question.type}
-                  />
+                  {question.type === "tfng" && tfngLabelKey(index) !== null ? (
+                    t(tfngLabelKey(index)!)
+                  ) : (
+                    <OptionText
+                      text={option.text}
+                      content={option.content}
+                      type={question.type}
+                    />
+                  )}
                 </span>
                 <span className="text-muted-foreground ml-auto self-center text-xs">
                   {optionNote(picked, option.isCorrect, t)}

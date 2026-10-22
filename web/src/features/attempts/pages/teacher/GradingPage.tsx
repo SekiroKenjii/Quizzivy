@@ -467,18 +467,18 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
         title={t(model.unsavedScore ? "grading.leaveScoreTitle" : "grading.leaveTitle")}
         description={t(leaveBody(model))}
         confirmLabel={t(
-          model.partial ? "grading.leaveWithoutSaving" : "grading.saveAndLeave",
+          model.partial ? "grading.dropBandsAndLeave" : "grading.saveAndLeave",
         )}
         cancelLabel={t("grading.stay")}
         destructive={model.partial}
         pending={model.busy}
-        error={blocker.state === "blocked" ? model.error : null}
+        error={blocker.state === "blocked" || model.leaveHeld ? model.error : null}
         onConfirm={() => {
           const go = () => {
             departing.current = true;
             if (blocker.state === "blocked") blocker.proceed();
           };
-          if (model.partial) model.discard(go);
+          if (model.partial) void model.discard(go);
           else void model.leave(go);
         }}
       />
