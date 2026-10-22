@@ -63,7 +63,7 @@ func Normalize(d Document) (Document, error) {
 	if err := encoder.Encode(value); err != nil {
 		return Document{}, ErrInvalidDocument
 	}
-	return Parse(bytes.TrimSpace(out.Bytes()))
+	return d.reparse(bytes.TrimSpace(out.Bytes()))
 }
 
 func compose(value any) bool {

@@ -9,6 +9,10 @@
 - R6-00 §11.1 §12 O-R5.7 The paused-control sweep, engine: the audio player's button, inert while a recording that cannot be paused plays, fades its fill to 55% instead of the element (icon 3.3:1 light, 5.3:1 dark), so its focus ring stays whole; the navigator and the answer fields pause with the native `disabled` and take no focus, so they keep their look. `paused-opacity.test.ts`'s baseline is empty: no paused control in `src/` dims its element. The scan also sees a breakpoint or theme variant on the opacity, `aria-disabled` from a spread and a shorthand class in a props object, and no longer counts `aria-disabled={undefined}`, a negated or ternary pause's unpaused branch, `!paused &&` or a constant a parameter shadows.
 - N-01 §5 Authentication and permission are decided before the path and query parameters are bound: an anonymous caller gets `401 UNAUTHORIZED` and a caller without the operation's permission `403 FORBIDDEN` where a malformed or missing parameter answered `400 VALIDATION_FAILED` first (QC-W-7, D-047).
 - #371 §15 Every operation with a path or query parameter the server can refuse (a typed, formatted, patterned, enumerated or length-bounded parameter, or a required query parameter) declares `400 VALIDATION_FAILED`: 56 operations that take no JSON body and already answered it now say so in the contract.
+- T-R6.2 §7 The contract gains the types `tfng` (true / false / not given: three fixed options, answered as `choice`), `matching` and `essay`; `multiple_choice` takes `selectCount` ("choose exactly N") and `short_answer` takes `maxWords` (advice, never truncation); matching items and an essay's rubric criteria are teacher shapes, a student sees only an item's id, key and text, and `matching` is answered with `pairs`. Keys are labels the server derives from the stored ordinal (choices i to xii, items A to T; D-063). A grade item takes points, or for an essay a band (3 to 9 in half steps) or its criteria; until essays are stored the server refuses a band or criteria with `GRADE_BAND_NOT_ALLOWED` and a missing score with `GRADE_NEEDS_POINTS`.
+- T-R6.14 §14 The dev seed gains `seed/10-dev-question-types.sql`, a published paper in two parts with one question of every type, a reading-passage group, an essay with four criteria and images in a prompt and an explanation; `99-assert.sql` refuses a frozen row that breaks a publish rule of the new types. E2E 1 authors every type through the editor, E2E 9 runs against that paper and the result-only keys, and the new E2E 11 takes it from start to result (§14 also lists the Word import's E2E 10). E2E 11 found that the student's result showed a True / False / Not given answer by its stored English text; it now names it in the reader's language, as the engine and the teacher's review do.
+- T-R6.15 §7 defines each type with its answer, its marking rule and the band rule; §13.3 lists R6's tables and columns (`00145` to `00154`); §15 summarises the R6 contract; the "stored once T-R6.1a and T-R6.3 land" marker goes.
+- T-R6.7 §13.4 Every manual grade is audited (D-069): a grade that changes a mark writes one `attempt.graded` row for its attempt, in the grade's transaction, whose diff holds per changed question the `manualScore`, `band` and `criteria` that changed as `{old, new}`; the comment is never in it, and a grade that changes no mark writes no row. An essay is marked on a band (or its rubric criteria's bands), converted to `manual_score = round(band × points ÷ 9, 2)`, and a mark that does not fit its question's type answers 422 once the attempt is found.
 
 **Changes since v0.117**
 
@@ -1852,7 +1856,8 @@ interface MediaAsset {
 
 type QuestionType =
   | 'single_choice' | 'multiple_choice' | 'true_false'
-  | 'fill_blank' | 'short_answer';
+  | 'fill_blank' | 'short_answer'
+  | 'tfng' | 'matching' | 'essay';
 
 type QuestionLevel = 'pre_a1' | 'a1' | 'a2' | 'b1' | 'b2' | 'c1' | 'c2';
 type QuestionSkill = 'grammar' | 'vocabulary' | 'reading' | 'listening' | 'writing' | 'speaking';
@@ -1880,7 +1885,12 @@ interface Question {
   blanks?: { id; ordinal: number; acceptedAnswers: string[]; caseSensitive: boolean }[];
   points: number;
   explanation?: string;
-  sampleAnswer?: string;                // short_answer; ADMIN ONLY, never in a student payload
+  sampleAnswer?: string;                // short_answer and essay; ADMIN ONLY, never in a student payload
+  selectCount?: number | null;          // multiple_choice: "choose exactly N", 2..7
+  maxWords?: number | null;             // short_answer: word limit, 1..100; advice, never truncation
+  matchAllowReuse?: boolean | null;     // matching only, where it is required
+  matchItems?: { id; ordinal: number; key: string; text: string; correctOptionId: string }[];  // matching; the choices are options
+  rubric?: { id; ordinal: number; label: string }[];   // essay; at most six criteria
   tags: string[];
 }
 
@@ -1928,7 +1938,7 @@ interface Attempt {
   startedAt; deadlineAt; submittedAt?; gradedAt?;
   answers: Record<string, Answer>;
   audioPlays: Record<string /*questionId*/, number>;   // server-authoritative (§11.4)
-  score?: { earned: number; total: number; pendingManual: number };
+  score?: { earned: number; total: number; pendingManual: number; band?: number };  // band: only when every scored question is a graded essay
   integrity?: { focusLossCount: number; flagged: boolean };
 }
 
@@ -1936,12 +1946,31 @@ type Answer =
   | { type: 'choice'; optionIds: string[] }
   | { type: 'true_false'; value: boolean }
   | { type: 'fill_blank'; values: Record<string, string> }
-  | { type: 'text'; value: string };
+  | { type: 'text'; value: string }
+  | { type: 'matching'; pairs: Record<string /*itemId*/, string /*optionId*/> };
 ```
 
 An option or a blank keeps its id across saves of its question: a write that sends an id the question holds updates that row, one that omits the id or sends an id the question does not hold creates a new one, and one that leaves a row out deletes it. An id read from a question therefore stays valid until its option or blank is removed.
 
 The engine writes a true/false answer as `choice`, with the id of the option the student chose. `{ type: 'true_false'; value: boolean }` is the legacy form: the server still accepts and grades it (`true` is the first option), but no screen sends it.
+
+**Question types, answers and marking.** Each type, the answer the engine sends and how it is marked when the attempt is submitted:
+
+| Type | What the teacher authors | Answer | Marked |
+|---|---|---|---|
+| `single_choice` | 2 to 8 options, one correct | `choice`, one id | all or nothing |
+| `multiple_choice` | 2 to 8 options, at least one correct | `choice`, the ids picked | all or nothing: every correct option and no other |
+| `multiple_choice` with `selectCount` N ("Choose N", 2 to 7, at most the options less one) | exactly N options correct | `choice`; the engine keeps at most N, the (N+1)th pick replacing the oldest | `round(points × correct picks ÷ N, 2)`; more than N distinct picks scores 0 |
+| `true_false` | the options `True` and `False`, one correct | `choice`, one id (`true_false` `{value}` is the legacy form) | all or nothing |
+| `tfng` | three options in fixed order, `True`, `False`, `Not given`, one correct; never shuffled, labelled in the reader's language by position | `choice`, one id | all or nothing, as a single choice |
+| `fill_blank` | gaps, each with accepted answers and a case rule | `fill_blank`, a value per blank | `round(points × blanks matched ÷ blanks, 2)`; a value matches after Unicode NFC, collapsing white space and, unless the blank is case-sensitive, lower-casing |
+| `short_answer` | an optional sample answer and an optional `maxWords` (1 to 100) | `text` | by hand, in points |
+| `essay` | an optional sample answer and up to six rubric criteria; default 9 points | `text` | by hand, on a band |
+| `matching` | 2 to 12 choices (the options, keyed i, ii, iii …, none marked correct) and 2 to 20 items (keyed A, B, C …), each naming its correct choice; with `matchAllowReuse` false a choice answers at most one item | `matching`, `pairs` from item id to option id | `round(points × items matched ÷ items, 2)` |
+
+An unanswered question scores 0. A word limit is advice, never truncation: the engine counts words as it is typed (a whitespace-separated token, a hyphenated word or a number counting once) and flags "too many", the server stores whatever was typed, and the grader sees the over-limit badge and decides.
+
+**The band rule.** An essay is graded on a band from 3 to 9 in half steps. Without criteria the teacher picks the band; with criteria the teacher picks a band for each, and the essay's band is their mean rounded half up to 0.5, `floor(mean × 2 + 0.5) ÷ 2` (6.25 → 6.5, 6.75 → 7.0). The band becomes points as `manual_score = round(band × points ÷ 9, 2)`, so at the default 9 points the points equal the band, and `final_score`, Finish grading and every total stay in points. `AttemptScore.band` is the essays' points-weighted mean band rounded to 0.5, present only when every scored question on the paper is a graded essay. A student sees bands, criteria and correct matches only on the result, behind the review policy (§9, §15), never while taking the test.
 
 **Invariant:** an attempt references `testVersionId`. Editing a published test creates a new version; in-flight attempts keep rendering the version they started with. In the student flow, test content is fetched **only** via `GET /app/attempts/:id`.
 
@@ -2397,7 +2426,7 @@ engine has no navigator column and no stored width. `AuthLayout` is the brand fr
 | `/app` | Student | Home. A greeting for the time of day and one line about what is next. The resume card for the attempt in progress that closes soonest; "Tiếp tục làm bài" resumes it at once. Coming up: every other paper still to do, each row a link to its intro, with a pill (in progress, due today or tomorrow inside 24 hours, open now, opens …). Recent results, newest first: the score if allowed, "being graded" or "submitted", each a link to its result. No filters. Only the intro starts the clock. A student in no class with nothing assigned is offered the Join dialog (§6.2). |
 | `/app/assignments/:id` | Student | Intro: class and title, three facts (time limit, questions, attempts used of allowed), and "Trước khi bắt đầu": **the rules stated plainly**, generated from the stored policy and dates (availability, the timer, fullscreen, copy and paste, leaving, the audio plays per §11.4, what the result shows). "Bắt đầu làm bài" asks "Bắt đầu ngay?" first; "Tiếp tục làm bài" resumes at once. A test not yet open, closed or with no attempts left says so in the button's place. A start the server refuses says why above the button: `409 MAINTENANCE_SCHEDULED`, for a start that would run into a maintenance window, with the server's message. When the teacher wrote a note for the students, it is drawn between "Trước khi bắt đầu" and the button: the teacher's initials, "Ghi chú từ {name}" and the text, as plain text with its line breaks; with no note nothing is drawn. The score sentence says "sau khi nộp bài" for a result released on submit and "sau khi bài đóng" for one released after the close. |
 | `/app/attempts/:id` | Focus | The engine (below). §10, §11.3. |
-| `/app/attempts/:id/result` | Student | The summary card (the score ring if allowed, the class, the title, one sentence on where grading stands), tiles, then every answer honoring `review.*`, with the transcript if `showTranscriptAfterSubmit`. While answers wait for the teacher the ring shows the score so far and the tiles say what waits. A line names what the policy hides. A result released after the close is withheld until then: the ring is a lock, no score, mark, answer key, explanation or grader's comment is sent, and the line and the summary say when it is released (`releasesAt`). When the server sends `classAverage`, one muted line under the summary sentence reads "Điểm trung bình của lớp: {n}%." Filters All / Wrong / Waiting: Wrong only when scores are shown, Waiting only when something waits; an empty filter says so and offers all questions. The phone header reads "Kết quả". |
+| `/app/attempts/:id/result` | Student | The summary card (the score ring if allowed, the class, the title, one sentence on where grading stands), tiles, then every answer honoring `review.*`, with the transcript if `showTranscriptAfterSubmit`. While answers wait for the teacher the ring shows the score so far and the tiles say what waits. Once every answer is marked, a paper whose essays all carry a band (`score.band`) reads "6.0 · band" on the ring, an arc of the band out of 9, and the sentence names the grader ("Graded by {name}." from `score.gradedBy`, else "Graded by your teacher.") and names the criterion with the highest band when one leads alone. Tiles follow one rule behind `showScore`, the first match winning: a paper made of one essay with a rubric shows a tile per criterion with its band; else two or more parts show a tile per part; else questions naming two or more skills show a tile per skill, counting the questions that name one; else no tiles (topic tiles have no model, DG-85). When the paper's only hand-graded answer has a comment, the comment shows in a callout under the summary, titled with the grader's name when sent, and leaves its answer (DG-84); otherwise comments stay on their answers. A banded essay reads its band in place of its points, with each criterion's band under the answer unless the tiles show them; a matching lists each item with the choice given, and with `showCorrectAnswers` strikes the wrong ones and gives the right choice of each item missed. Home's Recent results show a banded paper's band, "6.0". A line names what the policy hides. A result released after the close is withheld until then: the ring is a lock, no score, mark, answer key, explanation or grader's comment is sent, and the line and the summary say when it is released (`releasesAt`). When the server sends `classAverage`, one muted line under the summary sentence reads "Điểm trung bình của lớp: {n}%." Filters All / Wrong / Waiting: Wrong only when scores are shown, Waiting only when something waits; an empty filter says so and offers all questions. The phone header reads "Kết quả". |
 | `/app/classes` | Student | The classes joined, as cards: name, description, teacher (with photo), when and where it meets, and "Next", the paper that comes next in that class. A card is not a link, and nothing here leaves a class. One action, "Tham gia lớp", opens the Join dialog (§6.2). |
 | `/app/settings/:section?` | Student | Profile (default: name, email read-only, language), Sign-in (password, Google) and Appearance (theme, "Chữ lớn hơn khi làm bài"), under a segmented switcher. Every section stays mounted, so a form survives a change of section or of width. The old slugs redirect: `security` to `sign-in`, `preferences` and any unknown slug to Profile. |
 
@@ -3135,6 +3164,8 @@ applies after prose writes.
 
 Migrations `00114` to `00117` (D4, T-D4.13) add the pause rule of §11.1, one column each. `questions.audio_allow_pause` and `test_version_questions.audio_allow_pause` are nullable `boolean`s with no default, no backfill and `CHECK (audio_allow_pause IS NULL OR media_asset_kind IS NOT DISTINCT FROM 'audio')`, and every reader takes `COALESCE(…, true)`. They are nullable because the previous binary inserts these rows during a rolling deploy and writes no value, and because `questions_audio_policy_iff_audio` is a biconditional over the other two policy columns, which this column therefore stays out of. `group_recordings.allow_pause` and `test_version_group_recordings.allow_pause` are `boolean NOT NULL DEFAULT true`: a recording always has its whole policy, and a constant default is stored without a rewrite. None of the four rewrites or indexes a populated table.
 
+**Question types (R6, `00145` to `00154`, `docs/plan/20-data-model.md` §58 to §60).** Every change is additive. `app.question_type` gains `tfng`, `matching` and `essay` (`00145`). `questions` and `test_version_questions` gain `select_count smallint` (a multiple choice only, 2 to 7; `00146`), `max_words smallint` (a short answer only, 1 to 100; `00147`) and `match_allow_reuse boolean` (set exactly on a matching question; `00152`); a sample answer is allowed on an essay too (`00148`), and a `tfng` or `matching` group member keeps its options in order (`fixed`, `00149`). New tables, each with a frozen copy whose `UPDATE` is revoked from the app role: `question_rubric_criteria` / `test_version_rubric_criteria` (an essay's criteria, ordinal and label of 1 to 80 characters; `00150`), `question_match_items` / `test_version_match_items` (an item's text and the option that answers it, by a composite FK onto the question's own options, `NO ACTION`; `00152`, after `00151` builds the unique `(question_id, id)` indexes on both option tables `CONCURRENTLY`), and `question_media_references` / `test_version_question_media_references` (each asset an image or audio block in a prompt or explanation names, by `field`; `00154`). `attempt_answers.band numeric(3,1)` holds an essay's band beside its `manual_score`, and `attempt_answer_criteria (attempt_id, question_id, criterion_id, band)` its criteria's bands, the criterion by a composite FK onto the frozen criterion of the same question (`00153`). Every Down refuses while a row needs what its Up added. The type rules (three `tfng` options, matching's bounds, at most six criteria) are the bank's validation and the publish check, not CHECKs.
+
 ```sql
 CREATE TABLE app.questions (
   id              uuid PRIMARY KEY DEFAULT uuidv7(),
@@ -3358,7 +3389,7 @@ The assistant's budget (D21) is six tables, migrations `00118` to `00123` (`docs
 **Component (Testing Library):** each form validates and submits; guards redirect correctly; a renderer test per `QuestionType`; integrity dialog states; audio player states (idle / playing / plays exhausted / seek blocked / load error).
 
 **E2E (Playwright + MSW or a seeded backend):**
-1. Admin logs in → creates a test with one of each question type **including audio** → publishes → assigns.
+1. Admin logs in → creates a test with one of each question type **including audio** → publishes → assigns. Since R6 the editor also authors True / False / Not given, "Choose N", a word limit, matching and an essay with the IELTS rubric, and the preview draws each.
 2. Student logs in with **password** → starts → answers → reloads mid-test → answers persist → submits → sees result.
 3. **Join flow:** anonymous visitor opens `/join/:code` → sees class name → Google sign-in (mocked GIS) → account created, enrolled, lands on `/app`.
 4. **Expired code** → plain error, no account created, nothing leaked about the class.
@@ -3366,7 +3397,9 @@ The assistant's budget (D21) is six tables, migrations `00118` to `00123` (`docs
 6. Tab-switch fires `tab_hidden`, warning dialog appears, event lands on the admin integrity timeline.
 7. Second tab on the same attempt supersedes the first; the first goes read-only.
 8. **Audio `maxPlays`:** play twice → play button disabled → **reload** → still disabled (server-authoritative).
-9. Student payload assertion: `GET /app/attempts/:id` contains no `isCorrect`, `sampleAnswer`, `transcript`, or `acceptedAnswers`.
+9. Student payload assertion: `GET /app/attempts/:id` contains no `isCorrect`, `sampleAnswer`, `transcript`, or `acceptedAnswers`, and none of the result-only keys `correctOptionIds`, `correctAnswers`, `correctMatches`, `correctOptionId`, `band` or `criteria`, nor an explanation, on a paper with every question type. A result read with the score, the answers and the explanations hidden carries none of those keys either.
+10. **Word import:** a Word exam and its key go from the Imports page to a draft test with its answers (`import.live.spec.ts`).
+11. A paper of every type (`seed/10-dev-question-types.sql`) from start to result: a student answers each type, a "Choose two" replacing its oldest pick and a word limit exceeded, and submits; the auto-marks follow §7; a teacher grades the essay by its criteria; the result shows the band, the criteria, the part tiles, the correct matches and the explanation's image (`question-types.live.spec.ts`).
 
 **Definition of done for any task:**
 - [ ] TypeScript strict passes; no `any` without a comment
@@ -3839,6 +3872,8 @@ a body string, a body member name, a query parameter or a path segment (v0.83).
 **The result's `sections`** are the paper's parts in test order, and every result question names its `sectionId`. Both are present under every review policy, because the attempt already showed the student its parts; the page sums a part's score from its questions' `earned`, which the policy still gates.
 
 **A removed answer** (R5, T-R5.17b). An answer the retention sweep removed (§13.3) carries `answerRemoved: true` and no `answer` on a `ResultQuestion`, in `getAttemptForReview`'s answers and on a `QuestionAnswerRow`; its scores stand. One that never had a manual mark no longer waits for one, in the grading queue, the counts and the badges, and grading it is `409 ANSWER_REMOVED`.
+
+**Question types (R6).** Every change is additive (D-062), so R6 adds no contract step for R7. `QuestionType` gains `tfng`, `matching` and `essay`. The bank's `QuestionInput` takes `selectCount` (a multiple choice), `maxWords` (a short answer), `matchAllowReuse` and `matchItems` (`{text, correctOption}`, the option by its index in the same request; matching) and `rubric` (`{label}`, at most six; an essay), and refuses each on any other type with `400 VALIDATION_FAILED`; the teacher reads them back with ids and, for an item, its `key` and `correctOptionId`. Keys are labels the server derives from the stored ordinal (`shared/matchkey`: choices i to xii, items A to T; D-063). The student projection (`StudentQuestion`) carries `selectCount`, `maxWords` and `matchAllowReuse` as rules, and `matchItems` as `{id, key, text}` only: no `correctOptionId` and no rubric before submission. `tfng` and `matching` options keep their authored order whatever `shuffleSeed` says. A matching answer is `{type: 'matching', pairs}`; the autosave refuses it on another type. `ResultQuestion` adds `correctMatches` (`{itemId, optionId}`, under `review.showCorrectAnswers`), and `band` and `criteria` (`{id, label, band}`, under `review.showScore`, once the essay is graded), each absent otherwise; `AttemptScore` adds `band` (every scored question a graded essay) and `gradedBy {name}` (the student's result only, D-072, D-074). `POST /teacher/attempts/{id}/grade` takes, for an essay, a `band` or `criteria` (`{criterionId, band}` for each criterion) and no `points`, and answers a mark that does not fit its question with `422` `GRADE_NEEDS_BAND`, `GRADE_CRITERIA_INCOMPLETE`, `GRADE_NEEDS_POINTS` or `GRADE_BAND_NOT_ALLOWED`. Images and audio inside a prompt or an explanation (DG-109, D-064): `StudentQuestion.promptAssets` and `ResultQuestion.promptAssets` sign a prompt's images, `ResultQuestion.explanationAssets` an explanation's media only under `review.showExplanations`, and no other student operation signs them. An engine older than R6 shows a question of a type it does not know as the reload block, so an old tab is asked to reload.
 
 The teacher's lists return `{ items, page, pageSize, total }` with the list's own facets, and are offset-paginated by `page` and `limit` so a client can draw numbered pages (O-20 overrides §13.8's keyset rule for them); `GET /me/notifications` returns `{ items, nextBefore }` (keyset). Student payloads never include `isCorrect`, `sampleAnswer`, `acceptedAnswers`, or `transcript` (the last only per `showTranscriptAfterSubmit`, on the result endpoint).
 

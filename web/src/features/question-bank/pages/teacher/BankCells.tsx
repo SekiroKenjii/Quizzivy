@@ -1,9 +1,12 @@
 import { useTranslation } from "react-i18next";
 import {
   AlignLeft,
+  ArrowLeftRight,
   CircleCheck,
   CircleDot,
+  FileText,
   Headphones,
+  ListChecks,
   SquareCheck,
   TextCursorInput,
 } from "lucide-react";
@@ -33,6 +36,12 @@ export function TypeIcon({
       return <TextCursorInput aria-hidden="true" className={className} />;
     case "short_answer":
       return <AlignLeft aria-hidden="true" className={className} />;
+    case "tfng":
+      return <ListChecks aria-hidden="true" className={className} />;
+    case "matching":
+      return <ArrowLeftRight aria-hidden="true" className={className} />;
+    case "essay":
+      return <FileText aria-hidden="true" className={className} />;
   }
 }
 

@@ -202,7 +202,7 @@ func TestAttemptRefusalsSpeakTheCallersLanguage(t *testing.T) {
 	)
 	deadline := time.Date(2026, 10, 1, 15, 30, 0, 0, time.UTC)
 	waitFor := map[string]interface{}{"deadlineAt": "2026-10-01T15:30:00Z"}
-	aboveCeiling, unanswered, notOnPaper := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	aboveCeiling, unanswered, notOnPaper, repeated := uuid.NewString(), uuid.NewString(), uuid.NewString(), uuid.NewString()
 	for _, c := range []struct {
 		name      string
 		in        func(t *testing.T, acceptLanguage string, serve refusing) *httptest.ResponseRecorder
@@ -295,6 +295,8 @@ func TestAttemptRefusalsSpeakTheCallersLanguage(t *testing.T) {
 				{QuestionID: aboveCeiling, Reason: "above_ceiling"},
 				{QuestionID: unanswered, Reason: "unanswered"},
 				{QuestionID: notOnPaper, Reason: "not_on_paper"},
+				{QuestionID: repeated, Reason: "repeated"},
+				{QuestionID: aboveCeiling, Reason: "repeated"},
 			}}),
 			status: http.StatusBadRequest,
 			code:   openapi.VALIDATIONFAILED,
@@ -304,11 +306,13 @@ func TestAttemptRefusalsSpeakTheCallersLanguage(t *testing.T) {
 				aboveCeiling: "Điểm vượt quá điểm tối đa của câu.",
 				unanswered:   "Học viên không trả lời câu này.",
 				notOnPaper:   "Câu này không có trong đề.",
+				repeated:     "Câu này có mặt nhiều lần trong một lần lưu.",
 			},
 			detailsEN: map[string]interface{}{
 				aboveCeiling: "The score is above the question's maximum.",
 				unanswered:   "The student did not answer this question.",
 				notOnPaper:   "This question is not in the test.",
+				repeated:     "This question appears more than once in one save.",
 			},
 		},
 		{

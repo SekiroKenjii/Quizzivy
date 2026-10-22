@@ -18,8 +18,16 @@ type Question struct {
 	Media            *Media
 	MediaAlt         *string
 	Audio            *AudioPolicy
+	SelectCount      *int
+	MaxWords         *int
+	MatchAllowReuse  *bool
 	Options          []Option
 	Blanks           []Blank
+	MatchItems       []MatchItem
+	// PromptAssets are the images the prompt shows (DG-109), once each in
+	// document order: what the paper may sign. An explanation's media is never
+	// here; only the result reads it, under its gate (D-064 ruling 6).
+	PromptAssets []string
 }
 
 // Section is one part of the paper in test order; Instructions is the
@@ -34,10 +42,21 @@ type Section struct {
 // the projection a student receives, and the surest way not to leak a grading
 // key is to have nowhere to put one (§13.5). CaseSensitive stays because it is
 // the rule the student is graded by, not the key.
+// Key is a matching choice's label from matchkey, and empty on every other
+// type: a label, never an answer.
 type Option struct {
 	Content json.RawMessage
 	ID      string
+	Key     string
 	Text    string
+}
+
+// MatchItem is a matching item as the student sees it, with no trace of the
+// choice it is keyed to.
+type MatchItem struct {
+	ID   string
+	Key  string
+	Text string
 }
 
 type Blank struct {

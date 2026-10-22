@@ -20,6 +20,7 @@ export const EDITABLE_TYPES: readonly Exclude<QuestionType, "unsupported">[] = [
   "single_choice",
   "multiple_choice",
   "true_false",
+  "tfng",
   "fill_blank",
   "short_answer",
 ];
@@ -163,7 +164,10 @@ function entered(
 /** isChoiceType reports whether a type is answered by marking options. */
 export function isChoiceType(type: QuestionType): boolean {
   return (
-    type === "single_choice" || type === "multiple_choice" || type === "true_false"
+    type === "single_choice" ||
+    type === "multiple_choice" ||
+    type === "true_false" ||
+    type === "tfng"
   );
 }
 
@@ -219,8 +223,30 @@ const TRUTH: Readonly<Record<string, "true" | "false">> = {
   sai: "false",
 };
 
+/** TFNG_LABELS are a tfng question's option labels, in the bank's fixed order: True, False, Not given. */
+export const TFNG_LABELS = ["T", "F", "NG"] as const;
+
+const TFNG: Readonly<Record<string, (typeof TFNG_LABELS)[number]>> = {
+  true: "T",
+  t: "T",
+  đúng: "T",
+  false: "F",
+  f: "F",
+  sai: "F",
+  "not given": "NG",
+  ng: "NG",
+  "không có thông tin": "NG",
+};
+
 function optionText(option: ImportDraftOption): string {
   return contentPlainText(option.content).trim().toLocaleLowerCase("vi");
+}
+
+function tfngCandidate(question: ImportDraftQuestion, value: string): string[] | null {
+  const label =
+    TFNG[value.toLocaleLowerCase("vi").replace(/\.$/, "").replace(/\s+/g, " ")];
+  const found = question.options.find((option) => option.label === label);
+  return found ? [found.id] : null;
 }
 
 /** candidateOptions maps a conflicting source value onto option IDs the way recognition reads keys, or null when it names no option. */
@@ -229,6 +255,7 @@ export function candidateOptions(
   candidate: ImportKeyValue,
 ): string[] | null {
   const value = candidate.value.trim();
+  if (question.type === "tfng") return tfngCandidate(question, value);
   let ids: string[] = [];
   const truth = TRUTH[value.toLocaleLowerCase("vi").replace(/\.$/, "")];
   const letters = letterList(value);
@@ -435,7 +462,14 @@ export function addOption(question: ImportDraftQuestion): ImportDraftQuestion {
   };
 }
 
-/** removeOption drops one option and any key that pointed at it. */
+/** withinChoices drops a "Choose N" count that the question's options can no longer hold. */
+function withinChoices(question: ImportDraftQuestion): ImportDraftQuestion {
+  if (typeof question.selectCount !== "number" || !selectCountOutOfRange(question))
+    return question;
+  return setSelectCount(question, null);
+}
+
+/** removeOption drops one option and any key that pointed at it, and a "Choose N" count the options left cannot hold. */
 export function removeOption(
   question: ImportDraftQuestion,
   optionId: string,
@@ -443,41 +477,112 @@ export function removeOption(
   const options = question.options.filter((option) => option.id !== optionId);
   const optionIds = question.answer.optionIds.filter((id) => id !== optionId);
   if (optionIds.length === question.answer.optionIds.length)
-    return { ...question, options, origins: entered(question, "options") };
+    return withinChoices({
+      ...question,
+      options,
+      origins: entered(question, "options"),
+    });
   const state = optionIds.length > 0 ? "known" : "unknown";
-  return {
+  return withinChoices({
     ...question,
     options,
     answer: answer(state, optionIds, question.answer.evidence),
     origins: entered(question, "options", "answer"),
-  };
+  });
 }
 
-function trueFalseOptions(): ImportDraftOption[] {
-  const option = (label: string, text: string): ImportDraftOption => ({
+function fixedOption(label: string, text: string): ImportDraftOption {
+  return {
     id: crypto.randomUUID(),
     label,
     content: {
       format: "semantic_v1",
       blocks: [{ type: "paragraph", content: [{ type: "text", text, marks: [] }] }],
     },
+  };
+}
+
+function trueFalseOptions(): ImportDraftOption[] {
+  return [fixedOption("T", "True"), fixedOption("F", "False")];
+}
+
+function tfngOptions(): ImportDraftOption[] {
+  return [
+    fixedOption("T", "True"),
+    fixedOption("F", "False"),
+    fixedOption("NG", "Not given"),
+  ];
+}
+
+/** isTFNGShaped reports whether a question already holds the three tfng options in order. */
+function isTFNGShaped(question: ImportDraftQuestion): boolean {
+  return (
+    question.options.length === TFNG_LABELS.length &&
+    question.options.every((option, i) => option.label === TFNG_LABELS[i])
+  );
+}
+
+/** truthLabel reads a true/false or tfng option as T, F or NG, or undefined when it is neither. */
+function truthLabel(option: ImportDraftOption): string | undefined {
+  if ((TFNG_LABELS as readonly string[]).includes(option.label)) return option.label;
+  const truth = TRUTH[optionText(option)];
+  if (truth === undefined) return undefined;
+  return truth === "true" ? "T" : "F";
+}
+
+/** carriedKey maps a true/false or tfng key onto the fixed options of the other type, when they hold the same value. */
+function carriedKey(
+  question: ImportDraftQuestion,
+  fixed: ImportDraftOption[],
+): string[] {
+  if (question.answer.state !== "known") return [];
+  if (question.type !== "true_false" && question.type !== "tfng") return [];
+  const ids = question.answer.optionIds.flatMap((id) => {
+    const option = question.options.find((candidate) => candidate.id === id);
+    const label = option === undefined ? undefined : truthLabel(option);
+    const target = fixed.find((candidate) => candidate.label === label);
+    return target === undefined ? [] : [target.id];
   });
-  return [option("T", "True"), option("F", "False")];
+  return ids.length === 1 ? ids : [];
+}
+
+/** fixedOptions are the canonical options a conversion to true/false or tfng needs, or null when the question already has them. */
+function fixedOptions(
+  question: ImportDraftQuestion,
+  type: QuestionType,
+): ImportDraftOption[] | null {
+  if (type === "true_false" && question.options.length !== 2) return trueFalseOptions();
+  if (type === "tfng" && !isTFNGShaped(question)) return tfngOptions();
+  return null;
+}
+
+/** withoutTypeFields drops selectCount and maxWords where the type cannot carry them. */
+function withoutTypeFields(question: ImportDraftQuestion): ImportDraftQuestion {
+  const next = { ...question };
+  if (next.type !== "multiple_choice") delete next.selectCount;
+  if (next.type !== "short_answer") delete next.maxWords;
+  return next;
 }
 
 /**
  * changeType converts a question to another interaction, keeping every piece
  * of answer data the target can still represent. A question converted to
- * true/false gets the canonical options "True" and "False", which every
- * screen reads in the reader's language. Callers compare the result with
- * dropsAnswerData before applying it.
+ * true/false gets the canonical options "True" and "False", and one
+ * converted to tfng gets "True", "False" and "Not given", which every screen
+ * reads in the reader's language. A "Choose N" count stays only on a multiple
+ * choice and a word limit only on a short answer. Callers compare the result
+ * with dropsAnswerData before applying it.
  */
 export function changeType(
   question: ImportDraftQuestion,
   type: QuestionType,
 ): ImportDraftQuestion {
   if (type === question.type) return question;
-  const base = { ...question, type, origins: entered(question, "type") };
+  const base = withoutTypeFields({
+    ...question,
+    type,
+    origins: entered(question, "type"),
+  });
   const evidence = question.answer.evidence;
   if (type === "fill_blank") {
     const blanks = blanksForGaps(promptGaps(question.prompt), question.blanks);
@@ -499,12 +604,14 @@ export function changeType(
       answer: answer(text.trim() === "" ? "unknown" : "known", [], evidence, text),
     };
   }
-  if (type === "true_false" && question.options.length !== 2) {
+  const fixed = fixedOptions(question, type);
+  if (fixed !== null) {
+    const carried = carriedKey(question, fixed);
     return {
       ...base,
-      options: trueFalseOptions(),
+      options: fixed,
       blanks: [],
-      answer: answer("unknown", [], evidence),
+      answer: answer(carried.length > 0 ? "known" : "unknown", carried, evidence),
       origins: entered(question, "type", "options"),
     };
   }
@@ -522,11 +629,38 @@ export function changeType(
   };
 }
 
-/** dropsAnswerData reports whether moving from one version of a question to the next discards options or key data. */
+/** dropsTypeFields reports whether a "Choose N" count or a word limit is lost between two versions of a question. */
+function dropsTypeFields(
+  before: ImportDraftQuestion,
+  after: ImportDraftQuestion,
+): boolean {
+  return (
+    (typeof before.selectCount === "number" && after.selectCount === undefined) ||
+    (typeof before.maxWords === "number" && after.maxWords === undefined)
+  );
+}
+
+function isFixedType(type: QuestionType): boolean {
+  return type === "true_false" || type === "tfng";
+}
+
+/** hasStandardOptions reports whether every option reads as True, False or Not given, so rebuilding them loses no text the teacher wrote. */
+function hasStandardOptions(question: ImportDraftQuestion): boolean {
+  return question.options.every((option) => TFNG[optionText(option)] !== undefined);
+}
+
+/** dropsAnswerData reports whether moving from one version of a question to the next discards options, key data, a "Choose N" count or a word limit. Between true/false and tfng with standard option texts, only a key or a conflict that does not carry is lost. */
 export function dropsAnswerData(
   before: ImportDraftQuestion,
   after: ImportDraftQuestion,
 ): boolean {
+  if (
+    isFixedType(before.type) &&
+    isFixedType(after.type) &&
+    before.type !== after.type &&
+    hasStandardOptions(before)
+  )
+    return before.answer.state !== "unknown" && after.answer.state !== "known";
   const kept = new Set(after.options.map((option) => option.id));
   if (before.options.some((option) => !kept.has(option.id))) return true;
   const keys = new Set(after.answer.optionIds);
@@ -542,7 +676,70 @@ export function dropsAnswerData(
     return true;
   if ((before.answer.candidates?.length ?? 0) > (after.answer.candidates?.length ?? 0))
     return true;
+  if (dropsTypeFields(before, after)) return true;
   return (before.answer.text ?? "").trim() !== "" && after.answer.text === undefined;
+}
+
+/** SELECT_COUNT_LIMITS are the contract's bounds on a "Choose N" count. */
+export const SELECT_COUNT_LIMITS = { min: 2, max: 7 } as const;
+
+/** selectCountChoices lists the counts a multiple choice with these options may ask for: 2 up to one less than its options. */
+export function selectCountChoices(question: ImportDraftQuestion): number[] {
+  const top = Math.min(SELECT_COUNT_LIMITS.max, question.options.length - 1);
+  const out: number[] = [];
+  for (let n = SELECT_COUNT_LIMITS.min; n <= top; n++) out.push(n);
+  return out;
+}
+
+/** setSelectCount records a multiple choice's "Choose N"; null makes it a plain multiple choice again. */
+export function setSelectCount(
+  question: ImportDraftQuestion,
+  count: number | null,
+): ImportDraftQuestion {
+  const next = { ...question };
+  if (count === null) delete next.selectCount;
+  else next.selectCount = count;
+  return next;
+}
+
+/** selectCountOutOfRange reports a "Choose N" count the question's options cannot hold: N must stay below the number of options. */
+export function selectCountOutOfRange(question: ImportDraftQuestion): boolean {
+  return (
+    typeof question.selectCount === "number" &&
+    !selectCountChoices(question).includes(question.selectCount)
+  );
+}
+
+/** selectCountMismatch reports a "Choose N" question whose key marks a different number of options than N. */
+export function selectCountMismatch(question: ImportDraftQuestion): boolean {
+  return (
+    question.type === "multiple_choice" &&
+    typeof question.selectCount === "number" &&
+    question.answer.state === "known" &&
+    question.answer.optionIds.length !== question.selectCount
+  );
+}
+
+/** MAX_WORDS_LIMITS are the contract's bounds on a short answer's word limit. */
+export const MAX_WORDS_LIMITS = { min: 1, max: 100 } as const;
+
+/** validMaxWords reports whether a typed word limit can be sent; an empty field means no limit. */
+export function validMaxWords(value: string): boolean {
+  if (value.trim() === "") return true;
+  if (!/^\d{1,3}$/.test(value.trim())) return false;
+  const n = Number(value.trim());
+  return n >= MAX_WORDS_LIMITS.min && n <= MAX_WORDS_LIMITS.max;
+}
+
+/** setMaxWords records a short answer's word limit; null removes it. */
+export function setMaxWords(
+  question: ImportDraftQuestion,
+  limit: number | null,
+): ImportDraftQuestion {
+  const next = { ...question };
+  if (limit === null) delete next.maxWords;
+  else next.maxWords = limit;
+  return next;
 }
 
 /** setPoints records the teacher's score for one question. */

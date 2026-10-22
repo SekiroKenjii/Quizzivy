@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"quizzivy/internal/modules/assignments/domain"
 	"quizzivy/internal/shared/answered"
+	"quizzivy/internal/shared/bands"
 	"quizzivy/internal/shared/schedule"
 	"time"
 
@@ -73,7 +74,7 @@ var studentCardColumns = `
 	           AND at.status = 'in_progress' AND at.deadline_at > now()
 	         ORDER BY at.deadline_at DESC LIMIT 1),
 	       last.id::text, last.status::text, last.submitted_at,
-	       last.earned, last.total, last.pending, ` + schedule.OverrideSelect
+	       last.earned, last.total, last.pending, last.band, ` + schedule.OverrideSelect
 
 var studentCardFrom = `
 	  FROM app.assignments a
@@ -86,7 +87,8 @@ var studentCardFrom = `
 	              coalesce(at.score_total, av.total_points)::float8 AS total,
 	              (SELECT count(*) FROM app.attempt_answers ans
 	                WHERE ans.attempt_id = at.id
-	                  AND ` + answered.AwaitsGrade("ans") + `) AS pending
+	                  AND ` + answered.AwaitsGrade("ans") + `) AS pending,
+	              ` + bands.OfPaper("at") + `::float8 AS band
 	         FROM app.attempts at
 	         JOIN app.test_versions av ON av.id = at.test_version_id
 	        WHERE at.assignment_id = a.id AND at.student_id = $1::uuid
@@ -101,6 +103,7 @@ type lastAttempt struct {
 	earned      *float64
 	total       *float64
 	pending     *int
+	band        *float64
 }
 
 func (l lastAttempt) apply(c *domain.StudentCard, showScore bool) {
@@ -108,7 +111,7 @@ func (l lastAttempt) apply(c *domain.StudentCard, showScore bool) {
 	c.LastSubmittedAt = l.submittedAt
 	finished := l.status != nil && *l.status != "in_progress"
 	if showScore && finished && l.earned != nil && l.total != nil && l.pending != nil {
-		c.Score = &domain.Score{Earned: *l.earned, Total: *l.total, PendingManual: *l.pending}
+		c.Score = &domain.Score{Earned: *l.earned, Total: *l.total, PendingManual: *l.pending, Band: l.band}
 	}
 }
 
@@ -132,7 +135,7 @@ func scanStudentCard(row pgx.Row) (domain.StudentCard, error) {
 		&c.DurationMin, &c.MaxAttempts, &showScore,
 		&c.QuestionCount, &c.TotalPoints,
 		&c.AttemptsUsed, &c.HasLiveAttempt, &c.LiveDeadlineAt, &c.LiveAnsweredCount,
-		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending,
+		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending, &l.band,
 		&oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts)
 	if err != nil {
 		return domain.StudentCard{}, err
@@ -202,7 +205,7 @@ func (s *Postgres) StudentDetail(ctx context.Context, id, studentID string) (dom
 		&d.DurationMin, &d.MaxAttempts, &showScore,
 		&d.QuestionCount, &d.TotalPoints,
 		&d.AttemptsUsed, &d.HasLiveAttempt, &d.LiveDeadlineAt, &d.LiveAnsweredCount,
-		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending,
+		&l.id, &l.status, &l.submittedAt, &l.earned, &l.total, &l.pending, &l.band,
 		&oc.ClosesAt, &oc.DurationMin, &oc.ExtraAttempts,
 		&d.TeacherName,
 		&d.Review.ShowCorrectAnswers, &d.Review.ShowExplanations,

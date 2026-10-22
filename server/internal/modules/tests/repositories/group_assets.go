@@ -20,6 +20,13 @@ func groupAssetIDs(bundle domain.GroupBundle) ([]string, error) {
 		if question.Input.MediaAssetID != nil {
 			assets[strings.ToLower(*question.Input.MediaAssetID)] = true
 		}
+		shown, err := content.QuestionMedia(question.Input.PromptContent, question.Input.ExplanationContent)
+		if err != nil {
+			return nil, err
+		}
+		for _, asset := range shown {
+			assets[strings.ToLower(asset.ID)] = true
+		}
 	}
 	for _, recording := range bundle.Group.Recordings {
 		assets[strings.ToLower(recording.AssetID)] = true

@@ -36,6 +36,7 @@ var catalogue = []Action{
 	{"assignment.updated", "Đã cập nhật bài giao", "Updated an assignment"},
 	{"attempt.extended", "Đã gia hạn lượt làm bài vì bảo trì", "Extended an attempt for maintenance"},
 	{"attempt.flagged", "Đã gắn cờ lượt làm bài", "Flagged an attempt"},
+	{"attempt.graded", "Đã chấm điểm lượt làm bài", "Graded an attempt"},
 	{"attempt.reset", "Đã đặt lại lượt làm bài", "Reset an attempt"},
 	{"attempt.unflagged", "Đã bỏ cờ lượt làm bài", "Cleared the flag on an attempt"},
 	{"attempt.voided", "Đã huỷ lượt làm bài", "Voided an attempt"},

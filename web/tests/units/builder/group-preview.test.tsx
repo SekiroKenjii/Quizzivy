@@ -83,7 +83,7 @@ it("draws the passage and the questions as the engine's panes, with nothing to a
     expect(radio).toBeDisabled();
     expect(radio.parentElement).toHaveClass("min-h-13", "rounded-[11px]");
   }
-  expect(screen.getByText("Câu 4 trên 4 · Tự luận")).toBeVisible();
+  expect(screen.getByText("Câu 4 trên 4 · Trả lời ngắn")).toBeVisible();
   const field = screen.getByRole("textbox", { name: "Bài làm của bạn" });
   expect(field).toBeDisabled();
   expect(field).toHaveAttribute("placeholder", "Nhập câu trả lời");

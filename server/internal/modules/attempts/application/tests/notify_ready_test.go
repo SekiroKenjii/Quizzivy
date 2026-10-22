@@ -33,7 +33,7 @@ func gradeAndFinish(t *testing.T, svc *application.Application, p paper) error {
 	ctx := context.Background()
 	if _, err := svc.Commands.Grade.Handle(ctx, command.Grade{
 		AttemptID: p.attempt, GraderID: p.admin, Scope: everyone,
-		Items: []domain.GradeItem{{QuestionID: p.essay, Points: 2.5}},
+		Items: []domain.GradeItem{{QuestionID: p.essay, Points: pts(2.5)}},
 	}); err != nil {
 		t.Fatalf("grade: %v", err)
 	}
@@ -182,5 +182,28 @@ func TestTheBriefingOfAVoidedOrMissingAttemptIsNotFound(t *testing.T) {
 	}
 	if _, err := store.Briefing(t.Context(), "01935000-0000-7000-8000-00000000dead", time.Now()); !errors.Is(err, domain.ErrNotFound) {
 		t.Errorf("a missing attempt: %v, want ErrNotFound", err)
+	}
+}
+
+func TestTheResultNoticeOfABandedPaperHoldsNoBand(t *testing.T) {
+	pool := newPool(t)
+	p := seedEssayPaper(t, pool)
+	svc := announcing(pool, realNotifications(pool).Commands.Notify, nil)
+	ctx := context.Background()
+	if _, err := svc.Commands.Grade.Handle(ctx, command.Grade{
+		AttemptID: p.attempt, GraderID: p.admin, Scope: everyone,
+		Items: []domain.GradeItem{{QuestionID: p.plain, Band: pts(7)}, {QuestionID: p.rubric, Criteria: p.bands(7, 7, 7, 7)}},
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Commands.Finish.Handle(ctx, command.Finish{AttemptID: p.attempt, Scope: everyone}); err != nil {
+		t.Fatal(err)
+	}
+	var params string
+	if err := pool.QueryRow(ctx, `SELECT params::text FROM app.notifications WHERE user_id = $1::uuid AND kind = 'result.ready'`, p.student).Scan(&params); err != nil {
+		t.Fatalf("the student holds no result notice: %v", err)
+	}
+	if params != `{"title": "Unit 5"}` {
+		t.Errorf("the stored params are %s, want the title alone and no band", params)
 	}
 }

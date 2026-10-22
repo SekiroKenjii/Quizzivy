@@ -6,7 +6,10 @@ import {
   emptyQuestion,
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
-import type { QuestionContent } from "@/components/shared/content/questionContent";
+import type {
+  QuestionContent,
+  StoredQuestionProse,
+} from "@/components/shared/content/questionContent";
 
 const PROMPT = "What the writer says about parks in paragraph B?";
 const EXPLANATION = "";
@@ -16,7 +19,10 @@ const RICH: QuestionContent = {
 };
 
 function useProse(text: string, content: QuestionContent | null, explanation = false) {
-  const [value, setValue] = useState({ text, content });
+  const [value, setValue] = useState<{
+    text: string;
+    content: StoredQuestionProse | null;
+  }>({ text, content });
   return (
     <QuestionProseField
       id={explanation ? "question-explanation" : "question-prompt"}

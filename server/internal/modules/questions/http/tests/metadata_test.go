@@ -26,7 +26,7 @@ func TestQuestionAuthoringWireCapAndClosedMetadata(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, n := range []int{8, 9} {
+	for _, n := range []int{12, 13} {
 		options := make([]map[string]any, n)
 		for i := range options {
 			options[i] = map[string]any{"text": "Choice", "isCorrect": i == 0}
@@ -52,7 +52,7 @@ func TestQuestionAuthoringWireCapAndClosedMetadata(t *testing.T) {
 				rec := httptest.NewRecorder()
 				reached = false
 				handler.ServeHTTP(rec, req)
-				valid := n == 8 && metadata["level"] != "A1" && metadata["skill"] != "unknown"
+				valid := n == 12 && metadata["level"] != "A1" && metadata["skill"] != "unknown"
 				if reached != valid || (valid && rec.Code != 204) || (!valid && rec.Code != 400) {
 					t.Fatalf("%s/%d/%v reached=%v status=%d body=%s", method, n, metadata, reached, rec.Code, rec.Body.String())
 				}

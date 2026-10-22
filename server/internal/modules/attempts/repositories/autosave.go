@@ -92,11 +92,26 @@ func upsertAnswers(ctx context.Context, tx pgx.Tx, in domain.SaveInput, versionI
 
 	rows, err := tx.Query(ctx, `
 		INSERT INTO app.attempt_answers (attempt_id, question_id, payload, requires_manual)
-		SELECT $1::uuid, q.id, submitted.payload::jsonb, q.type = 'short_answer'
+		SELECT $1::uuid, q.id, submitted.payload::jsonb, q.type IN ('short_answer', 'essay')
 		  FROM unnest($2::uuid[], $3::text[]) AS submitted(question_id, payload)
 		  JOIN app.test_version_questions q ON q.id = submitted.question_id
 		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
 		 WHERE s.test_version_id = $4::uuid
+		   AND (coalesce(submitted.payload::jsonb->>'type', '') = 'matching') = (q.type = 'matching')
+		   AND NOT EXISTS (
+		         SELECT 1
+		           FROM jsonb_each_text(
+		                  CASE WHEN jsonb_typeof(submitted.payload::jsonb->'pairs') = 'object'
+		                       THEN submitted.payload::jsonb->'pairs'
+		                       ELSE '{}'::jsonb END) AS paired(item_id, option_id)
+		          WHERE NOT EXISTS (
+		                  SELECT 1 FROM app.test_version_match_items i
+		                   WHERE i.id::text = paired.item_id
+		                     AND i.test_version_question_id = q.id)
+		             OR NOT EXISTS (
+		                  SELECT 1 FROM app.test_version_options o
+		                   WHERE o.id::text = paired.option_id
+		                     AND o.test_version_question_id = q.id))
 		   AND NOT EXISTS (
 		         SELECT 1
 		           FROM jsonb_array_elements_text(

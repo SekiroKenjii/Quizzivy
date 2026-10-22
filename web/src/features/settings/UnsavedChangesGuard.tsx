@@ -1,8 +1,13 @@
-import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { useBlocker } from "react-router";
 import { ConfirmDialog } from "@/components/shared/ConfirmDialog";
-import { ReportUnsaved, type UnsavedReport } from "@/features/settings/unsavedSection";
+import {
+  ConfirmMove,
+  ReportUnsaved,
+  type ConfirmMoveFn,
+  type UnsavedReport,
+} from "@/features/settings/unsavedSection";
 
 function within(base: string, pathname: string) {
   return pathname === base || pathname.startsWith(`${base}/`);
@@ -29,21 +34,34 @@ function marked(
  * reload or a closed tab gets the browser's own prompt meanwhile. A
  * navigation judged after the URL has already left `base` is let through, so
  * a Back pressed while the departing page is still mounted is not reverted.
+ * An in-page move made through ConfirmMove asks the same question.
+ * `copy` replaces the Settings wording for a guard elsewhere.
  */
 export function UnsavedChangesGuard({
   base,
+  copy,
   children,
-}: Readonly<{ base: string; children: ReactNode }>) {
+}: Readonly<{
+  base: string;
+  copy?: { title: string; description: string; confirm: string; stay: string };
+  children: ReactNode;
+}>) {
   const { t } = useTranslation();
   const [unsavedSections, setUnsavedSections] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
-  const report = useCallback<UnsavedReport>(
-    (section, unsaved) =>
-      setUnsavedSections((sections) => marked(sections, section, unsaved)),
-    [],
-  );
+  const current = useRef<ReadonlySet<string>>(unsavedSections);
+  const report = useCallback<UnsavedReport>((section, unsaved) => {
+    current.current = marked(current.current, section, unsaved);
+    setUnsavedSections(current.current);
+  }, []);
   const unsaved = unsavedSections.size > 0;
+  const [move, setMove] = useState<(() => void) | null>(null);
+  const confirmMove = useCallback<ConfirmMoveFn>((next, spare = () => false) => {
+    const held = [...current.current].some((section) => !spare(section));
+    if (held) setMove(() => next);
+    else next();
+  }, []);
 
   const blocker = useBlocker(
     ({ currentLocation, nextLocation }) =>
@@ -62,19 +80,23 @@ export function UnsavedChangesGuard({
 
   return (
     <ReportUnsaved.Provider value={report}>
-      {children}
+      <ConfirmMove.Provider value={confirmMove}>{children}</ConfirmMove.Provider>
       <ConfirmDialog
-        open={blocker.state === "blocked"}
+        open={blocker.state === "blocked" || move !== null}
         onOpenChange={(open) => {
-          if (!open && blocker.state === "blocked") blocker.reset();
+          if (open) return;
+          setMove(null);
+          if (blocker.state === "blocked") blocker.reset();
         }}
-        title={t("settings.leave.title")}
-        description={t("controls.unsaved")}
-        confirmLabel={t("settings.leave.confirm")}
-        cancelLabel={t("settings.leave.stay")}
+        title={copy?.title ?? t("settings.leave.title")}
+        description={copy?.description ?? t("controls.unsaved")}
+        confirmLabel={copy?.confirm ?? t("settings.leave.confirm")}
+        cancelLabel={copy?.stay ?? t("settings.leave.stay")}
         destructive
         onConfirm={() => {
           if (blocker.state === "blocked") blocker.proceed();
+          move?.();
+          setMove(null);
         }}
       />
     </ReportUnsaved.Provider>

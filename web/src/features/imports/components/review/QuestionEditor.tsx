@@ -51,12 +51,19 @@ import {
   pickCandidate,
   removeOption,
   restore,
+  selectCountChoices,
+  selectCountMismatch,
+  selectCountOutOfRange,
   setBlanks,
+  setMaxWords,
+  setSelectCount,
   setCorrectOptions,
   setOptionContent,
   setPoints,
   setPrompt,
   setSample,
+  TFNG_LABELS,
+  validMaxWords,
   validPoints,
   type QuestionType,
 } from "../../draft";
@@ -65,7 +72,7 @@ import { Provenance } from "./Provenance";
 
 const ContentEditor = lazy(() =>
   import("@/components/shared/content/editor/ContentEditor").then((module) => ({
-    default: module.ContentEditor,
+    default: module.ContentEditor<SemanticContent>,
   })),
 );
 
@@ -323,7 +330,7 @@ function FieldLabel({
   htmlFor?: string;
   id?: string;
   label: string;
-  origin: ImportDraftQuestion["origins"]["type"];
+  origin?: ImportDraftQuestion["origins"]["type"];
 }>) {
   return (
     <span className="text-meta flex flex-wrap items-center gap-1.5 font-medium">
@@ -334,7 +341,7 @@ function FieldLabel({
           {label}
         </Label>
       )}
-      <Provenance origin={origin} />
+      {origin === undefined ? null : <Provenance origin={origin} />}
     </span>
   );
 }
@@ -527,8 +534,162 @@ function AnswerFields({
   if (question.type === "fill_blank")
     return <BlanksField question={question} onEdit={onEdit} />;
   if (question.type === "short_answer")
-    return <SampleField question={question} onEdit={onEdit} />;
+    return (
+      <>
+        <SampleField question={question} onEdit={onEdit} />
+        <MaxWordsField key={question.id} question={question} onEdit={onEdit} />
+      </>
+    );
+  if (question.type === "multiple_choice")
+    return (
+      <>
+        <OptionsField question={question} locked={locked} onEdit={onEdit} />
+        <SelectCountField key={question.id} question={question} onEdit={onEdit} />
+      </>
+    );
   return <OptionsField question={question} locked={locked} onEdit={onEdit} />;
+}
+
+const ANY_COUNT = "any";
+
+function SelectCountField({
+  question,
+  onEdit,
+}: Readonly<{ question: ImportDraftQuestion; onEdit: Edit }>) {
+  const { t } = useTranslation();
+  const id = useId();
+  const hintId = useId();
+  const choices = selectCountChoices(question);
+  const current = question.selectCount ?? null;
+  if (current !== null && !choices.includes(current)) choices.push(current);
+  const tooFew = selectCountOutOfRange(question);
+  const mismatch = !tooFew && selectCountMismatch(question);
+  const alert = tooFew || mismatch;
+  const resetFrom = useCountReset(question);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <FieldLabel htmlFor={id} label={t("imports.field.selectCount")} />
+      <Select
+        value={current === null ? ANY_COUNT : String(current)}
+        onValueChange={(value) =>
+          onEdit((q) => setSelectCount(q, value === ANY_COUNT ? null : Number(value)))
+        }
+      >
+        <SelectTrigger
+          id={id}
+          className="w-full sm:w-64"
+          aria-describedby={alert ? hintId : undefined}
+          aria-invalid={alert || undefined}
+        >
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectGroup>
+            <SelectItem value={ANY_COUNT}>
+              {t("imports.review.selectCountAny")}
+            </SelectItem>
+            {choices.map((n) => (
+              <SelectItem key={n} value={String(n)}>
+                {t("imports.review.selectCountValue", { count: n })}
+              </SelectItem>
+            ))}
+          </SelectGroup>
+        </SelectContent>
+      </Select>
+      <p role="status" className="text-muted-fg m-0 text-xs empty:hidden">
+        {resetFrom === null
+          ? null
+          : t("imports.review.selectCountReset", {
+              count: resetFrom,
+              options: question.options.length,
+            })}
+      </p>
+      {alert ? (
+        <p id={hintId} role="alert" className="text-danger-ink m-0 text-xs">
+          {tooFew
+            ? t("imports.review.selectCountTooFew", {
+                count: current ?? 0,
+                options: (current ?? 0) + 1,
+              })
+            : t("imports.review.selectCountMismatch", { count: current ?? 0 })}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * useCountReset returns the "Choose N" count that removing an option has just
+ * reset, so the field can say why it now reads "Any number", or null once the
+ * teacher picks a count again or adds an option back.
+ */
+function useCountReset(question: ImportDraftQuestion): number | null {
+  const [seen, setSeen] = useState({
+    count: question.selectCount,
+    options: question.options.length,
+  });
+  const [resetFrom, setResetFrom] = useState<number | null>(null);
+  if (seen.count !== question.selectCount || seen.options !== question.options.length) {
+    setSeen({ count: question.selectCount, options: question.options.length });
+    if (
+      typeof seen.count === "number" &&
+      question.selectCount === undefined &&
+      question.options.length < seen.options
+    )
+      setResetFrom(seen.count);
+    else if (
+      question.selectCount !== undefined ||
+      question.options.length > seen.options
+    )
+      setResetFrom(null);
+  }
+  return resetFrom;
+}
+
+function MaxWordsField({
+  question,
+  onEdit,
+}: Readonly<{ question: ImportDraftQuestion; onEdit: Edit }>) {
+  const { t } = useTranslation();
+  const id = useId();
+  const hintId = useId();
+  const [text, setText] = useState(
+    question.maxWords === undefined || question.maxWords === null
+      ? ""
+      : String(question.maxWords),
+  );
+  const invalid = !validMaxWords(text);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <FieldLabel htmlFor={id} label={t("imports.field.maxWords")} />
+      <Input
+        id={id}
+        inputMode="numeric"
+        className="w-full sm:w-32"
+        value={text}
+        maxLength={3}
+        aria-invalid={invalid || undefined}
+        aria-describedby={hintId}
+        onChange={(event) => {
+          const next = event.target.value;
+          setText(next);
+          if (validMaxWords(next))
+            onEdit((q) =>
+              setMaxWords(q, next.trim() === "" ? null : Number(next.trim())),
+            );
+        }}
+      />
+      <p
+        id={hintId}
+        role={invalid ? "alert" : undefined}
+        className={cn("m-0 text-xs", invalid ? "text-danger-ink" : "text-muted-fg")}
+      >
+        {invalid
+          ? t("imports.review.maxWordsInvalid")
+          : t("imports.review.maxWordsHint")}
+      </p>
+    </div>
+  );
 }
 
 function answerGap(question: ImportDraftQuestion, t: TFunction): string {
@@ -560,9 +721,15 @@ function OptionsField({
   const { t } = useTranslation();
   const [editing, setEditing] = useState<string | null>(null);
   const multiple = question.type === "multiple_choice";
-  const fixed = question.type === "true_false";
+  const fixed = question.type === "true_false" || question.type === "tfng";
   const keys = new Set(question.answer.optionIds);
   const open = locked ? null : editing;
+  let markHint = t("imports.review.markOneHint");
+  if (multiple)
+    markHint =
+      typeof question.selectCount === "number"
+        ? t("imports.review.markCountHint", { count: question.selectCount })
+        : t("imports.review.markManyHint");
   const toggle = (optionId: string, on: boolean) =>
     onEdit((current) => setCorrectOptions(current, markedKeys(current, optionId, on)));
   return (
@@ -570,11 +737,7 @@ function OptionsField({
       <legend className="text-meta mb-1.5 flex w-full flex-wrap items-center gap-1.5 p-0 font-medium">
         <span>{t("imports.field.options")}</span>
         <Provenance origin={question.origins.options} />
-        <span className="text-muted-fg font-normal">
-          {multiple
-            ? t("imports.review.markManyHint")
-            : t("imports.review.markOneHint")}
-        </span>
+        <span className="text-muted-fg font-normal">{markHint}</span>
       </legend>
       <div className="text-meta flex flex-wrap items-center gap-2">
         <span className="text-muted-fg">{t("imports.field.answer")}</span>
@@ -584,9 +747,10 @@ function OptionsField({
         )}
       </div>
       <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-        {question.options.map((option) => {
+        {question.options.map((option, index) => {
           const opened = open === option.id;
-          const editable = isOptionContent(option.content);
+          const editable = question.type !== "tfng" && isOptionContent(option.content);
+          const key = displayKey(question.type, option, index);
           const correct = keys.has(option.id);
           return (
             <li
@@ -602,12 +766,12 @@ function OptionsField({
                   name={`correct-${question.id}`}
                   checked={correct}
                   onChange={(event) => toggle(option.id, event.target.checked)}
-                  aria-label={t("imports.review.markCorrect", { label: option.label })}
+                  aria-label={t("imports.review.markCorrect", { label: key })}
                   className="accent-success size-4"
                 />
               </span>
               <span className="text-muted-fg text-meta mt-1.5 w-3.5 flex-none font-semibold">
-                {option.label}
+                {key}
               </span>
               <div className="min-w-0 flex-1 py-0.5">
                 {opened && option.content.format === "semantic_v1" && editable ? (
@@ -625,7 +789,7 @@ function OptionsField({
                     }
                   />
                 ) : (
-                  <OptionView option={option} fixed={fixed} />
+                  <OptionView option={option} type={question.type} />
                 )}
               </div>
               {correct ? (
@@ -633,23 +797,25 @@ function OptionsField({
                   {t("imports.review.correct")}
                 </span>
               ) : null}
-              <Button
-                type="button"
-                variant="ghost"
-                className={cn(SMALL_BUTTON, "mt-0.5")}
-                aria-expanded={opened}
-                aria-label={
-                  opened
-                    ? t("imports.review.doneOptionNamed", { label: option.label })
-                    : t("imports.review.editOptionNamed", { label: option.label })
-                }
-                disabled={!editable}
-                onClick={() => setEditing(opened ? null : option.id)}
-              >
-                {opened
-                  ? t("imports.review.doneEditing")
-                  : t("imports.review.editOption")}
-              </Button>
+              {question.type === "tfng" ? null : (
+                <Button
+                  type="button"
+                  variant="ghost"
+                  className={cn(SMALL_BUTTON, "mt-0.5")}
+                  aria-expanded={opened}
+                  aria-label={
+                    opened
+                      ? t("imports.review.doneOptionNamed", { label: option.label })
+                      : t("imports.review.editOptionNamed", { label: option.label })
+                  }
+                  disabled={!editable}
+                  onClick={() => setEditing(opened ? null : option.id)}
+                >
+                  {opened
+                    ? t("imports.review.doneEditing")
+                    : t("imports.review.editOption")}
+                </Button>
+              )}
               {fixed ? null : (
                 <Button
                   type="button"
@@ -685,14 +851,39 @@ function OptionsField({
   );
 }
 
+/** displayKey is the letter an option row shows: tfng rows are keyed A, B, C by position, as the deck draws them, and keep T/F/NG as their stored labels. */
+function displayKey(
+  type: QuestionType,
+  option: ImportDraftOption,
+  index: number,
+): string {
+  return type === "tfng" ? String.fromCodePoint(65 + index) : option.label;
+}
+
+function tfngLabelKey(
+  option: ImportDraftOption,
+):
+  | "imports.review.tfngOption.T"
+  | "imports.review.tfngOption.F"
+  | "imports.review.tfngOption.NG"
+  | null {
+  const label = TFNG_LABELS.find((known) => known === option.label);
+  return label === undefined ? null : `imports.review.tfngOption.${label}`;
+}
+
 function OptionView({
   option,
-  fixed,
-}: Readonly<{ option: ImportDraftOption; fixed: boolean }>) {
+  type,
+}: Readonly<{ option: ImportDraftOption; type: QuestionType }>) {
   const { t } = useTranslation();
-  const canonical = fixed
-    ? trueFalseLabelKey("true_false", contentPlainText(option.content), option.content)
-    : null;
+  let canonical: string | null = null;
+  if (type === "true_false")
+    canonical = trueFalseLabelKey(
+      "true_false",
+      contentPlainText(option.content),
+      option.content,
+    );
+  if (type === "tfng") canonical = tfngLabelKey(option);
   if (canonical !== null) return <span className="py-1 text-base">{t(canonical)}</span>;
   return <ContentView document={option.content} className="py-1 text-base" />;
 }

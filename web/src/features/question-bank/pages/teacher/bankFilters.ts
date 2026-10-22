@@ -16,8 +16,11 @@ export const BANK_TYPES: readonly QuestionType[] = [
   "single_choice",
   "multiple_choice",
   "true_false",
+  "tfng",
   "fill_blank",
   "short_answer",
+  "essay",
+  "matching",
 ];
 
 /** BANK_LEVELS lists the levels from Pre-A1 to C2. */

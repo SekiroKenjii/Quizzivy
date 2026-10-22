@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState } from "react";
+import { paperScoreText } from "../paperScore";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation, useNavigate } from "react-router";
 import { Ban, Clock, RotateCw } from "lucide-react";
@@ -31,7 +32,6 @@ import {
   rosterMatches,
 } from "@/features/assignments/pages/teacher/assignmentDetail";
 import { assignmentDetailLocation } from "@/features/assignments/pages/teacher/assignmentDetailUrl";
-import { scoreText } from "@/features/assignments/studentTime";
 import { useCan } from "@/features/auth/permissions";
 import { FLAGGED } from "@/features/integrity/tones";
 import { trimmed, useDebouncedInput } from "@/hooks/useDebouncedInput";
@@ -194,9 +194,7 @@ export function Monitor({
                 : "font-medium",
             )}
           >
-            {row.score == null
-              ? "—"
-              : scoreText(row.score.earned, row.score.total, locale, t)}
+            {row.score == null ? "—" : paperScoreText(row.score, locale, t)}
             {pendingAnswers(row) > 0 && (
               <span
                 aria-label={t("monitor.pendingBadge", { count: pendingAnswers(row) })}

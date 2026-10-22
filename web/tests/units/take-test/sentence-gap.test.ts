@@ -36,7 +36,7 @@ function image(alt: string): Block {
 
 function rich(...blocks: Block[]): Prompted {
   const promptContent: Rich = { format: "semantic_v1", blocks };
-  return single(contentPlainText(promptContent), { promptContent });
+  return single(contentPlainText(promptContent!), { promptContent });
 }
 
 describe("a choice sentence with its gap", () => {

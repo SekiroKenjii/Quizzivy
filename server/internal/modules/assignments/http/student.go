@@ -138,6 +138,7 @@ func toAPIStudentCard(c domain.StudentCard, now time.Time) openapi.StudentAssign
 			Earned:        c.Score.Earned,
 			Total:         c.Score.Total,
 			PendingManual: c.Score.PendingManual,
+			Band:          c.Score.Band,
 		}
 	}
 	return out

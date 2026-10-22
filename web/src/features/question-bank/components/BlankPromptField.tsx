@@ -6,7 +6,10 @@ import { questionGaps } from "@/components/shared/content/gaps";
 import { markdownToQuestionContent } from "@/components/shared/content/editor/markdown";
 import { questionContentToMarkdown } from "@/components/shared/content/editor/markdownSerializer";
 import { contentPlainText } from "@/components/shared/content/plainText";
-import { isQuestionContent } from "@/components/shared/content/questionContent";
+import {
+  holdsMedia,
+  isQuestionContent,
+} from "@/components/shared/content/questionContent";
 import { bindLegacyBlanks } from "../blankContent";
 import { blankSlots } from "../blankSlots";
 import type { QuestionValues } from "../questionSchema";
@@ -24,7 +27,8 @@ const PREVIEW_PLUGINS = [blankSlots];
 /**
  * BlankPromptField is a fill-in-the-blank prompt in the form it is stored in:
  * rich content whose gaps bind the answers, or Markdown with `{{n}}`
- * placeholders. "Markdown" is disabled while the prompt holds a gap. Only
+ * placeholders. "Markdown" is disabled while the prompt holds a gap, an image
+ * or audio. Only
  * "Switch to Markdown" and "Apply conversion" change the stored form.
  * `onEditor` receives the rich editor while it is live and `null` otherwise.
  */
@@ -50,6 +54,7 @@ export function BlankPromptField({
   const label = given ?? t("questionEditor.prompt");
   const content = value.promptContent;
   const holdsGaps = content != null && questionGaps(content).length > 0;
+  const media = content != null && holdsMedia(content);
   const cancel = () => {
     field.cancel();
     focusOpener(header.current);
@@ -58,6 +63,9 @@ export function BlankPromptField({
     setMoved(true);
     field.finish(mode);
   };
+  let markdownBlocked: string | undefined;
+  if (holdsGaps) markdownBlocked = t("proseMode.gapsBlockMarkdown");
+  else if (media) markdownBlocked = t("proseMode.mediaBlocksMarkdown");
   return (
     <div>
       <div ref={header}>
@@ -66,7 +74,7 @@ export function BlankPromptField({
           label={label}
           mode={field.mode}
           onMode={field.ask}
-          markdownBlocked={holdsGaps ? t("proseMode.gapsBlockMarkdown") : undefined}
+          markdownBlocked={markdownBlocked}
         />
       </div>
       {field.mode === "rich" ? (
@@ -86,7 +94,7 @@ export function BlankPromptField({
               key="rich"
               value={value}
               label={label}
-              leaving={field.step === "leaving" && !holdsGaps}
+              leaving={field.step === "leaving" && !holdsGaps && !media}
               focusOnMount={moved}
               onCancelLeave={cancel}
               onConfirmLeave={() => {

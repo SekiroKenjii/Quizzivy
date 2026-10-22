@@ -2,27 +2,36 @@ import type { TFunction } from "i18next";
 import type { StudentQuestion } from "./api";
 
 /**
- * QuestionKind is how the engine answers a question. The three choice types
- * differ only in how many options may be chosen, so they share a kind.
- * `unknown` is a type this build has no renderer for: the paper says so and
- * writes no answer for it.
+ * QuestionKind is how the engine answers a question. The four choice types
+ * differ only in how many options may be chosen and how they are labelled,
+ * so they share a kind. `unknown` is a type this build has no renderer for:
+ * the paper says so and writes no answer for it.
  */
-export type QuestionKind = "choice" | "fill_blank" | "short_answer" | "unknown";
+export type QuestionKind =
+  "choice" | "fill_blank" | "short_answer" | "essay" | "matching" | "unknown";
 
-const KIND: Record<StudentQuestion["type"], Exclude<QuestionKind, "unknown">> = {
+type DrawnType = StudentQuestion["type"];
+
+const KIND: Record<DrawnType, Exclude<QuestionKind, "unknown">> = {
   single_choice: "choice",
   multiple_choice: "choice",
   true_false: "choice",
+  tfng: "choice",
   fill_blank: "fill_blank",
   short_answer: "short_answer",
+  essay: "essay",
+  matching: "matching",
 };
 
-const LABEL: Record<StudentQuestion["type"], string> = {
+const LABEL: Record<DrawnType, string> = {
   single_choice: "takeTest.type.single_choice",
   multiple_choice: "takeTest.type.multiple_choice",
   true_false: "takeTest.type.true_false",
+  tfng: "takeTest.type.tfng",
   fill_blank: "takeTest.type.fill_blank",
   short_answer: "takeTest.type.short_answer",
+  essay: "takeTest.type.essay",
+  matching: "takeTest.type.matching",
 };
 
 /**
@@ -30,7 +39,11 @@ const LABEL: Record<StudentQuestion["type"], string> = {
  * added after this page was loaded is `unknown`, never a choice.
  */
 export function questionKind(question: Pick<StudentQuestion, "type">): QuestionKind {
-  return Object.hasOwn(KIND, question.type) ? KIND[question.type] : "unknown";
+  return isDrawn(question.type) ? KIND[question.type] : "unknown";
+}
+
+function isDrawn(type: string): type is DrawnType {
+  return Object.hasOwn(KIND, type);
 }
 
 /**
@@ -44,7 +57,7 @@ export function questionLine(
   total: number,
   t: TFunction,
 ): string {
-  if (!Object.hasOwn(LABEL, question.type)) {
+  if (!isDrawn(question.type)) {
     return t("takeTest.questionOf", { n: number, total });
   }
   return t("takeTest.questionOfType", {

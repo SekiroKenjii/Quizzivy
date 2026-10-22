@@ -2,6 +2,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { givenName } from "@/features/assignments/studentTime";
 import {
   useEffect,
+  useEffectEvent,
   useMemo,
   useRef,
   useState,
@@ -17,12 +18,25 @@ import { AnswerReview } from "../../components/AnswerReview";
 import { ReviewGroup } from "@/features/media/components/ReviewGroup";
 import type { GradingQueueItem } from "../../api";
 import type { GradingDraft } from "./useGradingQueue";
-import { scoreOptions } from "./gradingRecovery";
+import { pageKey, scoreOptions } from "./gradingRecovery";
 import { cn } from "@/lib/utils";
 import { useLocale } from "@/lib/i18n/useLocale";
 import { ArrowLeft, ArrowRight, FileText } from "lucide-react";
+import { EssayBands } from "../../components/BandScale";
+import { bandKeyEvent, focusAfter, nextCriterion } from "../../bandKeys";
+import { markBand, markOf, type EssayMark } from "../../essayMark";
 
-/** GradingAnswerCard preserves the frozen answer and local comment while each chosen score saves immediately; when a save settles with focus lost to the page, it puts focus back on the card's score. `suggestion`, the AI's score box, stands directly above the score. */
+/**
+ * GradingAnswerCard preserves the frozen answer and local comment while each
+ * chosen score saves immediately; when a save settles with focus lost to the
+ * page, it puts focus back on the score last chosen, else the card's score.
+ * `suggestion`, the AI's score box, stands directly above the score. An essay
+ * is marked on its band or its rubric instead (`onBand`), with the band keys
+ * 3–9 and Shift for the half above; a band given while a save is in flight
+ * waits for it. Save & next looks paused until the mark is complete and, if
+ * pressed, says what is missing. `fieldError` is a refused save's message for
+ * these marks.
+ */
 export function GradingAnswerCard({
   item,
   draft,
@@ -31,12 +45,14 @@ export function GradingAnswerCard({
   position,
   total,
   onScore,
+  onBand,
   onComment,
   onPrevious,
   onNext,
   onRetryMaterial,
   onReview,
   suggestion = null,
+  fieldError = null,
 }: Readonly<{
   item: GradingQueueItem;
   draft: GradingDraft | undefined;
@@ -45,12 +61,14 @@ export function GradingAnswerCard({
   position: number;
   total: number;
   onScore: (points: number) => void;
+  onBand: (mark: EssayMark) => void;
   onComment: (comment: string) => void;
   onPrevious: () => void;
   onNext: (numericIntent?: boolean) => void;
   onRetryMaterial: () => void;
   onReview: (event: MouseEvent<HTMLAnchorElement>) => void;
   suggestion?: ReactNode;
+  fieldError?: string | null;
 }>) {
   const { t } = useTranslation();
   const locale = useLocale();
@@ -66,6 +84,29 @@ export function GradingAnswerCard({
   const [numericNext, setNumericNext] = useState(false);
   const card = useRef<HTMLElement>(null);
   const wasBusy = useRef(busy);
+  const lastScore = useRef<string | null>(null);
+  const essay = item.type === "essay";
+  const rubric = useMemo(() => item.rubric ?? [], [item.rubric]);
+  const mark = draft?.mark ?? markOf(item);
+  const markComplete = markBand(rubric, mark) !== null;
+  const [activeCriterion, setActiveCriterion] = useState<string | null>(null);
+  const bandKey = useEffectEvent((event: KeyboardEvent) => {
+    const band = bandKeyEvent(event);
+    if (!essay || band === null || !pageKey(event)) return;
+    event.preventDefault();
+    const criterion = nextCriterion(rubric, mark, activeCriterion);
+    lastScore.current = `${criterion ?? "band"}:${band}`;
+    if (criterion === null) onBand({ ...mark, band });
+    else {
+      onBand({ ...mark, criteria: { ...mark.criteria, [criterion]: band } });
+      focusAfter(card.current, rubric, criterion);
+    }
+  });
+  useEffect(() => {
+    const handle = (event: KeyboardEvent) => bandKey(event);
+    document.addEventListener("keydown", handle);
+    return () => document.removeEventListener("keydown", handle);
+  }, []);
   useEffect(() => {
     const settled = wasBusy.current && !busy;
     wasBusy.current = busy;
@@ -75,7 +116,11 @@ export function GradingAnswerCard({
     )
       return;
     const root = card.current;
+    const last = lastScore.current;
     const target =
+      (last === null
+        ? null
+        : root?.querySelector<HTMLElement>(`[data-score="${CSS.escape(last)}"]`)) ??
       root?.querySelector<HTMLElement>('[data-score][aria-pressed="true"]') ??
       root?.querySelector<HTMLElement>("[data-score]") ??
       root;
@@ -172,63 +217,84 @@ export function GradingAnswerCard({
           </div>
         )}
         {suggestion}
-        <fieldset disabled={busy} className="space-y-2">
-          <legend className="text-muted-foreground mb-2 text-xs leading-[18px] font-medium">
-            {t("grading.scoreLabel")}
-          </legend>
-          {choices.length > 0 ? (
-            <div className="flex flex-wrap gap-2">
-              {choices.map((value, index) => (
-                <Button
-                  key={value}
-                  type="button"
-                  variant={points === value ? "default" : "outline"}
-                  aria-pressed={points === value}
-                  aria-label={t("grading.score", { count: value })}
-                  data-score={value}
-                  className="h-11 min-w-16 gap-2 rounded-[9px] px-3.5 text-[15px] font-semibold tabular-nums"
-                  onClick={() => onScore(value)}
-                >
-                  {figure.format(value)}
-                  <kbd
-                    aria-hidden="true"
-                    className="rounded border border-current px-1 font-sans text-[10.5px] font-medium opacity-60"
+        {essay ? (
+          <EssayBands
+            rubric={rubric}
+            mark={mark}
+            error={fieldError}
+            onChange={(next, score) => {
+              lastScore.current = score;
+              onBand(next);
+            }}
+            onActive={setActiveCriterion}
+          />
+        ) : (
+          <fieldset disabled={busy} className="space-y-2">
+            <legend className="text-muted-foreground mb-2 text-xs leading-[18px] font-medium">
+              {t("grading.scoreLabel")}
+            </legend>
+            {choices.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {choices.map((value, index) => (
+                  <Button
+                    key={value}
+                    type="button"
+                    variant={points === value ? "default" : "outline"}
+                    aria-pressed={points === value}
+                    aria-label={t("grading.score", { count: value })}
+                    data-score={value}
+                    className="h-11 min-w-16 gap-2 rounded-[9px] px-3.5 text-[15px] font-semibold tabular-nums"
+                    onClick={() => {
+                      lastScore.current = String(value);
+                      onScore(value);
+                    }}
                   >
-                    {index + 1}
-                  </kbd>
-                </Button>
-              ))}
-            </div>
-          ) : (
-            <label className="block space-y-2 text-sm">
-              <span>{t("grading.numberScore", { max: item.points })}</span>
-              <Input
-                ref={numeric}
-                className="max-w-(--field-max)"
-                type="number"
-                min={0}
-                max={item.points}
-                step={0.5}
-                value={number}
-                onChange={(event) => setNumber(event.target.value)}
-                onBlur={() => {
-                  if (
-                    number.trim() &&
-                    Number(number) >= 0 &&
-                    Number(number) <= item.points
-                  )
-                    onScore(Number(number));
-                }}
-                aria-invalid={
-                  number.trim() !== "" &&
-                  (!Number.isFinite(Number(number)) ||
-                    Number(number) < 0 ||
-                    Number(number) > item.points)
-                }
-              />
-            </label>
-          )}
-        </fieldset>
+                    {figure.format(value)}
+                    <kbd
+                      aria-hidden="true"
+                      className="rounded border border-current px-1 font-sans text-[10.5px] font-medium opacity-60"
+                    >
+                      {index + 1}
+                    </kbd>
+                  </Button>
+                ))}
+              </div>
+            ) : (
+              <label className="block space-y-2 text-sm">
+                <span>{t("grading.numberScore", { max: item.points })}</span>
+                <Input
+                  ref={numeric}
+                  className="max-w-(--field-max)"
+                  type="number"
+                  min={0}
+                  max={item.points}
+                  step={0.5}
+                  value={number}
+                  onChange={(event) => setNumber(event.target.value)}
+                  onBlur={() => {
+                    if (
+                      number.trim() &&
+                      Number(number) >= 0 &&
+                      Number(number) <= item.points
+                    )
+                      onScore(Number(number));
+                  }}
+                  aria-invalid={
+                    number.trim() !== "" &&
+                    (!Number.isFinite(Number(number)) ||
+                      Number(number) < 0 ||
+                      Number(number) > item.points)
+                  }
+                />
+              </label>
+            )}
+            {fieldError !== null && (
+              <p role="alert" className="text-destructive text-sm">
+                {fieldError}
+              </p>
+            )}
+          </fieldset>
+        )}
         <fieldset disabled={busy} className="space-y-2">
           <label
             htmlFor="grading-comment"
@@ -305,6 +371,7 @@ export function GradingAnswerCard({
             size="md"
             className="px-4"
             disabled={busy && !numericNext}
+            aria-disabled={essay && !markComplete && !finishReady}
             onPointerDown={(event) => {
               if (
                 event.button === 0 &&

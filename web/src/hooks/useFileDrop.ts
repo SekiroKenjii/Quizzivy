@@ -5,7 +5,8 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
  * bound for the hook's lifetime and always cancel a drop that carries files,
  * enabled or not, so a file dropped under a dialog never navigates the tab to
  * it; `enabled` gates only the drag state and the callback, and turning it off
- * clears the drag state.
+ * clears the drag state. A drop something on the page already took (its
+ * default prevented, as an editor does with a file it inserts) is left to it.
  */
 export function useFileDrop(onFiles: (files: File[]) => void, enabled = true): boolean {
   const [state, setState] = useState({ enabled, dragging: false });
@@ -30,7 +31,12 @@ export function useFileDrop(onFiles: (files: File[]) => void, enabled = true): b
     };
     const drop = (event: DragEvent) => {
       if (!event.dataTransfer?.types.includes("Files")) return;
+      const taken = event.defaultPrevented;
       event.preventDefault();
+      if (taken) {
+        setDragging(false);
+        return;
+      }
       if (!latest.current.enabled) return;
       setDragging(false);
       latest.current.onFiles([...event.dataTransfer.files]);

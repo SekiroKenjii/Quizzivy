@@ -30,7 +30,7 @@ func (d Document) WithAssetIDs(ids map[string]string) (Document, error) {
 	if err := encoder.Encode(value); err != nil {
 		return Document{}, ErrInvalidDocument
 	}
-	return Parse(bytes.TrimSpace(out.Bytes()))
+	return d.reparse(bytes.TrimSpace(out.Bytes()))
 }
 func rebindAssets(value any, ids map[string]string) {
 	switch node := value.(type) {

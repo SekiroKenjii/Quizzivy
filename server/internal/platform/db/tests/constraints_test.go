@@ -615,9 +615,9 @@ func TestMediaPairMustBeCompleteOrAbsent(t *testing.T) {
 	})
 }
 
-func TestSampleAnswerIsShortAnswerOnly(t *testing.T) {
+func TestSampleAnswerIsForWrittenAnswersOnly(t *testing.T) {
 	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
-		rejectsWith(t, tx, "questions_sample_answer_only_short_answer",
+		rejectsWith(t, tx, "questions_sample_answer_only_written",
 			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
 			 VALUES ('single_choice', 'Chọn một đáp án', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
 	})
@@ -628,6 +628,25 @@ func TestSampleAnswerOnShortAnswerIsAccepted(t *testing.T) {
 		mustExec(t, tx,
 			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
 			 VALUES ('short_answer', 'Viết câu trả lời', 1.0, $1, $1, 'Đáp án mẫu')`, f.adminID)
+	})
+}
+
+func TestANewChoiceTypeCannotCarryASampleAnswer(t *testing.T) {
+	for _, qtype := range []string{"tfng", "matching"} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			rejectsWith(t, tx, "questions_sample_answer_only_written",
+				`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer, match_allow_reuse)
+				 VALUES ($2::app.question_type, 'Câu hỏi', 1.0, $1, $1, 'Đáp án mẫu', CASE WHEN $2 = 'matching' THEN false END)`,
+				f.adminID, qtype)
+		})
+	}
+}
+
+func TestSampleAnswerOnAnEssayIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, sample_answer)
+			 VALUES ('essay', 'Viết bài luận 250 từ', 9.0, $1, $1, 'Bài mẫu')`, f.adminID)
 	})
 }
 
@@ -1102,5 +1121,492 @@ func TestAnInsertWithoutAnOwnerIsRefused(t *testing.T) {
 				rejectsWith(t, tx, `null value in column "`+c.column+`" of relation "`+c.table+`"`, c.insert, f.adminID)
 			})
 		})
+	}
+}
+
+// ---------------------------------------------------------------- R6 question types (T-R6.1a)
+
+func TestASelectCountNeedsAMultipleChoice(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_select_count_check",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, select_count)
+			 VALUES ('single_choice', 'Chọn một đáp án', 1.0, $1, $1, 2)`, f.adminID)
+	})
+}
+
+func TestASelectCountStaysBelowTheOptionCap(t *testing.T) {
+	for _, n := range []int{1, 8} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			rejectsWith(t, tx, "questions_select_count_check",
+				`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, select_count)
+				 VALUES ('multiple_choice', 'Chọn N đáp án', 1.0, $1, $1, $2)`, f.adminID, n)
+		})
+	}
+}
+
+func TestAChooseTwoQuestionIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, select_count)
+			 VALUES ('multiple_choice', 'Chọn HAI đáp án', 2.0, $1, $1, 2)`, f.adminID)
+	})
+}
+
+func TestAWordLimitOfZeroIsRefused(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_max_words_check",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+			 VALUES ('short_answer', 'Không quá 0 từ', 1.0, $1, $1, 0)`, f.adminID)
+	})
+}
+
+func TestAWordLimitIsForShortAnswersOnly(t *testing.T) {
+	for _, qtype := range []string{"essay", "fill_blank"} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			rejectsWith(t, tx, "questions_max_words_check",
+				`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+				 VALUES ($2::app.question_type, 'Không quá 50 từ', 1.0, $1, $1, 50)`, f.adminID, qtype)
+		})
+	}
+}
+
+func TestAWordLimitStopsAtAHundred(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_max_words_check",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+			 VALUES ('short_answer', 'Không quá 101 từ', 1.0, $1, $1, 101)`, f.adminID)
+	})
+}
+
+func TestAShortAnswerOfThreeWordsIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		mustExec(t, tx,
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, max_words)
+			 VALUES ('short_answer', 'Không quá BA từ', 1.0, $1, $1, 3)`, f.adminID)
+	})
+}
+
+func TestAVersionQuestionKeepsTheSameRules(t *testing.T) {
+	for _, c := range []struct {
+		name, constraint, column, qtype string
+		value                           int
+	}{
+		{"select count on a single choice", "test_version_questions_select_count_check", "select_count", "single_choice", 3},
+		{"select count of one", "test_version_questions_select_count_check", "select_count", "multiple_choice", 1},
+		{"select count of eight", "test_version_questions_select_count_check", "select_count", "multiple_choice", 8},
+		{"word limit on a multiple choice", "test_version_questions_max_words_check", "max_words", "multiple_choice", 3},
+		{"word limit of zero", "test_version_questions_max_words_check", "max_words", "short_answer", 0},
+		{"word limit of 101", "test_version_questions_max_words_check", "max_words", "short_answer", 101},
+	} {
+		t.Run(c.name, func(t *testing.T) {
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				section := newVersion(t, tx, f.adminID)
+				rejectsWith(t, tx, c.constraint,
+					`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, `+c.column+`)
+					 VALUES ($1, 0, $2::app.question_type, 'Câu đã chốt', 1.0, $3)`, section, c.qtype, c.value)
+			})
+		})
+	}
+}
+
+func newBankGroup(t *testing.T, tx *sql.Tx, author string) string {
+	t.Helper()
+	var id string
+	if err := tx.QueryRow(`INSERT INTO app.question_groups (title, created_by, owner_id)
+		VALUES ('Bài đọc', $1, $1) RETURNING id`, author).Scan(&id); err != nil {
+		t.Fatalf("group fixture: %v", err)
+	}
+	return id
+}
+
+func TestATfngOrMatchingGroupMemberMayKeepAFixedOrder(t *testing.T) {
+	for _, qtype := range []string{"tfng", "matching"} {
+		withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+			group := newBankGroup(t, tx, f.adminID)
+			mustExec(t, tx, `INSERT INTO app.questions
+				(type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order, match_allow_reuse)
+				VALUES ($2::app.question_type, 'Câu trong nhóm', 1.0, $1, $1, $3, 0, 'fixed', CASE WHEN $2 = 'matching' THEN false END)`,
+				f.adminID, qtype, group)
+		})
+	}
+}
+
+func TestAnEssayGroupMemberCannotKeepAFixedOrder(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		group := newBankGroup(t, tx, f.adminID)
+		rejectsWith(t, tx, "questions_context_option_order",
+			`INSERT INTO app.questions
+			   (type, prompt, points, created_by, owner_id, context_group_id, context_ordinal, context_option_order)
+			 VALUES ('essay', 'Bài luận trong nhóm', 9.0, $1, $1, $2, 0, 'fixed')`, f.adminID, group)
+	})
+}
+
+// TestTheR6ChecksAreValidated fails when a migration adds one of its CHECKs NOT
+// VALID and skips the VALIDATE.
+func TestTheR6ChecksAreValidated(t *testing.T) {
+	conn := migrated(t)
+	for _, name := range []string{
+		"questions_select_count_check", "test_version_questions_select_count_check",
+		"questions_max_words_check", "test_version_questions_max_words_check",
+		"questions_sample_answer_only_written", "questions_context_option_order",
+	} {
+		var validated bool
+		if err := conn.QueryRow(`SELECT convalidated FROM pg_constraint
+			WHERE conname = $1 AND connamespace = 'app'::regnamespace`, name).Scan(&validated); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !validated {
+			t.Errorf("%s is NOT VALID", name)
+		}
+	}
+}
+
+// TestTheV0120WritesStillInsert runs the bank's and the publish's inserts with
+// the column lists of v0.12.0 (questions/repositories/store.go and
+// tests/repositories/publish_snapshot.go before R6), which an old binary sends
+// while the new schema is live.
+func TestTheV0120WritesStillInsert(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		for _, qtype := range []string{"single_choice", "multiple_choice", "true_false", "fill_blank", "short_answer"} {
+			mustExec(t, tx, `
+				INSERT INTO app.questions
+				       (type, prompt, media_asset_id, media_asset_kind,
+				        audio_max_plays, audio_allow_seek, audio_show_transcript_after,
+				        transcript, points, explanation, sample_answer, tags, created_by, prompt_content, explanation_content,
+				        id, context_group_id, context_ordinal, context_option_order, owner_id, level, skill, media_alt,
+				        audio_allow_pause, copied_from_id)
+				VALUES ($1::app.question_type, 'Câu hỏi cũ', NULL, NULL, NULL, NULL, NULL,
+				        NULL, 1.0, NULL, CASE WHEN $1 = 'short_answer' THEN 'Đáp án mẫu' END, '{}', $2, NULL, NULL,
+				        uuidv7(), NULL, NULL, NULL, $2, NULL, NULL, NULL, NULL, NULL)`, qtype, f.adminID)
+		}
+		section := newVersion(t, tx, f.adminID)
+		mustExec(t, tx, `
+			INSERT INTO app.test_version_questions
+			       (test_version_section_id, ordinal, source_question_id, type, prompt,
+			        media_asset_id, media_asset_kind, audio_max_plays, audio_allow_seek,
+			        audio_show_transcript_after, transcript, points, explanation, sample_answer, prompt_content, explanation_content, level, skill, media_alt,
+			        audio_allow_pause)
+			VALUES ($1, 0, NULL, 'multiple_choice', 'Câu đã chốt', NULL, NULL, NULL, NULL, NULL,
+			        NULL, 1.0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL)`, section)
+	})
+}
+
+// ---------------------------------------------------------------- rubrics, matching and bands (T-R6.1b)
+
+func newMatchingQuestion(t *testing.T, tx *sql.Tx, author string) (question string, options []string) {
+	t.Helper()
+	if err := tx.QueryRow(
+		`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, match_allow_reuse)
+		 VALUES ('matching', 'Nối tiêu đề với đoạn văn', 2.0, $1, $1, false) RETURNING id`, author,
+	).Scan(&question); err != nil {
+		t.Fatalf("matching fixture: %v", err)
+	}
+	for i, text := range []string{"Tiêu đề i", "Tiêu đề ii"} {
+		var option string
+		if err := tx.QueryRow(
+			`INSERT INTO app.question_options (question_id, ordinal, text) VALUES ($1, $2, $3) RETURNING id`,
+			question, i, text,
+		).Scan(&option); err != nil {
+			t.Fatalf("option fixture: %v", err)
+		}
+		options = append(options, option)
+	}
+	return question, options
+}
+
+func TestAMatchingQuestionMustSayWhetherChoicesRepeat(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_match_allow_reuse_iff_matching",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id)
+			 VALUES ('matching', 'Nối', 1.0, $1, $1)`, f.adminID)
+	})
+}
+
+func TestOnlyAMatchingQuestionSaysWhetherChoicesRepeat(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		rejectsWith(t, tx, "questions_match_allow_reuse_iff_matching",
+			`INSERT INTO app.questions (type, prompt, points, created_by, owner_id, match_allow_reuse)
+			 VALUES ('single_choice', 'Chọn một', 1.0, $1, $1, true)`, f.adminID)
+	})
+}
+
+func TestAMatchItemCannotBeKeyedToAnotherQuestionsOption(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		question, _ := newMatchingQuestion(t, tx, f.adminID)
+		_, others := newMatchingQuestion(t, tx, f.adminID)
+		rejectsWith(t, tx, "question_match_items_option_fk",
+			`INSERT INTO app.question_match_items (question_id, ordinal, text, correct_option_id)
+			 VALUES ($1, 0, 'Đoạn A', $2)`, question, others[0])
+	})
+}
+
+func TestAnOptionAnItemNamesCannotBeDeleted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		question, options := newMatchingQuestion(t, tx, f.adminID)
+		mustExec(t, tx, `INSERT INTO app.question_match_items (question_id, ordinal, text, correct_option_id)
+			VALUES ($1, 0, 'Đoạn A', $2)`, question, options[0])
+		rejectsWith(t, tx, "question_match_items_option_fk",
+			`DELETE FROM app.question_options WHERE id = $1`, options[0])
+	})
+}
+
+// The key is NO ACTION, checked at the end of the statement, so a purge that
+// cascades to the options and the items together passes in either order.
+func TestPurgingAMatchingQuestionTakesItsItemsAndOptions(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		question, options := newMatchingQuestion(t, tx, f.adminID)
+		for i, option := range options {
+			mustExec(t, tx, `INSERT INTO app.question_match_items (question_id, ordinal, text, correct_option_id)
+				VALUES ($1, $2, 'Đoạn', $3)`, question, i, option)
+		}
+		mustExec(t, tx, `DELETE FROM app.questions WHERE id = $1`, question)
+		var left int
+		if err := tx.QueryRow(`SELECT (SELECT count(*) FROM app.question_match_items WHERE question_id = $1)
+			+ (SELECT count(*) FROM app.question_options WHERE question_id = $1)`, question).Scan(&left); err != nil {
+			t.Fatal(err)
+		}
+		if left != 0 {
+			t.Errorf("%d items and options outlived their question", left)
+		}
+	})
+}
+
+func TestAFrozenMatchItemCannotBeKeyedToAnotherQuestionsOption(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		var first, second, foreign string
+		for ordinal, dest := range []*string{&first, &second} {
+			if err := tx.QueryRow(`INSERT INTO app.test_version_questions
+				(test_version_section_id, ordinal, type, prompt, points, match_allow_reuse)
+				VALUES ($1, $2, 'matching', 'Nối', 1.0, false) RETURNING id`, section, ordinal).Scan(dest); err != nil {
+				t.Fatal(err)
+			}
+		}
+		if err := tx.QueryRow(`INSERT INTO app.test_version_options (test_version_question_id, ordinal, text)
+			VALUES ($1, 0, 'Tiêu đề i') RETURNING id`, second).Scan(&foreign); err != nil {
+			t.Fatal(err)
+		}
+		rejectsWith(t, tx, "test_version_match_items_option_fk",
+			`INSERT INTO app.test_version_match_items (test_version_question_id, ordinal, text, correct_option_id)
+			 VALUES ($1, 0, 'Đoạn A', $2)`, first, foreign)
+	})
+}
+
+func TestARubricCriterionNeedsALabel(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		essay := newQuestion(t, tx, f.adminID, "essay", "Viết bài luận")
+		rejectsWith(t, tx, "question_rubric_criteria_label_check",
+			`INSERT INTO app.question_rubric_criteria (question_id, ordinal, label) VALUES ($1, 0, '   ')`, essay)
+	})
+}
+
+// gradedEssay freezes an essay with one rubric criterion, starts an attempt on
+// its version and saves an answer, returning the attempt, the frozen question
+// and the criterion.
+func gradedEssay(t *testing.T, tx *sql.Tx, f fixture) (attempt, question, criterion string) {
+	t.Helper()
+	section := newVersion(t, tx, f.adminID)
+	if err := tx.QueryRow(`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points)
+		VALUES ($1, 0, 'essay', 'Viết bài luận', 9.0) RETURNING id`, section).Scan(&question); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.QueryRow(`INSERT INTO app.test_version_rubric_criteria (test_version_question_id, ordinal, label)
+		VALUES ($1, 0, 'Task response') RETURNING id`, question).Scan(&criterion); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.QueryRow(`
+		WITH assignment AS (
+		  INSERT INTO app.assignments (test_id, test_version_id, opens_at, closes_at, duration_minutes, created_by)
+		  SELECT v.test_id, v.id, now() - interval '1 hour', now() + interval '1 hour', 30, $2
+		    FROM app.test_version_sections s JOIN app.test_versions v ON v.id = s.test_version_id
+		   WHERE s.id = $1
+		  RETURNING id, test_version_id)
+		INSERT INTO app.attempts (assignment_id, test_version_id, student_id, attempt_no, session_id, shuffle_seed,
+		                          beacon_token_hash, started_at, deadline_at)
+		SELECT id, test_version_id, $3, 1, uuidv7(), 1, sha256('beacon'::bytea), now(), now() + interval '30 minutes'
+		  FROM assignment RETURNING id`, section, f.adminID, f.studentID).Scan(&attempt); err != nil {
+		t.Fatal(err)
+	}
+	mustExec(t, tx, `INSERT INTO app.attempt_answers (attempt_id, question_id, payload, requires_manual)
+		VALUES ($1, $2, '{"type": "text", "value": "Bài viết"}', true)`, attempt, question)
+	return attempt, question, criterion
+}
+
+func TestABandMovesInHalfSteps(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		attempt, question, _ := gradedEssay(t, tx, f)
+		rejectsWith(t, tx, "attempt_answers_band_step",
+			`UPDATE app.attempt_answers SET band = 6.25, manual_score = 6.25, graded_at = now()
+			 WHERE attempt_id = $1 AND question_id = $2`, attempt, question)
+	})
+}
+
+func TestABandNeedsTheScoreItConvertsTo(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		attempt, question, _ := gradedEssay(t, tx, f)
+		rejectsWith(t, tx, "attempt_answers_band_needs_score",
+			`UPDATE app.attempt_answers SET band = 6.5 WHERE attempt_id = $1 AND question_id = $2`, attempt, question)
+	})
+}
+
+func TestAGradedBandIsAccepted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		attempt, question, criterion := gradedEssay(t, tx, f)
+		mustExec(t, tx, `UPDATE app.attempt_answers SET band = 6.5, manual_score = 6.50, graded_at = now()
+			WHERE attempt_id = $1 AND question_id = $2`, attempt, question)
+		mustExec(t, tx, `INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+			VALUES ($1, $2, $3, 7.0)`, attempt, question, criterion)
+	})
+}
+
+func TestACriterionBandMovesInHalfSteps(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		attempt, question, criterion := gradedEssay(t, tx, f)
+		rejectsWith(t, tx, "attempt_answer_criteria_band_step",
+			`INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+			 VALUES ($1, $2, $3, 9.5)`, attempt, question, criterion)
+	})
+}
+
+func TestAGradeCannotNameAnotherQuestionsCriterion(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		attempt, question, _ := gradedEssay(t, tx, f)
+		_, _, foreign := gradedEssay(t, tx, f)
+		rejectsWith(t, tx, "attempt_answer_criteria_criterion_fk",
+			`INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+			 VALUES ($1, $2, $3, 7.0)`, attempt, question, foreign)
+	})
+}
+
+// A band runs from 3 to 9 on the answer and on each criterion (QC-R6B-2).
+func TestABandStaysBetweenThreeAndNine(t *testing.T) {
+	for _, tc := range []struct {
+		band   string
+		accept bool
+	}{{"2.5", false}, {"3.0", true}, {"9.0", true}, {"9.5", false}} {
+		t.Run(tc.band, func(t *testing.T) {
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				attempt, question, criterion := gradedEssay(t, tx, f)
+				answer := `UPDATE app.attempt_answers SET band = $3::numeric, manual_score = $3::numeric, graded_at = now()
+					WHERE attempt_id = $1 AND question_id = $2`
+				grade := `INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+					VALUES ($1, $2, $3, $4::numeric)`
+				if tc.accept {
+					mustExec(t, tx, answer, attempt, question, tc.band)
+					mustExec(t, tx, grade, attempt, question, criterion, tc.band)
+					return
+				}
+				rejectsWith(t, tx, "attempt_answers_band_step", answer, attempt, question, tc.band)
+			})
+			if tc.accept {
+				return
+			}
+			withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+				attempt, question, criterion := gradedEssay(t, tx, f)
+				rejectsWith(t, tx, "attempt_answer_criteria_band_step",
+					`INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+					 VALUES ($1, $2, $3, $4::numeric)`, attempt, question, criterion, tc.band)
+			})
+		})
+	}
+}
+
+func TestAFrozenCriterionWithGradesCannotBeDeleted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		attempt, question, criterion := gradedEssay(t, tx, f)
+		mustExec(t, tx, `INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+			VALUES ($1, $2, $3, 7.0)`, attempt, question, criterion)
+		rejectsWith(t, tx, "attempt_answer_criteria_criterion_fk",
+			`DELETE FROM app.test_version_rubric_criteria WHERE id = $1`, criterion)
+	})
+}
+
+func TestRemovingAnAnswerTakesItsCriterionGrades(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		attempt, question, criterion := gradedEssay(t, tx, f)
+		mustExec(t, tx, `INSERT INTO app.attempt_answer_criteria (attempt_id, question_id, criterion_id, band)
+			VALUES ($1, $2, $3, 7.0)`, attempt, question, criterion)
+		mustExec(t, tx, `DELETE FROM app.attempt_answers WHERE attempt_id = $1 AND question_id = $2`, attempt, question)
+		var left int
+		if err := tx.QueryRow(`SELECT count(*) FROM app.attempt_answer_criteria WHERE attempt_id = $1`, attempt).Scan(&left); err != nil {
+			t.Fatal(err)
+		}
+		if left != 0 {
+			t.Errorf("%d criterion grades outlived their answer", left)
+		}
+	})
+}
+
+func TestAFrozenOptionAnItemNamesCannotBeDeleted(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		var question, option string
+		if err := tx.QueryRow(`INSERT INTO app.test_version_questions
+			(test_version_section_id, ordinal, type, prompt, points, match_allow_reuse)
+			VALUES ($1, 0, 'matching', 'Nối', 1.0, false) RETURNING id`, section).Scan(&question); err != nil {
+			t.Fatal(err)
+		}
+		if err := tx.QueryRow(`INSERT INTO app.test_version_options (test_version_question_id, ordinal, text)
+			VALUES ($1, 0, 'Tiêu đề i') RETURNING id`, question).Scan(&option); err != nil {
+			t.Fatal(err)
+		}
+		mustExec(t, tx, `INSERT INTO app.test_version_match_items (test_version_question_id, ordinal, text, correct_option_id)
+			VALUES ($1, 0, 'Đoạn A', $2)`, question, option)
+		rejectsWith(t, tx, "test_version_match_items_option_fk",
+			`DELETE FROM app.test_version_options WHERE id = $1`, option)
+	})
+}
+
+func TestOnlyAFrozenMatchingQuestionSaysWhetherChoicesRepeat(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		rejectsWith(t, tx, "test_version_questions_match_allow_reuse_iff_matching",
+			`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points)
+			 VALUES ($1, 0, 'matching', 'Nối', 1.0)`, section)
+	})
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		rejectsWith(t, tx, "test_version_questions_match_allow_reuse_iff_matching",
+			`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, match_allow_reuse)
+			 VALUES ($1, 1, 'single_choice', 'Chọn một', 1.0, true)`, section)
+	})
+}
+
+func TestRubricAndItemTextsHaveBounds(t *testing.T) {
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		essay := newQuestion(t, tx, f.adminID, "essay", "Viết bài luận")
+		rejectsWith(t, tx, "question_rubric_criteria_label_check",
+			`INSERT INTO app.question_rubric_criteria (question_id, ordinal, label) VALUES ($1, 0, repeat('a', 81))`, essay)
+	})
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		section := newVersion(t, tx, f.adminID)
+		var frozen string
+		if err := tx.QueryRow(`INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points)
+			VALUES ($1, 0, 'essay', 'Viết bài luận', 9.0) RETURNING id`, section).Scan(&frozen); err != nil {
+			t.Fatal(err)
+		}
+		rejectsWith(t, tx, "test_version_rubric_criteria_label_check",
+			`INSERT INTO app.test_version_rubric_criteria (test_version_question_id, ordinal, label) VALUES ($1, 0, '  ')`, frozen)
+	})
+	withTx(t, migrated(t), func(tx *sql.Tx, f fixture) {
+		question, options := newMatchingQuestion(t, tx, f.adminID)
+		rejectsWith(t, tx, "question_match_items_text_check",
+			`INSERT INTO app.question_match_items (question_id, ordinal, text, correct_option_id)
+			 VALUES ($1, 0, repeat('a', 501), $2)`, question, options[0])
+	})
+}
+
+// The editor reorders criteria and items inside one transaction (D-13).
+func TestTheBankOrdinalKeysAreDeferrable(t *testing.T) {
+	conn := migrated(t)
+	for _, name := range []string{"question_rubric_criteria_ordinal_key", "question_match_items_ordinal_key"} {
+		var deferrable bool
+		if err := conn.QueryRow(`SELECT condeferrable FROM pg_constraint
+			WHERE conname = $1 AND connamespace = 'app'::regnamespace`, name).Scan(&deferrable); err != nil {
+			t.Fatalf("%s: %v", name, err)
+		}
+		if !deferrable {
+			t.Errorf("%s is not deferrable; the editor's reorder needs it", name)
+		}
 	}
 }

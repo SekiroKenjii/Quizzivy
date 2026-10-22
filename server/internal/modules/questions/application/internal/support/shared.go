@@ -4,6 +4,8 @@ import (
 	"quizzivy/internal/modules/questions/domain"
 )
 
+// InputOf is q as a write that creates a copy of it: every part of it, with no
+// ids, so a matching item is keyed to its copied option by position.
 func InputOf(q domain.Question) domain.Input {
 	in := domain.Input{
 		Type:               q.Type,
@@ -19,6 +21,9 @@ func InputOf(q domain.Question) domain.Input {
 		Explanation:        q.Explanation,
 		ExplanationContent: q.ExplanationContent,
 		SampleAnswer:       q.SampleAnswer,
+		SelectCount:        q.SelectCount,
+		MaxWords:           q.MaxWords,
+		MatchAllowReuse:    q.MatchAllowReuse,
 		Tags:               append([]string{}, q.Tags...),
 	}
 	for _, o := range q.Options {
@@ -28,6 +33,12 @@ func InputOf(q domain.Question) domain.Input {
 		in.Blanks = append(in.Blanks, domain.BlankInput{GapID: b.GapID,
 			Ordinal: b.Ordinal, AcceptedAnswers: append([]string{}, b.AcceptedAnswers...), CaseSensitive: b.CaseSensitive,
 		})
+	}
+	for _, item := range q.MatchItems {
+		in.MatchItems = append(in.MatchItems, domain.MatchItemInput{Text: item.Text, CorrectOption: item.CorrectOption})
+	}
+	for _, criterion := range q.Rubric {
+		in.Rubric = append(in.Rubric, domain.RubricCriterionInput{Label: criterion.Label})
 	}
 	return in
 }

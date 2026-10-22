@@ -94,6 +94,7 @@ function review(): AttemptReview {
       type: index === 1 ? "short_answer" : "single_choice",
       tags: [],
       blanks: [],
+      matchItems: [],
       options:
         index === 1
           ? []

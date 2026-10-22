@@ -183,8 +183,22 @@ describe("the panes from 768", () => {
     const { unmount } = await open(deckSession(NOW));
     await user.click(next());
     await user.click(next());
-    expect(within(sheet()).getByRole("radiogroup")).toHaveClass("grid-cols-3");
+    // "Không có thông tin" is past the short length, so the vi labels take one column.
+    expect(within(sheet()).getByRole("radiogroup")).toHaveClass("grid-cols-1");
     unmount();
+    store().reset();
+    sessionStorage.clear();
+
+    await i18n.changeLanguage("en");
+    try {
+      const english = await open(deckSession(NOW));
+      await user.click(screen.getByRole("button", { name: "Next question" }));
+      await user.click(screen.getByRole("button", { name: "Next question" }));
+      expect(within(sheet()).getByRole("radiogroup")).toHaveClass("grid-cols-3");
+      english.unmount();
+    } finally {
+      await i18n.changeLanguage("vi");
+    }
     store().reset();
     sessionStorage.clear();
 
@@ -227,9 +241,9 @@ describe("the panes from 768", () => {
     expect(line()).toHaveClass("text-muted-fg", "text-sm", "font-medium");
     for (const label of [
       "Câu 2 trên 8 · Một đáp án",
-      "Câu 3 trên 8 · Một đáp án",
+      "Câu 3 trên 8 · Đúng/Sai/Không có thông tin",
       "Câu 4 trên 8 · Nhiều đáp án",
-      "Câu 5 trên 8 · Tự luận",
+      "Câu 5 trên 8 · Trả lời ngắn",
       "Câu 6 trên 8 · Đúng/Sai",
       "Câu 7 trên 8 · Điền từ",
     ]) {
@@ -962,7 +976,7 @@ describe("an unknown question type", () => {
   const fabricated = (paper: AttemptSession): AttemptSession => ({
     ...paper,
     questions: [
-      { ...paper.questions[0]!, type: "matching" as StudentQuestion["type"] },
+      { ...paper.questions[0]!, type: "diagram" as StudentQuestion["type"] },
       ...paper.questions.slice(1),
     ],
     answers: {},

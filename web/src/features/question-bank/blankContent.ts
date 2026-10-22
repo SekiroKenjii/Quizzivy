@@ -1,5 +1,5 @@
 import { contentPlainText } from "@/components/shared/content/plainText";
-import type { ContentBlock, ContentInline } from "@/components/shared/content/model";
+import type { ContentInline, ProseBlock } from "@/components/shared/content/model";
 import { questionGaps } from "@/components/shared/content/gaps";
 import {
   isQuestionPromptContent,
@@ -13,7 +13,7 @@ function mapInlines(
   document: QuestionPromptContent,
   transform: (node: ContentInline) => ContentInline[],
 ): QuestionPromptContent {
-  const visit = (block: ContentBlock): ContentBlock => {
+  const visit = <T extends ProseBlock>(block: T): T => {
     switch (block.type) {
       case "paragraph":
       case "heading":

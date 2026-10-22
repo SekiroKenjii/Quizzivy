@@ -14,13 +14,19 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ListSkeleton, LoadError, EmptyState } from "@/components/shared/ListState";
 import { useCan, useWorkspace } from "@/features/auth/permissions";
 import { useAuthStore } from "@/stores/auth";
-import type { AttemptListRow, GradingQueueParams } from "../../api";
-import { gradingGroupKey, gradingItemKey, scoreOptions } from "./gradingRecovery";
+import type { AttemptListRow, GradingQueueItem, GradingQueueParams } from "../../api";
+import {
+  gradingGroupKey,
+  gradingItemKey,
+  pageKey,
+  scoreOptions,
+} from "./gradingRecovery";
 import { useGradingQueue, type GradingQueueModel } from "./useGradingQueue";
 import { GradingQueueAside } from "./GradingQueueAside";
 import { GradingAnswerCard } from "./GradingAnswerCard";
 import { GradingReadyCard, ROWS_SHOWN, type ReadyScan } from "./GradingReadyCard";
-import { AiScoreBox } from "../../components/AiScoreBox";
+import { AiScoreBox, type ScoreBoxFor } from "../../components/AiScoreBox";
+import { handMarked, suggestedMark } from "../../essayMark";
 import "@/features/attempts/gradingMessages";
 import { cn } from "@/lib/utils";
 import {
@@ -197,18 +203,11 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
     if (
       model.busy ||
       !selected ||
-      event.isComposing ||
       event.altKey ||
       event.ctrlKey ||
       event.metaKey ||
-      event.shiftKey
-    )
-      return;
-    if (
-      event.target instanceof Element &&
-      event.target.closest(
-        "input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=textbox], [role=dialog], [role=menu], [role=listbox], [data-grading-ready]",
-      )
+      event.shiftKey ||
+      !pageKey(event)
     )
       return;
     const letter = event.key.toLowerCase();
@@ -217,6 +216,8 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
       model.move(letter === "j" ? 1 : -1);
       return;
     }
+    // An essay's band keys are its card's: a digit is a band there, not a position.
+    if (selected.type === "essay") return;
     const choices = scoreOptions(selected.points);
     const index = /^[1-9]$/.test(event.key) ? Number(event.key) - 1 : -1;
     const points = choices[index];
@@ -388,6 +389,8 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                     position={position}
                     total={groupItems.length}
                     onScore={(points) => void model.pickScore(selected, points)}
+                    onBand={(mark) => void model.pickBand(selected, mark)}
+                    fieldError={fieldErrorOf(model, selected)}
                     onComment={(comment) => model.comment(selected, comment)}
                     onPrevious={() => model.move(-1)}
                     onNext={(numericIntent = false) =>
@@ -400,15 +403,26 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                       openReview(event, `/teacher/attempts/${selected.attemptId}`)
                     }
                     suggestion={
-                      selected.type === "short_answer" && (
+                      handMarked(selected.type) && (
                         <AiScoreBox
                           key={gradingItemKey(selected)}
                           attemptId={selected.attemptId}
                           questionId={selected.questionId}
                           max={selected.points}
+                          kind={scoreBoxFor(selected)}
                           busy={model.busy}
-                          onUse={(points, comment) =>
-                            model.fill(selected, points, comment)
+                          onUse={(suggestion) =>
+                            selected.type === "essay"
+                              ? model.fillMark(
+                                  selected,
+                                  suggestedMark(selected.rubric ?? [], suggestion),
+                                  suggestion.comment,
+                                )
+                              : model.fill(
+                                  selected,
+                                  suggestion.score,
+                                  suggestion.comment,
+                                )
                           }
                         />
                       )
@@ -456,27 +470,47 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
         {model.announcement}
       </p>
       <ConfirmDialog
-        open={blocker.state === "blocked"}
+        open={blocker.state === "blocked" || model.leaveHeld}
         onOpenChange={(open) => {
-          if (!open && blocker.state === "blocked") blocker.reset();
+          if (open) return;
+          model.keepMarking();
+          if (blocker.state === "blocked") blocker.reset();
         }}
         title={t(model.unsavedScore ? "grading.leaveScoreTitle" : "grading.leaveTitle")}
-        description={t(
-          model.unsavedScore ? "grading.leaveScoreBody" : "grading.leaveBody",
+        description={t(leaveBody(model))}
+        confirmLabel={t(
+          model.partial ? "grading.dropBandsAndLeave" : "grading.saveAndLeave",
         )}
-        confirmLabel={t("grading.saveAndLeave")}
         cancelLabel={t("grading.stay")}
+        destructive={model.partial}
         pending={model.busy}
-        error={blocker.state === "blocked" ? model.error : null}
-        onConfirm={() =>
-          void model.leave(() => {
+        error={blocker.state === "blocked" || model.leaveHeld ? model.error : null}
+        onConfirm={() => {
+          const go = () => {
             departing.current = true;
             if (blocker.state === "blocked") blocker.proceed();
-          })
-        }
+          };
+          if (model.partial) void model.discard(go);
+          else void model.leave(go);
+        }}
       />
     </section>
   );
+}
+
+/** leaveBody is what the leave question says: that part-marked bands are dropped, or what is unsaved. */
+function leaveBody(model: { partial: boolean; unsavedScore: boolean }) {
+  if (model.partial) return "grading.leavePartialBody";
+  return model.unsavedScore ? "grading.leaveScoreBody" : "grading.leaveBody";
+}
+
+/** fieldErrorOf is the refused save's message for the open answer's marks, if it is that answer's. */
+function fieldErrorOf(
+  model: GradingQueueModel,
+  item: NonNullable<GradingQueueModel["selected"]>,
+) {
+  const error = model.fieldError;
+  return error?.key === gradingItemKey(item) ? error.message : null;
 }
 
 function FilterChips({
@@ -662,4 +696,9 @@ function QueueEmpty({
       {t("grading.empty")}
     </EmptyState>
   );
+}
+
+function scoreBoxFor(item: GradingQueueItem): ScoreBoxFor {
+  if (item.type !== "essay") return "short";
+  return item.rubric?.length ? "rubric" : "essay";
 }

@@ -60,6 +60,7 @@ type StudentDetail struct {
 }
 
 type Score struct {
+	Band          *float64
 	Earned        float64
 	Total         float64
 	PendingManual int

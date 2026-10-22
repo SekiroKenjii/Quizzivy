@@ -1643,6 +1643,10 @@
           "DEADLINE_NOT_REACHED",
           "GRADING_INCOMPLETE",
           "ANSWER_REMOVED",
+          "GRADE_NEEDS_BAND",
+          "GRADE_CRITERIA_INCOMPLETE",
+          "GRADE_NEEDS_POINTS",
+          "GRADE_BAND_NOT_ALLOWED",
           "VERSION_LOCKED",
           "ASSIGNMENT_LOCKED",
           "AI_OFF",
@@ -2790,11 +2794,20 @@
               "true_false",
               "fill_blank",
               "short_answer",
+              "tfng",
               "unsupported"
             ]
           },
           "prompt": {
             "$ref": "#/components/schemas/ContentDocument"
+          },
+          "selectCount": {
+            "$ref": "#/components/schemas/SelectCount",
+            "description": "`multiple_choice` only: the N of a \"Choose N\" instruction."
+          },
+          "maxWords": {
+            "$ref": "#/components/schemas/MaxWords",
+            "description": "`short_answer` only: the limit of a \"NO MORE THAN n WORDS\" instruction."
           },
           "options": {
             "type": "array",
@@ -4192,6 +4205,32 @@
               "$ref": "#/components/schemas/AdminQuestionBlank"
             }
           },
+          "maxWords": {
+            "$ref": "#/components/schemas/MaxWords"
+          },
+          "rubric": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "$ref": "#/components/schemas/RubricCriterion"
+            },
+            "description": "`essay` only, in authored order."
+          },
+          "band": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Band"
+              }
+            ],
+            "description": "An essay's band, once graded. Absent on every other type."
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CriterionBand"
+            },
+            "description": "The band each rubric criterion was given, once graded. Absent when the essay has no criteria."
+          },
           "explanation": {
             "type": [
               "string",
@@ -4201,7 +4240,7 @@
           "explanationContent": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/QuestionContent"
+                "$ref": "#/components/schemas/QuestionExplanationContent"
               },
               {
                 "type": "null"
@@ -4215,6 +4254,13 @@
               "string",
               "null"
             ]
+          },
+          "contentAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAsset"
+            },
+            "description": "The media the frozen `promptContent` and `explanationContent` show\n(DG-109), signed for the grader as `AdminQuestion.contentAssets`\nis (D-077), once each, prompt first. Absent when they show none; a\nfile that cannot be loaded is left out.\n"
           },
           "sharedContext": {
             "$ref": "#/components/schemas/SharedReviewContext"
@@ -4272,6 +4318,21 @@
                 "type": "null"
               }
             ]
+          },
+          "band": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Band"
+              }
+            ],
+            "description": "An essay's band, once graded. Absent on every other type."
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/CriterionBand"
+            },
+            "description": "The band each rubric criterion was given, once graded. Absent when the essay has no criteria."
           },
           "graderComment": {
             "type": [
@@ -6622,12 +6683,16 @@
       },
       "QuestionType": {
         "type": "string",
+        "description": "`tfng` is true / false / not given: three fixed options (True, False,\nNot given) in that order, exactly one correct, answered with a\n`ChoiceAnswer` and never shuffled. `matching` keys each of its\n`matchItems` to one of its options. `essay` is hand-graded on a band\n(3 to 9 in half steps) or on its rubric criteria (R6, DG-60).\n",
         "enum": [
           "single_choice",
           "multiple_choice",
           "true_false",
           "fill_blank",
-          "short_answer"
+          "short_answer",
+          "tfng",
+          "matching",
+          "essay"
         ]
       },
       "QuestionLevel": {
@@ -6717,7 +6782,7 @@
       },
       "QuestionContent": {
         "type": "object",
-        "description": "Bounded semantic prose for prompts and explanations: paragraphs, headings,\nlists and tables with marked text, breaks and safe links. No media, gaps,\nsource metadata or answer-key properties. ContentDocument aggregate budgets\nand cross-node validation apply to original raw JSON. The companion string\nmust equal the exact plain projection. Explanations never contain gaps.\nOn question updates, omitting a rich field preserves its stored document\nonly if the companion string is unchanged; otherwise the whole write is\nrejected. Explicit null removes the document.\n",
+        "description": "Bounded semantic prose: paragraphs, headings, lists and tables with\nmarked text, breaks and safe links. No media, gaps, source metadata or\nanswer-key properties. A group's instructions use it as it is; an\nexplanation is `QuestionExplanationContent`, which adds media, and a\nprompt `QuestionPromptContent`, which adds gaps and media; their nested\nblocks are these. ContentDocument aggregate budgets and cross-node\nvalidation apply to original raw JSON. The companion string must equal\nthe exact plain projection.\nOn question updates, omitting a rich field preserves its stored document\nonly if the companion string is unchanged; otherwise the whole write is\nrejected. Explicit null removes the document.\n",
         "x-go-type": "json.RawMessage",
         "additionalProperties": false,
         "required": [
@@ -6923,8 +6988,9 @@
       },
       "QuestionPromptContent": {
         "type": "object",
-        "description": "Bounded semantic question prompt without media or answer keys. Gaps are\nsupported only for fill_blank and must match blank gapId values exactly.\nGap identity is stable within this question; labels never select answers.\nThe companion prompt equals the exact plain projection. Omitted content\non update preserves the stored document only when prompt is unchanged.\n",
+        "description": "Bounded semantic question prompt without answer keys. Gaps are\nsupported only for fill_blank and must match blank gapId values exactly.\nGap identity is stable within this question; labels never select answers.\nThe companion prompt equals the exact plain projection. Omitted content\non update preserves the stored document only when prompt is unchanged.\n\nMedia (DG-109, D-064): the document's own blocks, never a table cell or\na list item, may be an image or the audio marker, at most\n`x-media-blocks` of them together. An image names a media asset by id\nand never by file name; its alt text may be empty, which marks it\ndecorative, and it projects to its alt text. The audio marker names no\nasset: it places the question's own audio (`mediaAssetId`, with its\n`AudioPolicy` and play count) in the text, at most once, and projects\nto nothing. A media block that projects to nothing adds no separator.\nA write may name only assets the caller may read, as `mediaAssetId`\nmay; another teacher's asset is refused exactly as a missing one is,\nand an asset whose kind is not its block's is refused too (400\nVALIDATION_FAILED, details naming promptContent). The marker needs the\nquestion's own audio. A published version freezes the references, and\na student reaches prompt media through `StudentQuestion.promptAssets`.\n",
         "x-go-type": "json.RawMessage",
+        "x-media-blocks": 8,
         "additionalProperties": false,
         "required": [
           "format",
@@ -6936,7 +7002,49 @@
             "const": "semantic_v1"
           },
           "blocks": {
-            "$ref": "#/components/schemas/QuestionPromptContentBlocks"
+            "$ref": "#/components/schemas/QuestionPromptDocumentBlocks"
+          }
+        }
+      },
+      "QuestionPromptDocumentBlocks": {
+        "type": "array",
+        "description": "A prompt's own blocks, where media may stand.",
+        "minItems": 1,
+        "maxItems": 2048,
+        "items": {
+          "$ref": "#/components/schemas/QuestionPromptDocumentBlock"
+        }
+      },
+      "QuestionPromptDocumentBlock": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/QuestionPromptContentParagraph"
+          },
+          {
+            "$ref": "#/components/schemas/QuestionPromptContentHeading"
+          },
+          {
+            "$ref": "#/components/schemas/QuestionPromptContentList"
+          },
+          {
+            "$ref": "#/components/schemas/QuestionPromptContentTable"
+          },
+          {
+            "$ref": "#/components/schemas/QuestionContentImage"
+          },
+          {
+            "$ref": "#/components/schemas/QuestionPromptAudio"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "paragraph": "#/components/schemas/QuestionPromptContentParagraph",
+            "heading": "#/components/schemas/QuestionPromptContentHeading",
+            "list": "#/components/schemas/QuestionPromptContentList",
+            "table": "#/components/schemas/QuestionPromptContentTable",
+            "image": "#/components/schemas/QuestionContentImage",
+            "audio": "#/components/schemas/QuestionPromptAudio"
           }
         }
       },
@@ -7130,6 +7238,131 @@
           }
         }
       },
+      "QuestionExplanationContent": {
+        "type": "object",
+        "description": "A question's explanation: the prose of `QuestionContent`, without gaps,\nplus media in the document's own blocks (DG-109, D-064), never in a\ntable cell or a list item, at most `x-media-blocks` of them. An image\nis as in a prompt. An audio block names its own asset and plays without\na policy or a count. Explanation media is reachable by a student only\nthrough the result, under the gate that shows explanations; no student\noperation signs it before then (`ResultQuestion.explanationAssets`).\nA write may name only assets the caller may read, of the block's kind,\nas in a prompt (400 VALIDATION_FAILED, details naming\nexplanationContent). The companion string, the update rules and the\nbudgets are `QuestionContent`'s.\n",
+        "x-go-type": "json.RawMessage",
+        "x-media-blocks": 8,
+        "additionalProperties": false,
+        "required": [
+          "format",
+          "blocks"
+        ],
+        "properties": {
+          "format": {
+            "type": "string",
+            "const": "semantic_v1"
+          },
+          "blocks": {
+            "$ref": "#/components/schemas/QuestionExplanationDocumentBlocks"
+          }
+        }
+      },
+      "QuestionExplanationDocumentBlocks": {
+        "type": "array",
+        "description": "An explanation's own blocks, where media may stand.",
+        "minItems": 1,
+        "maxItems": 2048,
+        "items": {
+          "$ref": "#/components/schemas/QuestionExplanationDocumentBlock"
+        }
+      },
+      "QuestionExplanationDocumentBlock": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/QuestionContentParagraph"
+          },
+          {
+            "$ref": "#/components/schemas/QuestionContentHeading"
+          },
+          {
+            "$ref": "#/components/schemas/QuestionContentList"
+          },
+          {
+            "$ref": "#/components/schemas/QuestionContentTable"
+          },
+          {
+            "$ref": "#/components/schemas/QuestionContentImage"
+          },
+          {
+            "$ref": "#/components/schemas/QuestionExplanationAudio"
+          }
+        ],
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "paragraph": "#/components/schemas/QuestionContentParagraph",
+            "heading": "#/components/schemas/QuestionContentHeading",
+            "list": "#/components/schemas/QuestionContentList",
+            "table": "#/components/schemas/QuestionContentTable",
+            "image": "#/components/schemas/QuestionContentImage",
+            "audio": "#/components/schemas/QuestionExplanationAudio"
+          }
+        }
+      },
+      "QuestionContentImage": {
+        "type": "object",
+        "description": "An image in a prompt or an explanation, by media asset id. `alt` is the\ntext a screen reader reads and the plain projection carries; empty\nmarks the image decorative, and an alt of only white space is refused.\nIt is never filled from a file name, and no file name travels with the\nnode.\n",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "assetId",
+          "alt"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "image"
+            ]
+          },
+          "assetId": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "alt": {
+            "type": "string",
+            "maxLength": 1000
+          }
+        }
+      },
+      "QuestionPromptAudio": {
+        "type": "object",
+        "description": "Where the question's own audio is drawn in its prompt. It names no\nasset: the recording, its policy and its play count are the question's\n(`mediaAssetId`, `audio`), so a prompt holds at most one.\n",
+        "additionalProperties": false,
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "audio"
+            ]
+          }
+        }
+      },
+      "QuestionExplanationAudio": {
+        "type": "object",
+        "description": "A recording in an explanation, by media asset id, played without a policy or a count.",
+        "additionalProperties": false,
+        "required": [
+          "type",
+          "assetId"
+        ],
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "audio"
+            ]
+          },
+          "assetId": {
+            "type": "string",
+            "format": "uuid"
+          }
+        }
+      },
       "OptionContent": {
         "type": "object",
         "description": "Versioned inline option text: one paragraph of marked text and line breaks.\nNo links, gaps, media, tables, source metadata or answer keys. The server\nvalidates the original JSON and requires text to equal its plain projection.\nOmitted content preserves rich formatting only when the current option id and\ntext match; stale or changed legacy writes are rejected. Explicit null\nremoves formatting. Options without rich content remain plain text.\n",
@@ -7214,8 +7447,124 @@
           },
           "isCorrect": {
             "type": "boolean"
+          },
+          "key": {
+            "$ref": "#/components/schemas/MatchKey",
+            "description": "A `matching` choice's key (i, ii, iii…). Absent on every other type."
           }
         }
+      },
+      "MatchKey": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 8,
+        "description": "The label a matching choice or item is referred to by, derived by the\nserver from its stored ordinal and never from the order it is delivered\nin: choices take lower-case roman numerals (ordinal 0 is `i`, 11 is\n`xii`) and items capital letters (ordinal 0 is `A`, 19 is `T`). The\neditor, the paper, grading and the result therefore name the same key\n(DG-194, D-063). A label, never an answer.\n"
+      },
+      "AdminMatchItem": {
+        "type": "object",
+        "description": "One matching item and its key: the choice (an option of the same\nquestion) it matches. Teacher-only, like `isCorrect`.\n",
+        "required": [
+          "id",
+          "ordinal",
+          "key",
+          "text",
+          "correctOptionId"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "key": {
+            "$ref": "#/components/schemas/MatchKey"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "correctOptionId": {
+            "$ref": "#/components/schemas/Uuid"
+          }
+        }
+      },
+      "RubricCriterion": {
+        "type": "object",
+        "description": "One of an essay's rubric criteria (at most six, frozen at publish). When\nan essay has criteria, its band is their mean rounded half up to 0.5\n(DG-61, interim).\n",
+        "required": [
+          "id",
+          "ordinal",
+          "label"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "ordinal": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      },
+      "Band": {
+        "type": "number",
+        "format": "double",
+        "minimum": 3,
+        "maximum": 9,
+        "multipleOf": 0.5,
+        "description": "An essay band, 3 to 9 in half steps."
+      },
+      "CriterionBand": {
+        "type": "object",
+        "description": "The band one rubric criterion was given.",
+        "required": [
+          "criterionId",
+          "band"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "criterionId": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "band": {
+            "$ref": "#/components/schemas/Band"
+          }
+        }
+      },
+      "SelectCount": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 2,
+        "maximum": 7,
+        "description": "`multiple_choice` only: \"choose exactly N\". The question scores\n`points × correct picks ÷ N`, and more than N picks score 0. Null is\na plain multiple choice, marked all or nothing.\n"
+      },
+      "MaxWords": {
+        "type": [
+          "integer",
+          "null"
+        ],
+        "minimum": 1,
+        "maximum": 100,
+        "description": "`short_answer` only: the word limit. Advice, never truncation: the\nengine counts words and flags \"too many\", the server stores whatever\nwas typed, and the grader sees an over-limit badge.\n"
+      },
+      "MatchAllowReuse": {
+        "type": [
+          "boolean",
+          "null"
+        ],
+        "description": "`matching` only, where it is required: whether one choice may answer more than one item. Null on every other type."
       },
       "AdminQuestionBlank": {
         "type": "object",
@@ -8140,6 +8489,9 @@
           "true_false",
           "fill_blank",
           "short_answer",
+          "tfng",
+          "matching",
+          "essay",
           "levels",
           "skills"
         ],
@@ -8166,6 +8518,18 @@
             "minimum": 0
           },
           "short_answer": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "tfng": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "matching": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "essay": {
             "type": "integer",
             "minimum": 0
           },
@@ -8320,6 +8684,13 @@
               }
             ]
           },
+          "contentAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAsset"
+            },
+            "description": "The media `promptContent` and `explanationContent` show (DG-109),\nsigned for the editor, once each, prompt first. Absent when they\nshow none; a file that cannot be loaded is left out, as `media` is.\nThe attempt review and grade-by-question readers sign the frozen\nversion's media here too, so a grader sees what the student saw\n(D-077).\n"
+          },
           "mediaAlt": {
             "type": [
               "string",
@@ -8361,7 +8732,7 @@
           "explanationContent": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/QuestionContent"
+                "$ref": "#/components/schemas/QuestionExplanationContent"
               },
               {
                 "type": "null"
@@ -8381,7 +8752,32 @@
               "string",
               "null"
             ],
-            "description": "`short_answer` only. **Teacher-only, shown during grading.** Never\nappears in any `/app/*` schema, including the result endpoint.\n"
+            "description": "`short_answer` and `essay` only. **Teacher-only, shown during grading.** Never\nappears in any `/app/*` schema, including the result endpoint.\n"
+          },
+          "selectCount": {
+            "$ref": "#/components/schemas/SelectCount"
+          },
+          "maxWords": {
+            "$ref": "#/components/schemas/MaxWords"
+          },
+          "matchAllowReuse": {
+            "$ref": "#/components/schemas/MatchAllowReuse"
+          },
+          "matchItems": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/AdminMatchItem"
+            },
+            "description": "`matching` only, in authored order. The choices are `options`, none of them marked correct."
+          },
+          "rubric": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "$ref": "#/components/schemas/RubricCriterion"
+            },
+            "description": "`essay` only, in authored order. Empty when the teacher sets the band directly."
           },
           "tags": {
             "type": "array",
@@ -8432,6 +8828,31 @@
             ],
             "x-go-type": "json.RawMessage",
             "x-go-type-skip-optional-pointer": true
+          },
+          "text": {
+            "type": "string"
+          },
+          "key": {
+            "$ref": "#/components/schemas/MatchKey",
+            "description": "A `matching` choice's key. Absent on every other type."
+          }
+        }
+      },
+      "StudentMatchItem": {
+        "type": "object",
+        "description": "A matching item as the student sees it: no `correctOptionId`, which is\nthe grading key. The pairing the student chose travels in\n`MatchingAnswer`.\n",
+        "required": [
+          "id",
+          "key",
+          "text"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "$ref": "#/components/schemas/Uuid"
+          },
+          "key": {
+            "$ref": "#/components/schemas/MatchKey"
           },
           "text": {
             "type": "string"
@@ -8548,6 +8969,13 @@
             ],
             "description": "The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key.\n"
           },
+          "promptAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAsset"
+            },
+            "description": "The images `promptContent` shows (DG-109), signed with this\nresponse, once each in the order the prompt names them. Absent when\nit shows none. The audio marker draws `media`, and an explanation's\nmedia never appears here (D-064 ruling 6).\n"
+          },
           "audio": {
             "oneOf": [
               {
@@ -8562,13 +8990,32 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StudentOption"
-            }
+            },
+            "description": "`tfng` and `matching` options keep their authored order; every other choice type arrives shuffled per `shuffleSeed`."
           },
           "blanks": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/StudentBlank"
             }
+          },
+          "selectCount": {
+            "$ref": "#/components/schemas/SelectCount",
+            "description": "`multiple_choice` only. A rule the student is told, like `caseSensitive`; the engine replaces the oldest pick on the (N+1)th."
+          },
+          "maxWords": {
+            "$ref": "#/components/schemas/MaxWords",
+            "description": "`short_answer` only. A rule the student is told; the engine counts words and never cuts text."
+          },
+          "matchAllowReuse": {
+            "$ref": "#/components/schemas/MatchAllowReuse"
+          },
+          "matchItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentMatchItem"
+            },
+            "description": "`matching` only, in authored order. The choices are `options`."
           },
           "points": {
             "$ref": "#/components/schemas/Points"
@@ -8744,6 +9191,13 @@
             ],
             "description": "The alt text frozen with the version for the question's image, as on `StudentQuestion`. Present under every review policy: the picture was already on the paper.\n"
           },
+          "promptAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAsset"
+            },
+            "description": "As on `StudentQuestion`. Present under every review policy, as `media` is."
+          },
           "options": {
             "type": "array",
             "items": {
@@ -8755,6 +9209,17 @@
             "items": {
               "$ref": "#/components/schemas/StudentBlank"
             }
+          },
+          "matchItems": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/StudentMatchItem"
+            },
+            "description": "`matching` only, as on `StudentQuestion`."
+          },
+          "selectCount": {
+            "$ref": "#/components/schemas/SelectCount",
+            "description": "`multiple_choice` only, as on `StudentQuestion`: a \"choose N\" counts as answered with exactly N different picks. Present under every review policy: the rule was on the paper."
           },
           "points": {
             "$ref": "#/components/schemas/Points"
@@ -8828,10 +9293,73 @@
             },
             "description": "Only when `review.showCorrectAnswers`, for `fill_blank`."
           },
+          "correctMatches": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "itemId",
+                "optionId"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "itemId": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "optionId": {
+                  "$ref": "#/components/schemas/Uuid"
+                }
+              }
+            },
+            "description": "Only when `review.showCorrectAnswers`, for `matching`. Absent, not null, otherwise."
+          },
+          "band": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Band"
+              }
+            ],
+            "description": "Only when `review.showScore` and the essay is graded. Absent otherwise."
+          },
+          "criteria": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "label",
+                "band"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "id": {
+                  "$ref": "#/components/schemas/Uuid"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "band": {
+                  "$ref": "#/components/schemas/Band"
+                }
+              }
+            },
+            "description": "An essay's rubric criteria and the band each was given. Only when\n`review.showScore` and the essay is graded; the rubric is never sent\nbefore submission.\n"
+          },
+          "skill": {
+            "oneOf": [
+              {
+                "$ref": "#/components/schemas/QuestionSkill"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The skill frozen with the version (R4). Present under every review policy, for the skill tiles."
+          },
           "explanationContent": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/QuestionContent"
+                "$ref": "#/components/schemas/QuestionExplanationContent"
               },
               {
                 "type": "null"
@@ -8840,6 +9368,13 @@
             "x-go-type": "json.RawMessage",
             "x-go-type-skip-optional-pointer": true,
             "description": "Absent unless review.showExplanations permits the frozen explanation."
+          },
+          "explanationAssets": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/MediaAsset"
+            },
+            "description": "The images and audio `explanationContent` shows (DG-109), signed\nwith this response, once each in the order it names them. Only when\n`review.showExplanations`, absent otherwise; no other student\noperation signs them (D-064 ruling 6).\n"
           },
           "explanation": {
             "type": [
@@ -9774,7 +10309,7 @@
       },
       "DiffChangeKind": {
         "type": "string",
-        "description": "What one change reports. A question is never reported twice under one\nkind. An edit to the shared material of a group, or to a section,\nreaches each of its questions as one `changed` entry (field `context`\nor `section`), so `Test.unpublishedChanges` counts it once per\nquestion.\n\n| Kind | The question | `params` |\n|---|---|---|\n| `added` | in `to` only; `questionNumber` and `questionId` are its place in `to` | `prompt` |\n| `removed` | in `from` only; `questionNumber` and `questionId` are its place in `from` | `prompt` |\n| `changed` | in both; `questionNumber` and `questionId` are its place in `to` | `fields` |\n| `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice question; none otherwise |\n| `points` | none: the test's total changed; no `questionNumber`, no `questionId` | `pointsFrom`, `pointsTo` |\n\nA question that changed in its words and in its key is reported twice,\nonce as `changed` and once as `answer`. Moving a question to another\nplace in the paper is not a change.\n",
+        "description": "What one change reports. A question is never reported twice under one\nkind. An edit to the shared material of a group, or to a section,\nreaches each of its questions as one `changed` entry (field `context`\nor `section`), so `Test.unpublishedChanges` counts it once per\nquestion.\n\n| Kind | The question | `params` |\n|---|---|---|\n| `added` | in `to` only; `questionNumber` and `questionId` are its place in `to` | `prompt` |\n| `removed` | in `from` only; `questionNumber` and `questionId` are its place in `from` | `prompt` |\n| `changed` | in both; `questionNumber` and `questionId` are its place in `to` | `fields` |\n| `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice, TFNG or matching question; none otherwise |\n| `points` | none: the test's total changed; no `questionNumber`, no `questionId` | `pointsFrom`, `pointsTo` |\n\nA question that changed in its words and in its key is reported twice,\nonce as `changed` and once as `answer`. Moving a question to another\nplace in the paper is not a change.\n",
         "enum": [
           "added",
           "removed",
@@ -9785,12 +10320,15 @@
       },
       "DiffField": {
         "type": "string",
-        "description": "The part of a question that differs, for a `changed` entry.\n`prompt` and `explanation` cover the text and the rich content;\n`options` the text and content of the choices in their order, `blanks`\nthe gaps and their case rule, and `media` the attachment with its audio\npolicy and transcript. `context` is the shared material of the group\nthe question belongs to, or its being in a group at all, and `section`\nthe part of the paper it sits in. The correct options and the accepted\nanswers are not here: they are `answer` entries.\n",
+        "description": "The part of a question that differs, for a `changed` entry.\n`prompt` and `explanation` cover the text and the rich content;\n`options` the text and content of the choices in their order, `blanks`\nthe gaps and their case rule, and `media` the attachment with its audio\npolicy and transcript. `items` is the text of a matching question's\nitems in their order, `rubric` an essay's criterion labels in their\norder, and `rules` the rules a student is told: a multiple choice's\n`selectCount`, a short answer's `maxWords` and a matching question's\n`matchAllowReuse`. `context` is the shared material of the group\nthe question belongs to, or its being in a group at all, and `section`\nthe part of the paper it sits in. The correct options, the accepted\nanswers and the choice each matching item is keyed to are not here:\nthey are `answer` entries.\n",
         "enum": [
           "type",
           "prompt",
           "options",
           "blanks",
+          "items",
+          "rubric",
+          "rules",
           "media",
           "points",
           "explanation",
@@ -9821,18 +10359,18 @@
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 3
+              "maxLength": 16
             },
-            "description": "The labels (`A`, `B`, …) of the correct options in `from`, in order."
+            "description": "The labels (`A`, `B`, …) of the correct options in `from`, in order.\nFor a TFNG question, the value of the correct option instead:\n`true`, `false` or `not_given`, which the reader names in its own\nlanguage. For a matching question, one label per item in order:\nthe item's key, an arrow and the key of the choice it is keyed to,\nas the editor draws them (D-063, `A → iii`), or `–` in place of\nthe choice when it is keyed to none.\n"
           },
           "answerTo": {
             "type": "array",
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 3
+              "maxLength": 16
             },
-            "description": "The labels of the correct options in `to`, in order."
+            "description": "The labels of the correct options in `to`, in order, as in `answerFrom`."
           },
           "pointsFrom": {
             "$ref": "#/components/schemas/Points"
@@ -10376,6 +10914,9 @@
           },
           {
             "$ref": "#/components/schemas/TextAnswer"
+          },
+          {
+            "$ref": "#/components/schemas/MatchingAnswer"
           }
         ],
         "discriminator": {
@@ -10384,7 +10925,8 @@
             "choice": "#/components/schemas/ChoiceAnswer",
             "true_false": "#/components/schemas/TrueFalseAnswer",
             "fill_blank": "#/components/schemas/FillBlankAnswer",
-            "text": "#/components/schemas/TextAnswer"
+            "text": "#/components/schemas/TextAnswer",
+            "matching": "#/components/schemas/MatchingAnswer"
           }
         }
       },
@@ -10463,6 +11005,27 @@
           }
         }
       },
+      "MatchingAnswer": {
+        "type": "object",
+        "required": [
+          "type",
+          "pairs"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "matching"
+          },
+          "pairs": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Uuid"
+            },
+            "description": "The choice the student picked for each item: keyed by match item id,\nvalued by option id. An item left unanswered is absent.\n"
+          }
+        }
+      },
       "AttemptScore": {
         "type": "object",
         "required": [
@@ -10482,6 +11045,29 @@
             "type": "integer",
             "minimum": 0,
             "description": "Questions still awaiting manual grading."
+          },
+          "band": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Band"
+              }
+            ],
+            "description": "The essays' points-weighted mean band, rounded to 0.5. Present only\nwhen every scored question on the paper is a graded essay, and on a\nstudent's payload only under `review.showScore`.\n"
+          },
+          "gradedBy": {
+            "type": "object",
+            "required": [
+              "name"
+            ],
+            "additionalProperties": false,
+            "description": "Who graded the paper, on the student's result only (D-072, D-074).\nPresent only under `review.showScore`, when the attempt has at\nleast one answer that requires manual grading, none of those is\npending, one account graded them all, and that account keeps its\nname (it has not been anonymised). Otherwise absent; an override\nof an auto mark does not make its author the paper's grader. Name\nonly: no id, no avatar.\n",
+            "properties": {
+              "name": {
+                "type": "string",
+                "minLength": 1,
+                "maxLength": 200
+              }
+            }
           }
         }
       },
@@ -11466,6 +12052,18 @@
           }
         }
       },
+      "AiQuestionType": {
+        "type": "string",
+        "description": "The question types the assistant writes, a subset of `QuestionType`.\n`tfng` is written only from a passage, since \"Not given\" means the\ntext does not say: a standalone request that names it is refused\nwith `VALIDATION_FAILED` on `types`.\n",
+        "enum": [
+          "single_choice",
+          "multiple_choice",
+          "true_false",
+          "fill_blank",
+          "short_answer",
+          "tfng"
+        ]
+      },
       "AiGenerateRequest": {
         "type": "object",
         "description": "One of four shapes. From a passage: `source` (text the teacher pasted,\n40 characters or more), or `testId` with `stimulusId` (a shared-content\npassage of the test's draft). Standalone (`standalone: true`), where\nevery question carries all it needs and refers to no passage: `source`\n(a topic or notes, 3 characters or more), or `testId` with `sectionId`\n(a section of the test's draft, whose title, instructions and the\nprompts and types of the questions already in it, group members\nincluded, are sent so the drafts fit it and do not repeat it), with\n`source` as an optional topic beside it. The first 8,000 characters of\na source are sent. Nothing about a student is ever sent.\n",
@@ -11499,10 +12097,10 @@
           "types": {
             "type": "array",
             "minItems": 1,
-            "maxItems": 5,
+            "maxItems": 6,
             "uniqueItems": true,
             "items": {
-              "$ref": "#/components/schemas/QuestionType"
+              "$ref": "#/components/schemas/AiQuestionType"
             }
           },
           "count": {
@@ -11530,7 +12128,7 @@
       },
       "AiGeneratedQuestion": {
         "type": "object",
-        "description": "A draft question. For a choice type `options` holds the options in order\nand `answerKey` the text of each correct one, exactly as written in\n`options`; a true/false question has the options `True` and `False`. For\n`fill_blank` the prompt holds `___` for the gap and `answerKey` the\naccepted answers; for `short_answer` it holds the sample answer.\n",
+        "description": "A draft question. For a choice type `options` holds the options in order\nand `answerKey` the text of each correct one, exactly as written in\n`options`; a true/false question has the options `True` and `False`,\nand a `tfng` question `True`, `False` and `Not given` in that order. For\n`fill_blank` the prompt holds `___` for the gap and `answerKey` the\naccepted answers; for `short_answer` it holds the sample answer.\n",
         "required": [
           "type",
           "prompt",
@@ -11540,7 +12138,7 @@
         "additionalProperties": false,
         "properties": {
           "type": {
-            "$ref": "#/components/schemas/QuestionType"
+            "$ref": "#/components/schemas/AiQuestionType"
           },
           "prompt": {
             "type": "string",
@@ -11627,7 +12225,7 @@
       },
       "AiFixPayload": {
         "type": "object",
-        "description": "What a one-click fix writes, through `updateQuestion`, into the question\nit names: `text` replaces the option `optionId` (`option_text`), is added\nas an accepted answer of the blank `blankId` (`accepted_answer`), or\nbecomes the explanation (`explanation`).\n",
+        "description": "What a one-click fix writes, through `updateQuestion`, into the question\nit names: `text` replaces the option `optionId` (`option_text`), is added\nas an accepted answer of the blank `blankId` (`accepted_answer`), or\nbecomes the explanation (`explanation`). For `tfng_answer` the option\n`optionId` of a `tfng` question becomes its one correct option, and\n`text` is that option's text (`Not given` for \"Change to Not given\").\nFor `word_limit` `maxWords` becomes a short answer's `maxWords`, and\n`text` is the rule the student reads, such as \"Write NO MORE THAN\nTHREE WORDS.\".\n",
         "required": [
           "text"
         ],
@@ -11639,6 +12237,12 @@
           "blankId": {
             "$ref": "#/components/schemas/Uuid"
           },
+          "maxWords": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100,
+            "description": "`word_limit` only."
+          },
           "text": {
             "type": "string",
             "minLength": 1,
@@ -11648,7 +12252,7 @@
       },
       "AiFix": {
         "type": "object",
-        "description": "`kind` is `none` when the fix is advice only; `payload` is then absent.\nOtherwise `payload` is present, and names an option or a blank of the\nquestion when the kind needs one.\n",
+        "description": "`kind` is `none` when the fix is advice only; `payload` is then absent.\nOtherwise `payload` is present, and names an option or a blank of the\nquestion, or carries a word limit, when the kind needs one.\n",
         "required": [
           "kind",
           "description"
@@ -11661,7 +12265,9 @@
               "option_text",
               "accepted_answer",
               "explanation",
-              "none"
+              "none",
+              "tfng_answer",
+              "word_limit"
             ]
           },
           "description": {
@@ -11956,7 +12562,7 @@
       },
       "AiScoreSuggestion": {
         "type": "object",
-        "description": "`score` is one of the multiples of 0.5 from 0 to the question's points:\nwhat the model proposed is moved to the nearest one. Nothing is saved;\na teacher marks the answer with `gradeAttempt`.\n",
+        "description": "For a short answer `score` is one of the multiples of 0.5 from 0 to\nthe question's points: what the model proposed is moved to the nearest\none. For an essay `band` is present and `score` is what the band gives,\n`round(band × points ÷ 9, 2)`, as `gradeAttempt` derives it. An essay\nwith rubric criteria also has `criteria`, one band for each criterion\nin the rubric's order, `band` is their mean rounded half up to 0.5,\nand `reasons` holds one line for each criterion, in the same order.\nNothing is saved; a teacher marks the answer with `gradeAttempt`.\n",
         "required": [
           "score",
           "confidence",
@@ -11969,6 +12575,22 @@
           "score": {
             "$ref": "#/components/schemas/Points"
           },
+          "band": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Band"
+              }
+            ],
+            "description": "An essay's suggested band. Absent for a short answer."
+          },
+          "criteria": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "$ref": "#/components/schemas/CriterionBand"
+            },
+            "description": "The band suggested for each rubric criterion, in the rubric's order. Present only for an essay with criteria."
+          },
           "confidence": {
             "type": "string",
             "enum": [
@@ -11979,7 +12601,7 @@
           },
           "reasons": {
             "type": "array",
-            "maxItems": 4,
+            "maxItems": 6,
             "items": {
               "type": "string",
               "minLength": 1,
@@ -12976,7 +13598,7 @@
       },
       "QuestionInput": {
         "type": "object",
-        "description": "Create/update body for a bank question. Cross-field rules that a single\nschema cannot express — single_choice and true_false need exactly one correct\noption (true_false has exactly two options), multiple_choice needs at least one correct\noption, a `fill_blank` needs exact gapId bindings for rich prompts or matching\n`{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the\nserver and again at publish (§8). Failing them returns\n`VALIDATION_FAILED` with per-field `details`.\n",
+        "description": "Create/update body for a bank question. Cross-field rules that a single\nschema cannot express — single_choice and true_false need exactly one correct\noption (true_false has exactly two options), multiple_choice needs at least one correct\noption, a `fill_blank` needs exact gapId bindings for rich prompts or matching\n`{{n}}` ordinals for legacy Markdown, `tfng` has exactly three options with one correct,\n`matching` has 2 to 12 options none marked correct and 2 to 20 items each keyed to one of them,\n`selectCount` is for `multiple_choice` and at most its option count minus one, `maxWords` is for\n`short_answer`, `matchAllowReuse` is required on `matching` and refused elsewhere, `rubric` is for\n`essay`, an audio policy requires an audio asset and alt text an image — are validated by the\nserver and again at publish (§8). Failing them returns\n`VALIDATION_FAILED` with per-field `details`.\n",
         "required": [
           "type",
           "prompt",
@@ -13060,7 +13682,7 @@
           },
           "options": {
             "type": "array",
-            "maxItems": 8,
+            "maxItems": 12,
             "items": {
               "type": "object",
               "required": [
@@ -13098,7 +13720,7 @@
                 }
               }
             },
-            "description": "Order in the array is the stored ordinal."
+            "description": "Order in the array is the stored ordinal. A choice type takes at most\neight; a `matching` question takes 2 to 12 choices, none marked\ncorrect; a `tfng` question takes exactly three, True, False and Not\ngiven in that order.\n"
           },
           "blanks": {
             "type": "array",
@@ -13157,7 +13779,7 @@
           "explanationContent": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/QuestionContent"
+                "$ref": "#/components/schemas/QuestionExplanationContent"
               },
               {
                 "type": "null"
@@ -13177,7 +13799,32 @@
               "string",
               "null"
             ],
-            "description": "`short_answer` only. Rejected on any other type."
+            "description": "`short_answer` and `essay` only. Rejected on any other type."
+          },
+          "selectCount": {
+            "$ref": "#/components/schemas/SelectCount"
+          },
+          "maxWords": {
+            "$ref": "#/components/schemas/MaxWords"
+          },
+          "matchAllowReuse": {
+            "$ref": "#/components/schemas/MatchAllowReuse"
+          },
+          "matchItems": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/MatchItemInput"
+            },
+            "description": "`matching` only, 2 to 20 items. Order in the array is the stored ordinal."
+          },
+          "rubric": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "$ref": "#/components/schemas/RubricCriterionInput"
+            },
+            "description": "`essay` only. Order in the array is the stored ordinal; an empty list means the teacher sets the band directly."
           },
           "tags": {
             "type": "array",
@@ -13188,9 +13835,61 @@
           }
         }
       },
+      "MatchItemInput": {
+        "type": "object",
+        "description": "One matching item. Its key is named by position in the same body's\n`options`, because a choice created by this write has no id yet.\n",
+        "required": [
+          "text",
+          "correctOption"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Omit to create."
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 500
+          },
+          "correctOption": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 11,
+            "description": "The 0-based index into `options` of the choice this item matches."
+          }
+        }
+      },
+      "RubricCriterionInput": {
+        "type": "object",
+        "required": [
+          "label"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "format": "uuid",
+            "description": "Omit to create."
+          },
+          "label": {
+            "type": "string",
+            "minLength": 1,
+            "maxLength": 80
+          }
+        }
+      },
       "StoredQuestionInput": {
         "type": "object",
-        "description": "Stored editable content used by teacher reads, bodyless copies and version\nrestoration. Existing choice arrays retain their length; the eight-option\nlimit applies to authoring requests. Cross-field rules that a single\nschema cannot express — single_choice and true_false need exactly one correct\noption (true_false has exactly two options), multiple_choice needs at least one correct\noption, a `fill_blank` needs exact gapId bindings for rich prompts or matching\n`{{n}}` ordinals for legacy Markdown, an audio policy requires an audio asset and alt text an image — are validated by the\nserver and again at publish (§8). Failing them returns\n`VALIDATION_FAILED` with per-field `details`.\n",
+        "description": "Stored editable content used by teacher reads, bodyless copies and version\nrestoration. Existing choice arrays retain their length; the eight-option\nlimit applies to authoring requests. Cross-field rules that a single\nschema cannot express — single_choice and true_false need exactly one correct\noption (true_false has exactly two options), multiple_choice needs at least one correct\noption, a `fill_blank` needs exact gapId bindings for rich prompts or matching\n`{{n}}` ordinals for legacy Markdown, `tfng` has exactly three options with one correct,\n`matching` has 2 to 12 options none marked correct and 2 to 20 items each keyed to one of them,\n`selectCount` is for `multiple_choice` and at most its option count minus one, `maxWords` is for\n`short_answer`, `matchAllowReuse` is required on `matching` and refused elsewhere, `rubric` is for\n`essay`, an audio policy requires an audio asset and alt text an image — are validated by the\nserver and again at publish (§8). Failing them returns\n`VALIDATION_FAILED` with per-field `details`.\n",
         "required": [
           "type",
           "prompt",
@@ -13313,7 +14012,7 @@
                 }
               }
             },
-            "description": "Order in the array is the stored ordinal."
+            "description": "Order in the array is the stored ordinal. A choice type takes at most\neight; a `matching` question takes 2 to 12 choices, none marked\ncorrect; a `tfng` question takes exactly three, True, False and Not\ngiven in that order.\n"
           },
           "blanks": {
             "type": "array",
@@ -13372,7 +14071,7 @@
           "explanationContent": {
             "oneOf": [
               {
-                "$ref": "#/components/schemas/QuestionContent"
+                "$ref": "#/components/schemas/QuestionExplanationContent"
               },
               {
                 "type": "null"
@@ -13392,7 +14091,32 @@
               "string",
               "null"
             ],
-            "description": "`short_answer` only. Rejected on any other type."
+            "description": "`short_answer` and `essay` only. Rejected on any other type."
+          },
+          "selectCount": {
+            "$ref": "#/components/schemas/SelectCount"
+          },
+          "maxWords": {
+            "$ref": "#/components/schemas/MaxWords"
+          },
+          "matchAllowReuse": {
+            "$ref": "#/components/schemas/MatchAllowReuse"
+          },
+          "matchItems": {
+            "type": "array",
+            "maxItems": 20,
+            "items": {
+              "$ref": "#/components/schemas/MatchItemInput"
+            },
+            "description": "`matching` only, 2 to 20 items. Order in the array is the stored ordinal."
+          },
+          "rubric": {
+            "type": "array",
+            "maxItems": 6,
+            "items": {
+              "$ref": "#/components/schemas/RubricCriterionInput"
+            },
+            "description": "`essay` only. Order in the array is the stored ordinal; an empty list means the teacher sets the band directly."
           },
           "tags": {
             "type": "array",
@@ -15017,12 +15741,32 @@
           },
           {
             "in": "body",
+            "name": "/bundle/questions/-/input/promptContent/blocks/-/assetId",
+            "kind": "media"
+          },
+          {
+            "in": "body",
+            "name": "/bundle/questions/-/input/explanationContent/blocks/-/assetId",
+            "kind": "media"
+          },
+          {
+            "in": "body",
             "name": "/bundle/questions/-/input/options/-/id",
             "kind": "none"
           },
           {
             "in": "body",
             "name": "/bundle/questions/-/input/blanks/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/bundle/questions/-/input/matchItems/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/bundle/questions/-/input/rubric/-/id",
             "kind": "none"
           },
           {
@@ -15199,12 +15943,32 @@
           },
           {
             "in": "body",
+            "name": "/bundle/questions/-/input/promptContent/blocks/-/assetId",
+            "kind": "media"
+          },
+          {
+            "in": "body",
+            "name": "/bundle/questions/-/input/explanationContent/blocks/-/assetId",
+            "kind": "media"
+          },
+          {
+            "in": "body",
             "name": "/bundle/questions/-/input/options/-/id",
             "kind": "none"
           },
           {
             "in": "body",
             "name": "/bundle/questions/-/input/blanks/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/bundle/questions/-/input/matchItems/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/bundle/questions/-/input/rubric/-/id",
             "kind": "none"
           }
         ],
@@ -16685,12 +17449,32 @@
           },
           {
             "in": "body",
+            "name": "/promptContent/blocks/-/assetId",
+            "kind": "media"
+          },
+          {
+            "in": "body",
+            "name": "/explanationContent/blocks/-/assetId",
+            "kind": "media"
+          },
+          {
+            "in": "body",
             "name": "/options/-/id",
             "kind": "none"
           },
           {
             "in": "body",
             "name": "/blanks/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/matchItems/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/rubric/-/id",
             "kind": "none"
           }
         ],
@@ -16862,12 +17646,32 @@
           },
           {
             "in": "body",
+            "name": "/promptContent/blocks/-/assetId",
+            "kind": "media"
+          },
+          {
+            "in": "body",
+            "name": "/explanationContent/blocks/-/assetId",
+            "kind": "media"
+          },
+          {
+            "in": "body",
             "name": "/options/-/id",
             "kind": "none"
           },
           {
             "in": "body",
             "name": "/blanks/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/matchItems/-/id",
+            "kind": "none"
+          },
+          {
+            "in": "body",
+            "name": "/rubric/-/id",
             "kind": "none"
           }
         ],
@@ -19753,6 +20557,21 @@
                               }
                             ]
                           },
+                          "band": {
+                            "allOf": [
+                              {
+                                "$ref": "#/components/schemas/Band"
+                              }
+                            ],
+                            "description": "An essay's band, once graded. Absent on every other type."
+                          },
+                          "criteria": {
+                            "type": "array",
+                            "items": {
+                              "$ref": "#/components/schemas/CriterionBand"
+                            },
+                            "description": "The band each rubric criterion was given, once graded."
+                          },
                           "requiresManual": {
                             "type": "boolean"
                           },
@@ -20245,6 +21064,11 @@
             "in": "body",
             "name": "/items/-/questionId",
             "kind": "version-question"
+          },
+          {
+            "in": "body",
+            "name": "/items/-/criteria/-/criterionId",
+            "kind": "none"
           }
         ],
         "x-permission": "teaching.grading",
@@ -20252,7 +21076,7 @@
           "teacher-attempts"
         ],
         "summary": "Save manual grades",
-        "description": "Saved per call rather than as one giant submit, so a half-graded attempt\nsurvives a refresh. `points` is rejected above the question's ceiling.\n",
+        "description": "Saved per call rather than as one giant submit, so a half-graded attempt\nsurvives a refresh. `points` is rejected above the question's ceiling,\nand a question named by more than one item is rejected: both are 400\n`VALIDATION_FAILED` with `details` keyed by the question's id. The\nrefusals are answered in this order: 409, then 422, then 400.\n\nAn item for an `essay` takes a `band` when the question has no rubric\ncriteria, or `criteria` naming every one of them, and no `points`: the\nserver derives `manual_score = round(band × points ÷ 9, 2)`, with the\nband of a rubric the mean of its criteria rounded half up to 0.5. An\nitem for any other type takes `points` and neither of the others. The\nschema cannot express that rule, so the handler applies it and answers\n422 (see below). G-04's by-question grading writes through this\noperation too.\n",
         "requestBody": {
           "required": true,
           "content": {
@@ -20270,8 +21094,7 @@
                     "items": {
                       "type": "object",
                       "required": [
-                        "questionId",
-                        "points"
+                        "questionId"
                       ],
                       "additionalProperties": false,
                       "properties": {
@@ -20279,7 +21102,29 @@
                           "$ref": "#/components/schemas/Uuid"
                         },
                         "points": {
-                          "$ref": "#/components/schemas/Points"
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/Points"
+                            }
+                          ],
+                          "description": "Every type but `essay`."
+                        },
+                        "band": {
+                          "allOf": [
+                            {
+                              "$ref": "#/components/schemas/Band"
+                            }
+                          ],
+                          "description": "An `essay` without rubric criteria."
+                        },
+                        "criteria": {
+                          "type": "array",
+                          "minItems": 1,
+                          "maxItems": 6,
+                          "items": {
+                            "$ref": "#/components/schemas/CriterionBand"
+                          },
+                          "description": "An `essay` with rubric criteria, one entry for each."
                         },
                         "comment": {
                           "type": [
@@ -20315,6 +21160,16 @@
           },
           "409": {
             "description": "`ATTEMPT_IN_PROGRESS` or `ATTEMPT_VOIDED` — nothing to grade yet, or\nnothing that counts. `ANSWER_REMOVED` — an item names an answer\nremoved under the retention policy; `details.questionIds` lists them\nand nothing was saved.\n",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "An item does not fit its question's type, and nothing was saved;\n`details.questionIds` lists the items. `GRADE_NEEDS_BAND`: an essay\nwithout criteria has no `band`, or has `points`.\n`GRADE_CRITERIA_INCOMPLETE`: an essay with criteria lacks one, names\none it does not have, or has `points` or `band`.\n`GRADE_NEEDS_POINTS`: any other type has no `points`.\n`GRADE_BAND_NOT_ALLOWED`: any other type has `band` or `criteria`;\nit is answered before `GRADE_NEEDS_POINTS` when a body has both.\n",
             "content": {
               "application/json": {
                 "schema": {
@@ -20364,7 +21219,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "`GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.",
+            "description": "`GRADING_INCOMPLETE` — a `short_answer` or `essay` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.",
             "content": {
               "application/json": {
                 "schema": {
@@ -24817,8 +25672,8 @@
         "tags": [
           "teacher-ai"
         ],
-        "summary": "Suggest a score for a short answer",
-        "description": "Reads the question's prompt, type, points and accepted or sample\nanswers and the student's answer text, and proposes a score and a\ncomment. The student's name, email, id and class, the attempt's id and\nthe student's other answers are never sent. The caller must hold\n`teaching.grading` as well as `ai.use`, the attempt must be one they\nreach as the grading reads do, and their `ai.readStudentAnswers`\npreference must be on (`AI_READ_OFF`). The reasons and the comment are\nwritten in the language of the caller's `ai.language` preference. The\nAI never writes a mark: a teacher saves one with `gradeAttempt`.\n",
+        "summary": "Suggest a score for a short answer or a band for an essay",
+        "description": "Reads the question's prompt, type, points and accepted or sample\nanswers (an essay's rubric criterion labels instead of accepted\nanswers) and the student's answer text, and proposes a score, or an\nessay's band, and a comment. The student's name, email, id and class, the attempt's id and\nthe student's other answers are never sent. The caller must hold\n`teaching.grading` as well as `ai.use`, the attempt must be one they\nreach as the grading reads do, and their `ai.readStudentAnswers`\npreference must be on (`AI_READ_OFF`). The reasons and the comment are\nwritten in the language of the caller's `ai.language` preference. The\nAI never writes a mark: a teacher saves one with `gradeAttempt`.\n",
         "responses": {
           "200": {
             "description": "The suggestion.",
@@ -24860,7 +25715,7 @@
             }
           },
           "422": {
-            "description": "The question is not a short answer waiting for a mark by hand (the grader marked this answer itself), or the student left it unanswered.",
+            "description": "The question is not a short answer or an essay waiting for a mark by hand (the grader marked this answer itself), or the student left it unanswered.",
             "content": {
               "application/json": {
                 "schema": {
@@ -25444,6 +26299,11 @@
           },
           {
             "in": "body",
+            "name": "/answers/*/pairs/*",
+            "kind": "none"
+          },
+          {
+            "in": "body",
             "name": "/events/-/questionId",
             "kind": "version-question"
           }
@@ -25825,7 +26685,7 @@
         "tags": [
           "take-test"
         ],
-        "description": "**Idempotent.** A second call on an already-closed attempt is `409\nATTEMPT_CLOSED`, and a race between a manual tap and an auto-submit\nyields one submission.\n\nObjective types are graded immediately; `short_answer` is marked\n`requiresManual`. Nothing is rejected based on audio play count (§11.4).\n",
+        "description": "**Idempotent.** A second call on an already-closed attempt is `409\nATTEMPT_CLOSED`, and a race between a manual tap and an auto-submit\nyields one submission.\n\nObjective types are graded immediately; `short_answer` and `essay` are\nmarked `requiresManual`. Nothing is rejected based on audio play count (§11.4).\n",
         "requestBody": {
           "content": {
             "application/json": {

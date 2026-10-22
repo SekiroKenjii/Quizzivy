@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/content"
 	"strconv"
 )
 
@@ -205,15 +206,7 @@ func testRequest(ctx context.Context, id string) (domain.Request, bool) {
 }
 
 func testValidationError(ctx context.Context, invalid *domain.ValidationError) openapi.ErrorResponse {
-	resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Dữ liệu đề không hợp lệ.", "The test data is not valid."))
-	details := map[string]interface{}{}
-	for _, f := range invalid.Fields {
-		if _, seen := details[f.Field]; !seen {
-			details[f.Field] = f.Message
-		}
-	}
-	resp.Error.Details = &details
-	return resp
+	return httpapi.Invalid(ctx, httpx.Text(ctx, "Dữ liệu đề không hợp lệ.", "The test data is not valid."), invalid)
 }
 
 func toUpdateInput(body openapi.UpdateTestJSONRequestBody) domain.UpdateInput {
@@ -414,6 +407,9 @@ func (h Tests) toStudentQuestions(
 		if asset != nil {
 			sq.Media = asset
 		}
+		if sq.PromptAssets, err = h.previewPromptAssets(ctx, q.PromptContent); err != nil {
+			return nil, err
+		}
 		out[i] = sq
 	}
 	return out, nil
@@ -425,20 +421,33 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 		return openapi.StudentQuestion{}, err
 	}
 	sq := openapi.StudentQuestion{
-		Id:            httpapi.ParseUUID(q.ID),
-		SectionId:     httpapi.ParseUUID(q.SectionID),
-		Type:          openapi.QuestionType(q.Type),
-		Prompt:        q.Prompt,
-		PromptContent: q.PromptContent,
-		MediaAlt:      q.MediaAlt,
-		Points:        points,
+		Id:              httpapi.ParseUUID(q.ID),
+		SectionId:       httpapi.ParseUUID(q.SectionID),
+		Type:            openapi.QuestionType(q.Type),
+		Prompt:          q.Prompt,
+		PromptContent:   q.PromptContent,
+		MediaAlt:        q.MediaAlt,
+		Points:          points,
+		SelectCount:     q.SelectCount,
+		MaxWords:        q.MaxWords,
+		MatchAllowReuse: q.MatchReuse,
 	}
 	if len(q.Options) > 0 {
 		options := make([]openapi.StudentOption, len(q.Options))
 		for j, o := range q.Options {
 			options[j] = openapi.StudentOption{Id: httpapi.ParseUUID(o.ID), Text: o.Text, Content: o.Content}
+			if o.Key != "" {
+				options[j].Key = &o.Key
+			}
 		}
 		sq.Options = &options
+	}
+	if len(q.MatchItems) > 0 {
+		items := make([]openapi.StudentMatchItem, len(q.MatchItems))
+		for j, item := range q.MatchItems {
+			items[j] = openapi.StudentMatchItem{Id: httpapi.ParseUUID(item.ID), Key: item.Key, Text: item.Text}
+		}
+		sq.MatchItems = &items
 	}
 	if len(q.Blanks) > 0 {
 		blanks := make([]openapi.StudentBlank, len(q.Blanks))
@@ -461,6 +470,25 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 		}
 	}
 	return sq, nil
+}
+
+// previewPromptAssets signs the images a previewed prompt shows (DG-109), as
+// the student's paper does; nil when it shows none or storage is off. Only
+// the prompt: the preview is the paper, and the paper carries no explanation.
+func (h Tests) previewPromptAssets(ctx context.Context, prompt []byte) (*[]openapi.MediaAsset, error) {
+	shown, err := content.QuestionMedia(prompt, nil)
+	if err != nil || len(shown) == 0 || h.media == nil {
+		return nil, nil
+	}
+	assets := make([]openapi.MediaAsset, len(shown))
+	for i, ref := range shown {
+		asset, err := h.previewAsset(ctx, &ref.ID)
+		if err != nil {
+			return nil, err
+		}
+		assets[i] = *asset
+	}
+	return &assets, nil
 }
 
 func (h Tests) previewAsset(ctx context.Context, assetID *string) (*openapi.MediaAsset, error) {

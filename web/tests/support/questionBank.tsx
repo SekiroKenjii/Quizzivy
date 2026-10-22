@@ -50,6 +50,9 @@ export function bankFacets(overrides: Partial<Record<string, unknown>> = {}) {
     true_false: 0,
     fill_blank: 0,
     short_answer: 0,
+    tfng: 0,
+    matching: 0,
+    essay: 0,
     ...overrides,
   };
 }

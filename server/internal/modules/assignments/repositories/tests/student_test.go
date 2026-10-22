@@ -7,6 +7,7 @@ import (
 	"errors"
 	"quizzivy/internal/platform/db"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -736,6 +737,14 @@ func liveCount(t *testing.T, store *repositories.Postgres, w world, assignmentID
 	return only(t, all, assignmentID).LiveAnsweredCount
 }
 
+// countOf prints a live count for a failure message: its value, or "none".
+func countOf(n *int) string {
+	if n == nil {
+		return "none"
+	}
+	return strconv.Itoa(*n)
+}
+
 func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
 	pool := newPool(t)
 	w := seedWorld(t, pool, "published")
@@ -776,7 +785,7 @@ func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
 
 	got := liveCount(t, store, w, a.ID)
 	if got == nil || *got != 0 {
-		t.Fatalf("with only an empty choice saved the count is %v, want 0", got)
+		t.Fatalf("with only an empty choice saved the count is %s, want 0", countOf(got))
 	}
 	want := 0
 	for _, c := range cases {
@@ -795,7 +804,7 @@ func TestTheLiveCountFollowsTheNavigatorsRule(t *testing.T) {
 		}
 		got := liveCount(t, store, w, a.ID)
 		if got == nil || *got != want {
-			t.Fatalf("%s: the count is %v, want %d", c.name, got, want)
+			t.Fatalf("%s: the count is %s, want %d", c.name, countOf(got), want)
 		}
 	}
 }
@@ -819,7 +828,7 @@ func TestTheLiveCountIsAbsentWithoutALiveAttempt(t *testing.T) {
 		t.Fatal(err)
 	}
 	if got := liveCount(t, store, w, fresh.ID); got == nil || *got != 1 {
-		t.Fatalf("a live attempt with one answer counts %v, want 1", got)
+		t.Fatalf("a live attempt with one answer counts %s, want 1", countOf(got))
 	}
 
 	if _, err := pool.Exec(ctx,
@@ -875,5 +884,171 @@ func TestTheLiveCountIsTheStudentsOwn(t *testing.T) {
 	}
 	if got := liveCount(t, store, w, a.ID); got != nil {
 		t.Errorf("a classmate's live attempt counts %d answers on this student's card", *got)
+	}
+}
+
+func TestTheLiveCountFollowsTheNavigatorsRuleForTheNewTypes(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := repositories.NewPostgres(db.NewContext(pool))
+	ctx := context.Background()
+	a := createFor(t, store, w, legalInput(w))
+	attempt := sitAttempt(t, pool, w, a.ID, "in_progress", "0.00", false)
+
+	const o1, o2, o3, i1, i2 = "\x00o1", "\x00o2", "\x00o3", "\x00i1", "\x00i2"
+	cases := []struct {
+		name    string
+		kind    string
+		payload string
+		says    bool
+	}{
+		{"choose two with one pick", "choose_two", `{"type":"choice","optionIds":["` + o1 + `"]}`, false},
+		{"choose two with two picks", "choose_two", `{"type":"choice","optionIds":["` + o1 + `","` + o2 + `"]}`, true},
+		{"choose two with three picks", "choose_two", `{"type":"choice","optionIds":["` + o1 + `","` + o2 + `","` + o3 + `"]}`, false},
+		{"choose two with one pick twice", "choose_two", `{"type":"choice","optionIds":["` + o1 + `","` + o1 + `"]}`, false},
+		{"choose two with a repeated pick", "choose_two", `{"type":"choice","optionIds":["` + o1 + `","` + o2 + `","` + o1 + `"]}`, true},
+		{"tfng with a pick", "tfng", `{"type":"choice","optionIds":["` + o1 + `"]}`, true},
+		{"matching with no pairs", "matching", `{"type":"matching","pairs":{}}`, false},
+		{"matching with one item of two", "matching", `{"type":"matching","pairs":{"` + i1 + `":"` + o1 + `"}}`, false},
+		{"matching with a null pair", "matching", `{"type":"matching","pairs":{"` + i1 + `":"` + o1 + `","` + i2 + `":null}}`, false},
+		{"matching with every item paired", "matching", `{"type":"matching","pairs":{"` + i1 + `":"` + o1 + `","` + i2 + `":"` + o1 + `"}}`, true},
+		{"matching pairs that are not an object", "matching", `{"type":"matching","pairs":["x"]}`, false},
+		{"an essay of spaces", "essay", `{"type":"text","value":"  "}`, false},
+		{"an essay with words", "essay", `{"type":"text","value":"Some argue that…"}`, true},
+	}
+	want := 0
+	for _, c := range cases {
+		question, options, items := askNewTypeInAttempt(t, pool, attempt, c.kind)
+		payload := strings.NewReplacer(o1, options[0], o2, options[1], o3, options[2], i1, itemAt(items, 0), i2, itemAt(items, 1)).Replace(c.payload)
+		if _, err := pool.Exec(ctx, `
+			INSERT INTO app.attempt_answers (attempt_id, question_id, payload)
+			VALUES ($1::uuid, $2::uuid, $3::jsonb)`, attempt, question, payload); err != nil {
+			t.Fatalf("%s: %v", c.name, err)
+		}
+		if c.says {
+			want++
+		}
+		if got := liveCount(t, store, w, a.ID); got == nil || *got != want {
+			t.Fatalf("%s: the count is %s, want %d", c.name, countOf(got), want)
+		}
+	}
+}
+
+func itemAt(items []string, i int) string {
+	if i < len(items) {
+		return items[i]
+	}
+	return "none"
+}
+
+func askNewTypeInAttempt(t *testing.T, pool *pgxpool.Pool, attemptID, kind string) (string, []string, []string) {
+	t.Helper()
+	ctx := context.Background()
+	kindOf := map[string]string{"choose_two": "multiple_choice", "tfng": "tfng", "matching": "matching", "essay": "essay"}[kind]
+	var selectCount *int
+	var reuse *bool
+	switch kind {
+	case "choose_two":
+		n := 2
+		selectCount = &n
+	case "matching":
+		yes := true
+		reuse = &yes
+	}
+	var question string
+	if err := pool.QueryRow(ctx, `
+		INSERT INTO app.test_version_questions (test_version_section_id, ordinal, type, prompt, points, select_count, match_allow_reuse)
+		SELECT sec.id, (SELECT max(q.ordinal) + 1 FROM app.test_version_questions q
+		                 WHERE q.test_version_section_id = sec.id),
+		       $2::app.question_type, 'Câu?', '1.00', $3, $4
+		  FROM app.attempts at
+		  JOIN app.test_version_sections sec ON sec.test_version_id = at.test_version_id
+		 WHERE at.id = $1::uuid
+		 ORDER BY sec.ordinal DESC LIMIT 1
+		RETURNING id::text`, attemptID, kindOf, selectCount, reuse).Scan(&question); err != nil {
+		t.Fatal(err)
+	}
+	if kind == "essay" {
+		return question, []string{"none", "none", "none"}, nil
+	}
+	options := make([]string, 3)
+	for i := range options {
+		if err := pool.QueryRow(ctx, `INSERT INTO app.test_version_options (test_version_question_id, ordinal, text, is_correct)
+			VALUES ($1::uuid, $2, 'x', $3) RETURNING id::text`, question, i, kind != "matching" && i < 2).Scan(&options[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if kind != "matching" {
+		return question, options, nil
+	}
+	items := make([]string, 2)
+	for i := range items {
+		if err := pool.QueryRow(ctx, `INSERT INTO app.test_version_match_items (test_version_question_id, ordinal, text, correct_option_id)
+			VALUES ($1::uuid, $2, 'item', $3::uuid) RETURNING id::text`, question, i, options[0]).Scan(&items[i]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	return question, options, items
+}
+
+func TestACompletedCardCarriesThePapersBandOnlyWhenTheScoreIsShown(t *testing.T) {
+	pool := newPool(t)
+	w := seedWorld(t, pool, "published")
+	store := repositories.NewPostgres(db.NewContext(pool))
+	ctx := context.Background()
+
+	shown := createFor(t, store, w, legalInput(w))
+	hidden := legalInput(w)
+	hidden.Review.ShowScore = false
+	quiet := createFor(t, store, w, hidden)
+	attempts := []string{
+		sitAttempt(t, pool, w, shown.ID, "graded", "7.00", false),
+		sitAttempt(t, pool, w, quiet.ID, "graded", "7.00", false),
+	}
+	for _, q := range []string{
+		`DELETE FROM app.test_version_options o USING app.test_version_questions q, app.test_version_sections s
+		  WHERE o.test_version_question_id = q.id AND s.id = q.test_version_section_id AND s.test_version_id = $1::uuid`,
+		`UPDATE app.test_version_questions q SET type = 'essay' FROM app.test_version_sections s
+		  WHERE s.id = q.test_version_section_id AND s.test_version_id = $1::uuid`,
+	} {
+		if _, err := pool.Exec(ctx, q, w.versionID); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := pool.Exec(ctx, `
+		INSERT INTO app.attempt_answers (attempt_id, question_id, payload, requires_manual, manual_score, band, graded_by, graded_at)
+		SELECT at, q.id, '{"type":"text","value":"An essay."}', true, round(q.points * 6.5 / 9, 2), 6.5, $3::uuid, now()
+		  FROM unnest($2::uuid[]) AS at
+		  CROSS JOIN app.test_version_questions q
+		  JOIN app.test_version_sections s ON s.id = q.test_version_section_id
+		 WHERE s.test_version_id = $1::uuid
+		ON CONFLICT (attempt_id, question_id) DO UPDATE
+		   SET payload = excluded.payload, requires_manual = true,
+		       manual_score = excluded.manual_score, band = excluded.band,
+		       graded_by = excluded.graded_by, graded_at = excluded.graded_at`, w.versionID, attempts, w.admin); err != nil {
+		t.Fatal(err)
+	}
+
+	sections, err := store.ForStudent(ctx, w.student, time.Now())
+	if err != nil {
+		t.Fatal(err)
+	}
+	found := 0
+	for _, c := range sections.Completed {
+		switch c.ID {
+		case shown.ID:
+			found++
+			if c.Score == nil || c.Score.Band == nil || *c.Score.Band != 6.5 {
+				t.Errorf("shown card score %+v, want band 6.5", c.Score)
+			}
+		case quiet.ID:
+			found++
+			if c.Score != nil {
+				t.Errorf("score and band shown although review.showScore is off: %+v", *c.Score)
+			}
+		}
+	}
+	if found != 2 {
+		t.Errorf("%d of the two cards are among the completed ones", found)
 	}
 }

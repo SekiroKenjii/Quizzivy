@@ -104,7 +104,7 @@ func (h AI) GenerateAiQuestions(ctx context.Context, request openapi.GenerateAiQ
 	}
 	out := openapi.GenerateAiQuestions200JSONResponse{Items: make([]openapi.AiGeneratedQuestion, len(got.Items)), Usage: usageOf(got.Usage)}
 	for i, item := range got.Items {
-		out.Items[i] = openapi.AiGeneratedQuestion{Type: openapi.QuestionType(item.Type), Prompt: item.Prompt, AnswerKey: item.AnswerKey, Explanation: item.Explanation}
+		out.Items[i] = openapi.AiGeneratedQuestion{Type: openapi.AiQuestionType(item.Type), Prompt: item.Prompt, AnswerKey: item.AnswerKey, Explanation: item.Explanation}
 		if len(item.Options) > 0 {
 			out.Items[i].Options = &item.Options
 		}
@@ -142,6 +142,9 @@ func fixOf(f prompts.Fix) openapi.AiFix {
 	}
 	out.Label = &f.Label
 	payload := openapi.AiFixPayload{Text: f.Text}
+	if f.MaxWords > 0 {
+		payload.MaxWords = &f.MaxWords
+	}
 	if f.OptionID != "" {
 		payload.OptionId = new(httpapi.ParseUUID(f.OptionID))
 	}
@@ -241,9 +244,17 @@ func (h AI) SuggestAiScore(ctx context.Context, request openapi.SuggestAiScoreRe
 		return failed[openapi.SuggestAiScoreResponseObject](ctx, err)
 	}
 	s := got.Suggestion
-	return openapi.SuggestAiScore200JSONResponse{
-		Score: s.Score, Confidence: openapi.AiScoreSuggestionConfidence(s.Confidence), Reasons: orEmpty(s.Reasons), Comment: s.Comment, Usage: usageOf(got.Usage),
-	}, nil
+	out := openapi.SuggestAiScore200JSONResponse{
+		Score: s.Score, Band: s.Band, Confidence: openapi.AiScoreSuggestionConfidence(s.Confidence), Reasons: orEmpty(s.Reasons), Comment: s.Comment, Usage: usageOf(got.Usage),
+	}
+	if len(s.Criteria) > 0 {
+		criteria := make([]openapi.CriterionBand, len(s.Criteria))
+		for i, c := range s.Criteria {
+			criteria[i] = openapi.CriterionBand{CriterionId: httpapi.ParseUUID(c.CriterionID), Band: c.Band}
+		}
+		out.Criteria = &criteria
+	}
+	return out, nil
 }
 
 func orEmpty(in []string) []string {

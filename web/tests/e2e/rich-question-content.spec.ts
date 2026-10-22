@@ -78,6 +78,9 @@ async function setup(page: Page, initial = sample(), delayed = false) {
           true_false: 0,
           fill_blank: 0,
           short_answer: 0,
+          tfng: 0,
+          matching: 0,
+          essay: 0,
         },
       },
     },
@@ -172,7 +175,7 @@ test("bank saves a confirmed structured paste and retains formatting after reloa
   await expect(page.getByRole("cell", { name: "hai", exact: true })).toBeVisible();
 });
 
-test("bank leaves pasted images out unloaded, says so, and refuses a file alone", async ({
+test("bank leaves pasted images out unloaded, says so, and takes only image files", async ({
   page,
 }) => {
   const remote: string[] = [];
@@ -185,12 +188,17 @@ test("bank leaves pasted images out unloaded, says so, and refuses a file alone"
   const editor = page.getByRole("textbox", { name: "Câu hỏi", exact: true });
   await editor.click();
   await page.keyboard.press("Control+End");
-  const paste = (html: string, file: boolean) =>
+  const paste = (html: string, file: string | null) =>
     editor.evaluate(
       (element, { html, file }) => {
         const data = new DataTransfer();
         if (html) data.setData("text/html", html);
-        if (file) data.items.add(new File(["x"], "anh.png", { type: "image/png" }));
+        if (file)
+          data.items.add(
+            new File(["x"], file, {
+              type: file.endsWith(".png") ? "image/png" : "text/plain",
+            }),
+          );
         element.dispatchEvent(
           new ClipboardEvent("paste", {
             clipboardData: data,
@@ -203,24 +211,30 @@ test("bank leaves pasted images out unloaded, says so, and refuses a file alone"
     );
   await paste(
     '<p>Có hình<img src="https://example.invalid/a.png" onerror="window.__loaded=1"><picture><img src="https://example.invalid/b.png"></picture> ở đây</p>',
-    false,
+    null,
   );
   const preview = page.getByRole("dialog", { name: "Xem trước nội dung sau khi dán" });
   await expect(
-    preview.getByText("Đã bỏ 2 hình ảnh trong nội dung sao chép.", { exact: true }),
+    preview.getByText(
+      "Đã bỏ 2 hình ảnh trong nội dung sao chép. Dán hoặc thả riêng từng hình ảnh để tải lên.",
+      { exact: true },
+    ),
   ).toBeVisible();
   await expect(preview.locator("img")).toHaveCount(0);
   await preview.getByRole("button", { name: "Áp dụng nội dung dán" }).click();
   await expect(editor).toContainText("Có hình ở đây");
   await expect(editor.locator("img")).toHaveCount(0);
-  await paste("", true);
-  const notice = page
-    .getByRole("alert")
-    .filter({ hasText: "Không thể thêm tệp vào phần văn bản." });
-  await expect(notice).toBeVisible();
+  await paste("", "ghi-chu.txt");
+  await expect(
+    page.getByText(
+      "Chỉ có thể dán hoặc thả hình ảnh vào nội dung. Dùng nút Âm thanh để thêm bản ghi.",
+      { exact: true },
+    ),
+  ).toBeVisible();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await page.getByRole("button", { name: "Đóng thông báo", exact: true }).click();
-  await expect(notice).toHaveCount(0);
+  await expect(
+    page.getByRole("alert").filter({ hasText: "Không thể thêm tệp vào phần văn bản." }),
+  ).toHaveCount(0);
   expect(await page.evaluate(() => "__loaded" in window)).toBe(false);
   expect(remote).toEqual([]);
 });

@@ -1,4 +1,4 @@
-import { Extension, Node, isMacOS, isiOS } from "@tiptap/core";
+import { Extension, Node, isMacOS, isiOS, type NodeViewRenderer } from "@tiptap/core";
 import { AllSelection, Plugin, Selection, TextSelection } from "@tiptap/pm/state";
 import { closeHistory } from "@tiptap/pm/history";
 import { Slice } from "@tiptap/pm/model";
@@ -12,6 +12,7 @@ import { isOptionContent, plainOptionContent } from "../optionContent";
 import { validEditorProfile, type EditorProfile } from "./profile";
 import { clipboardHasText } from "./clipboardText";
 import { safeContentURL } from "../validation";
+import { mediaField } from "./profile";
 
 const Gap = Node.create({
   name: "gap",
@@ -41,8 +42,38 @@ function assetNode(name: string) {
   });
 }
 
+function proseMediaNode(
+  name: "proseImage" | "proseAudio",
+  attrs: Record<string, { default: unknown }>,
+  view: NodeViewRenderer | undefined,
+) {
+  return Node.create({
+    name,
+    group: "block",
+    atom: true,
+    selectable: true,
+    draggable: false,
+    addAttributes: () => attrs,
+    renderHTML: () => ["figure", { "data-media": name, contenteditable: "false" }],
+    ...(view ? { addNodeView: () => view } : {}),
+  });
+}
+
 /** EditorNotice names a message of the notice band; "file" is the host's notice for a pasted or dropped file. */
 export type EditorNotice = "pasteBlocked" | "editBlocked" | "pasteStale" | "file";
+
+/**
+ * PROSE_MEDIA_FILES is the event a field that holds question media sends from
+ * its editor's DOM with the files pasted or dropped into it, the caret already
+ * at the place they landed; a listener that takes them cancels it, and files
+ * nobody takes go to the notice band.
+ */
+export const PROSE_MEDIA_FILES = "prose-media-files";
+
+/** MediaFiles turns on a media field's file events; `views` draws its media nodes, as the page's host brings them. */
+export type MediaFiles = Readonly<{
+  views?: Readonly<Record<"proseImage" | "proseAudio", NodeViewRenderer>> | undefined;
+}>;
 
 function pastePlainText(
   view: EditorView,
@@ -78,8 +109,31 @@ export function contentExtensions(
   notify: (notice: EditorNotice) => void = () => undefined,
   profile: EditorProfile = "document",
   previewPaste: (view: EditorView, html: string) => void = () => notify("pasteBlocked"),
+  media?: MediaFiles,
 ) {
   let plainPaste = false;
+  const takesFiles = media !== undefined && mediaField(profile) !== null;
+  const take = (
+    files: FileList | undefined,
+    view: EditorView,
+    at: Readonly<{ clientX: number; clientY: number }> | null,
+  ) => {
+    if (!takesFiles || files === undefined || files.length === 0) return false;
+    const landed = at && view.posAtCoords({ left: at.clientX, top: at.clientY });
+    if (landed)
+      view.dispatch(
+        view.state.tr.setSelection(
+          TextSelection.near(view.state.doc.resolve(landed.pos)),
+        ),
+      );
+    return !view.dom.dispatchEvent(
+      new CustomEvent(PROSE_MEDIA_FILES, {
+        detail: [...files],
+        bubbles: true,
+        cancelable: true,
+      }),
+    );
+  };
   return [
     StarterKit.configure({
       blockquote: false,
@@ -101,6 +155,16 @@ export function contentExtensions(
     Gap,
     assetNode("contentImage"),
     assetNode("contentAudio"),
+    proseMediaNode(
+      "proseImage",
+      { assetId: { default: null }, alt: { default: "" } },
+      media?.views?.proseImage,
+    ),
+    proseMediaNode(
+      "proseAudio",
+      { assetId: { default: null } },
+      media?.views?.proseAudio,
+    ),
     Extension.create({
       name: "contentBoundary",
       addProseMirrorPlugins: () => [
@@ -115,7 +179,7 @@ export function contentExtensions(
           },
           filterTransaction(transaction) {
             if (!transaction.docChanged) return true;
-            const parsed = fromEditorDoc(transaction.doc);
+            const parsed = fromEditorDoc(transaction.doc, profile);
             if (parsed.ok && validEditorProfile(parsed.value, profile)) return true;
             queueMicrotask(() => notify("editBlocked"));
             return false;
@@ -198,7 +262,7 @@ export function contentExtensions(
                 const text = clipboard.getData("text/plain");
                 if (!text && (html || clipboard.files.length)) {
                   event.preventDefault();
-                  notify("file");
+                  if (!take(clipboard.files, view, null)) notify("file");
                   return true;
                 }
                 if (profile !== "option" && !html && !clipboard.files.length)
@@ -210,14 +274,16 @@ export function contentExtensions(
               drop(view, event) {
                 if (view.dragging) return false;
                 event.preventDefault();
-                notify(droppedNotice(event));
+                if (!take(event.dataTransfer?.files, view, event))
+                  notify(droppedNotice(event));
                 return true;
               },
             },
-            handleDrop(_view, event, _slice, moved) {
+            handleDrop(view, event, _slice, moved) {
               if (moved) return false;
               event.preventDefault();
-              notify(droppedNotice(event));
+              if (!take(event.dataTransfer?.files, view, event))
+                notify(droppedNotice(event));
               return true;
             },
           },

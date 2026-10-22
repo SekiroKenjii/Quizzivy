@@ -17,6 +17,7 @@ import type { QuestionAi } from "../questionAi";
 import type { QuestionValues } from "../questionSchema";
 import { aiFailureText, useAiSuggestion } from "../useAiSuggestion";
 import { AiExplanationPanel } from "./AiExplanationPanel";
+import type { QuestionExplanationContent } from "@/components/shared/content/questionContent";
 import { QuestionProseField } from "./QuestionProseField";
 
 const WRITE =
@@ -66,7 +67,11 @@ function ExplanationProse({
       placeholder={t("questionEditor.explanationPlaceholder")}
       action={action}
       onChange={(explanation, explanationContent) =>
-        onChange({ ...value, explanation, explanationContent })
+        onChange({
+          ...value,
+          explanation,
+          explanationContent: explanationContent as QuestionExplanationContent | null,
+        })
       }
     />
   );

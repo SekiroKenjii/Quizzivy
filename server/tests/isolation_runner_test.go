@@ -315,7 +315,8 @@ func (x *iso) substitute(op scopedOp, c isoCase) {
 		if leaked := mentions([]byte(strings.ReplaceAll(string(theirs.body), theirID, "")), foreign); len(leaked) > 0 {
 			x.t.Errorf("%s: the answer to another owner's %s names their %v", where, s.Kind, leaked)
 		}
-		if c.blind[slot] != "" {
+		blind := c.blind[slot]
+		if blind == budgetSpent {
 			continue
 		}
 		if c.fresh != nil {
@@ -324,8 +325,11 @@ func (x *iso) substitute(op scopedOp, c isoCase) {
 		}
 		method, path, body = x.request(op, c, own, slot, own.id(key))
 		mine := own.c.send(method, path, body)
-		if answer(mine) == answer(missing) {
+		switch {
+		case blind == "" && answer(mine) == answer(missing):
 			x.t.Errorf("%s: the caller's own %s answers as a missing one does (%s): the case proves nothing", where, s.Kind, answer(mine))
+		case blind != "" && answer(mine) != answer(missing):
+			x.t.Errorf("%s: blind (%s), yet the caller's own %s now answers %s where a missing one answers %s: remove the blind entry", where, blind, s.Kind, answer(mine), answer(missing))
 		}
 	}
 }

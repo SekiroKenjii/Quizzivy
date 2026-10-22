@@ -159,12 +159,19 @@ func groupQuestionInput(q questions.Question) questions.Input {
 		Type: q.Type, Level: q.Level, Skill: q.Skill, Prompt: q.Prompt, PromptContent: q.PromptContent, Points: q.Points,
 		Explanation: q.Explanation, ExplanationContent: q.ExplanationContent, SampleAnswer: q.SampleAnswer,
 		MediaAssetID: q.MediaAssetID, MediaAlt: q.MediaAlt, Audio: q.Audio, Transcript: q.Transcript, Tags: q.Tags,
+		SelectCount: q.SelectCount, MaxWords: q.MaxWords, MatchAllowReuse: q.MatchAllowReuse,
 	}
 	for _, option := range q.Options {
 		in.Options = append(in.Options, questions.OptionInput{ID: &option.ID, Content: option.Content, Text: option.Text, IsCorrect: option.IsCorrect})
 	}
 	for _, blank := range q.Blanks {
 		in.Blanks = append(in.Blanks, questions.BlankInput{ID: &blank.ID, GapID: blank.GapID, Ordinal: blank.Ordinal, CaseSensitive: blank.CaseSensitive, AcceptedAnswers: blank.AcceptedAnswers})
+	}
+	for _, item := range q.MatchItems {
+		in.MatchItems = append(in.MatchItems, questions.MatchItemInput{ID: &item.ID, Text: item.Text, CorrectOption: item.CorrectOption})
+	}
+	for _, criterion := range q.Rubric {
+		in.Rubric = append(in.Rubric, questions.RubricCriterionInput{ID: &criterion.ID, Label: criterion.Label})
 	}
 	return in
 }

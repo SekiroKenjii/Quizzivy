@@ -54,7 +54,9 @@ func (v *validator) cell(value any, row, column int, occupied *grid) (string, in
 	if !ok || !header || !validHeight || !validWidth || !occupied.fill(row, column, height, width) {
 		return "", 0, false
 	}
+	v.nested++
 	part, valid := v.blocks(obj[contentKey], true, "\n")
+	v.nested--
 	return part, width, valid
 }
 

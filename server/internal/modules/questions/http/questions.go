@@ -10,6 +10,8 @@ import (
 	"quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/content"
+	"quizzivy/internal/shared/matchkey"
 	"strconv"
 )
 
@@ -71,6 +73,9 @@ func (h Questions) ListQuestions(ctx context.Context, request openapi.ListQuesti
 			TrueFalse:      facets.ByType[domain.TrueFalse],
 			FillBlank:      facets.ByType[domain.FillBlank],
 			ShortAnswer:    facets.ByType[domain.ShortAnswer],
+			Tfng:           facets.ByType[domain.TFNG],
+			Matching:       facets.ByType[domain.Matching],
+			Essay:          facets.ByType[domain.Essay],
 		},
 		Tags:      tagList,
 		BankTotal: bankTotal,
@@ -233,15 +238,19 @@ func (h Questions) DeleteQuestion(ctx context.Context, request openapi.DeleteQue
 func questionWriteError(ctx context.Context, err error) (openapi.ErrorResponse, bool) {
 	var invalid *domain.ValidationError
 	if errors.As(err, &invalid) {
+		return httpapi.Invalid(ctx, httpx.Text(ctx, "Dữ liệu câu hỏi không hợp lệ.", "The question data is not valid."), invalid), true
+	}
+	var prose *domain.ProseMediaError
+	if errors.As(err, &prose) {
+		detail := httpx.Text(ctx, "Một hình ảnh hoặc âm thanh trong nội dung không tồn tại hoặc đã bị xoá.",
+			"An image or audio in the text does not exist or has been deleted.")
+		if prose.WrongKind {
+			detail = httpx.Text(ctx, "Tệp trong nội dung không đúng loại: hình ảnh cần tệp hình ảnh, âm thanh cần tệp âm thanh.",
+				"A file in the text is the wrong kind: an image needs an image file and audio needs an audio file.")
+		}
 		resp := httpapi.Error(ctx, openapi.VALIDATIONFAILED,
 			httpx.Text(ctx, "Dữ liệu câu hỏi không hợp lệ.", "The question data is not valid."))
-		details := map[string]interface{}{}
-		for _, f := range invalid.Fields {
-			if _, seen := details[f.Field]; !seen {
-				details[f.Field] = f.Message
-			}
-		}
-		resp.Error.Details = &details
+		resp.Error.Details = &map[string]interface{}{prose.Field: detail}
 		return resp, true
 	}
 	if errors.Is(err, domain.ErrMediaNotFound) {
@@ -267,7 +276,11 @@ func ToQuestionInput(body openapi.QuestionInput) domain.Input {
 		Explanation:        body.Explanation,
 		ExplanationContent: body.ExplanationContent,
 		SampleAnswer:       body.SampleAnswer,
+		SelectCount:        body.SelectCount,
+		MaxWords:           body.MaxWords,
+		MatchAllowReuse:    body.MatchAllowReuse,
 	}
+	in.MatchItems, in.Rubric = typeInputs(body)
 	if body.MediaAssetId != nil {
 		id := body.MediaAssetId.String()
 		in.MediaAssetID = &id
@@ -331,6 +344,9 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 		Tags:               q.Tags,
 		UsedInTests:        &q.UsedInTests,
 		Transcript:         q.Transcript,
+		SelectCount:        q.SelectCount,
+		MaxWords:           q.MaxWords,
+		MatchAllowReuse:    q.MatchAllowReuse,
 		CreatedAt:          q.CreatedAt,
 		UpdatedAt:          q.UpdatedAt,
 	}
@@ -360,6 +376,7 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 		}
 	}
 	out.Options = &options
+	apiTypeParts(&out, q)
 
 	blanks := make([]openapi.AdminQuestionBlank, len(q.Blanks))
 	for i, b := range q.Blanks {
@@ -380,7 +397,36 @@ func (h Questions) toAPIQuestion(ctx context.Context, q domain.Question) (openap
 			out.Media = &api
 		}
 	}
-	return out, nil
+	return out, h.contentAssets(ctx, q, &out)
+}
+
+// contentAssets signs the media a question's prompt and explanation show
+// (DG-109) for the editor; a file that cannot be loaded is left out, as the
+// attachment is.
+func (h Questions) contentAssets(ctx context.Context, q domain.Question, out *openapi.AdminQuestion) error {
+	shown, err := content.QuestionMedia(q.PromptContent, q.ExplanationContent)
+	if err != nil || len(shown) == 0 || h.media == nil {
+		return nil
+	}
+	seen := make(map[string]bool, len(shown))
+	assets := []openapi.MediaAsset{}
+	for _, ref := range shown {
+		if seen[ref.ID] {
+			continue
+		}
+		seen[ref.ID] = true
+		asset, err := h.media.Get(ctx, ref.ID)
+		if err != nil {
+			continue
+		}
+		url, err := h.media.SignedURL(ctx, asset)
+		if err != nil {
+			return err
+		}
+		assets = append(assets, mediahttp.ToAPIMediaAsset(asset, url))
+	}
+	out.ContentAssets = &assets
+	return nil
 }
 
 // TagQuestions implements A-06's bulk "Gắn thẻ".
@@ -399,6 +445,48 @@ func (h Questions) TagQuestions(ctx context.Context, request openapi.TagQuestion
 		return nil, err
 	}
 	return openapi.TagQuestions200JSONResponse{Updated: updated}, nil
+}
+
+// typeInputs is the body's matching items and rubric criteria, nil when absent.
+func typeInputs(body openapi.QuestionInput) ([]domain.MatchItemInput, []domain.RubricCriterionInput) {
+	var items []domain.MatchItemInput
+	var rubric []domain.RubricCriterionInput
+	if body.MatchItems != nil {
+		for _, item := range *body.MatchItems {
+			items = append(items, domain.MatchItemInput{ID: optionID(item.Id), Text: item.Text, CorrectOption: item.CorrectOption})
+		}
+	}
+	if body.Rubric != nil {
+		for _, criterion := range *body.Rubric {
+			rubric = append(rubric, domain.RubricCriterionInput{ID: optionID(criterion.Id), Label: criterion.Label})
+		}
+	}
+	return items, rubric
+}
+
+// apiTypeParts sets a matching question's keys and items, or an essay's
+// rubric, on out, whose options are already q's.
+func apiTypeParts(out *openapi.AdminQuestion, q domain.Question) {
+	switch q.Type {
+	case domain.Matching:
+		for i, o := range q.Options {
+			(*out.Options)[i].Key = httpapi.Ptr(matchkey.Option(o.Ordinal))
+		}
+		items := make([]openapi.AdminMatchItem, len(q.MatchItems))
+		for i, item := range q.MatchItems {
+			items[i] = openapi.AdminMatchItem{
+				Id: httpapi.ParseUUID(item.ID), Ordinal: item.Ordinal, Text: item.Text,
+				Key: matchkey.Item(item.Ordinal), CorrectOptionId: httpapi.ParseUUID(item.CorrectOptionID),
+			}
+		}
+		out.MatchItems = &items
+	case domain.Essay:
+		rubric := make([]openapi.RubricCriterion, len(q.Rubric))
+		for i, criterion := range q.Rubric {
+			rubric[i] = openapi.RubricCriterion{Id: httpapi.ParseUUID(criterion.ID), Ordinal: criterion.Ordinal, Label: criterion.Label}
+		}
+		out.Rubric = &rubric
+	}
 }
 
 func writeRequest(ctx context.Context, id string, input domain.Input) (domain.WriteRequest, bool) {

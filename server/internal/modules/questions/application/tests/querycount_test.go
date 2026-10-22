@@ -108,7 +108,8 @@ func TestListCostsAFixedNumberOfQueries(t *testing.T) {
 			"with page size, or a full page of %d is %d round trips",
 			small, rows, large, repositories.MaxLimit, small+2*(repositories.MaxLimit-1))
 	}
-	// The count that backs the page numbers, the page, and one per child table.
+	// The count that backs the page numbers, the page, and one per child table:
+	// options and blanks here, as the page holds no matching question or essay.
 	if large > 4 {
 		t.Errorf("a page cost %d queries; expected the count, the page, and one per child table", large)
 	}

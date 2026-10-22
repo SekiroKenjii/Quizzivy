@@ -34,9 +34,12 @@ import {
   grading,
   grammarCheck,
   justSubmitted,
+  matchKey,
+  matching,
   paper,
   scored,
   uuid,
+  writingTask,
 } from "./fixtures";
 
 const flags = vi.hoisted(() => ({
@@ -1917,7 +1920,13 @@ describe("an answer the centre's retention policy removed", () => {
     const essayItem = item("Bài viết đã bị xoá");
     expect(within(essayItem).getByText(NOTICE)).toBeVisible();
     expect(within(essayItem).getByText("1 / 1")).toBeVisible();
-    expect(within(essayItem).getByText("Viết tốt.")).toBeVisible();
+    // The paper's only hand-graded answer: its comment is the summary's callout.
+    expect(within(essayItem).queryByText("Viết tốt.")).toBeNull();
+    expect(
+      within(
+        screen.getByRole("complementary", { name: "Nhận xét của giáo viên" }),
+      ).getByText("Viết tốt."),
+    ).toBeVisible();
 
     const kept = item("Câu còn giữ");
     expect(within(kept).queryByText(NOTICE)).toBeNull();
@@ -1940,5 +1949,201 @@ describe("an answer the centre's retention policy removed", () => {
       ),
     ).toBeVisible();
     expect(within(gone).queryByText("You answered")).toBeNull();
+  });
+});
+
+describe("a paper of one banded essay (T-R6.12, the deck's Hand-graded band)", () => {
+  it("reads 6.0 band, names the grader and the strongest area, and tiles the criteria", async () => {
+    await i18n.changeLanguage("en");
+    serve(writingTask());
+    renderResult();
+    await screen.findByRole("heading", { level: 1, name: "Writing Task 1 Practice" });
+    const ring = document.querySelector<HTMLElement>("[data-slot=score-ring]")!;
+    expect(ring).toHaveAttribute("data-ring", "band");
+    expect(ring).toHaveTextContent("6.0band");
+    expect(
+      screen.getByText(
+        "Graded by your teacher. Task achievement was your strongest area.",
+      ),
+    ).toBeVisible();
+    expect(tiles()).toEqual([
+      ["Task achievement", "6.5", "72%"],
+      ["Coherence", "6.0", "67%"],
+      ["Vocabulary", "6.0", "67%"],
+      ["Grammar", "5.5", "61%"],
+    ]);
+    const callout = screen.getByRole("complementary", { name: "Teacher's comment" });
+    expect(callout).toHaveTextContent(
+      "Good overview sentence. Next time compare the two highest values directly.",
+    );
+    const essayItem = item("Summarise the chart.");
+    expect(within(essayItem).getByText("Band 6.0")).toBeVisible();
+    expect(within(essayItem).queryByText(/Good overview/)).toBeNull();
+    expect(essayItem.querySelector("[data-slot=criteria]")).toBeNull();
+  });
+
+  it("writes the band the Vietnamese way and puts the callout above the tiles", async () => {
+    serve(writingTask());
+    renderResult();
+    await screen.findByText(
+      "Bài đã được giáo viên chấm. Task achievement là phần bạn làm tốt nhất.",
+    );
+    const callout = document.querySelector("[data-slot=comment-callout]")!;
+    const list = document.querySelector("[data-slot=result-tiles]")!;
+    expect(
+      callout.compareDocumentPosition(list) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    expect(tiles()[0]).toEqual(["Task achievement", "6,5", "72%"]);
+  });
+
+  it("lists the criteria on each essay of a paper that tiles its parts", async () => {
+    await i18n.changeLanguage("en");
+    const one = writingTask().questions[0]!;
+    const body = scored(
+      [
+        { ...one, graderComment: null },
+        {
+          ...one,
+          id: uuid("a", 2),
+          prompt: "Write an essay.",
+          sectionId: PART_TWO,
+          graderComment: null,
+        },
+      ],
+      {
+        review: OPEN,
+        sections: [
+          { id: PART_ONE, title: "Task 1", instructions: null },
+          { id: PART_TWO, title: "Task 2", instructions: null },
+        ],
+      },
+    );
+    serve({
+      ...body,
+      attempt: { ...body.attempt, score: { ...body.attempt.score!, band: 6 } },
+    });
+    renderResult();
+    await screen.findByText("Graded by your teacher.");
+    expect(tiles().map(([label]) => label)).toEqual(["Task 1", "Task 2"]);
+    expect(document.querySelector("[data-slot=comment-callout]")).toBeNull();
+    const criteria =
+      item("Write an essay.").querySelector<HTMLElement>("[data-slot=criteria]")!;
+    expect(criteria).toHaveTextContent(
+      "Task achievement6.5Coherence6.0Vocabulary6.0Grammar5.5",
+    );
+  });
+
+  it("shows no band, no criteria and no tiles when the policy hides the score", async () => {
+    const body = writingTask();
+    serve({
+      ...body,
+      review: CLOSED,
+      attempt: { ...body.attempt, score: null },
+      questions: body.questions.map(
+        ({ earned: _earned, band: _band, criteria: _criteria, ...rest }) => rest,
+      ),
+    });
+    renderResult();
+    await screen.findByText("Summarise the chart.");
+    expect(document.querySelector("[data-slot=score-ring]")).toHaveAttribute(
+      "data-ring",
+      "withheld",
+    );
+    expect(document.querySelector("[data-slot=result-tiles]")).toBeNull();
+    expect(screen.queryByText(/Band/)).toBeNull();
+  });
+});
+
+describe("the grader's name (D-072)", () => {
+  it("names the grader in the sentence and titles the callout with the name", async () => {
+    await i18n.changeLanguage("en");
+    const body = writingTask();
+    serve({
+      ...body,
+      attempt: {
+        ...body.attempt,
+        score: { ...body.attempt.score!, gradedBy: { name: "Giàu Bùi" } },
+      },
+    });
+    renderResult();
+    expect(
+      await screen.findByText(
+        "Graded by Giàu Bùi. Task achievement was your strongest area.",
+      ),
+    ).toBeVisible();
+    const callout = screen.getByRole("complementary", {
+      name: "Comment from Giàu Bùi",
+    });
+    expect(within(callout).getByText("Giàu Bùi")).toBeVisible();
+    expect(within(callout).queryByText("Teacher's comment")).toBeNull();
+  });
+
+  it("writes the name the Vietnamese way", async () => {
+    const body = writingTask();
+    serve({
+      ...body,
+      attempt: {
+        ...body.attempt,
+        score: { ...body.attempt.score!, gradedBy: { name: "Giàu Bùi" } },
+      },
+    });
+    renderResult();
+    expect(
+      await screen.findByText(
+        "Bài đã được Giàu Bùi chấm. Task achievement là phần bạn làm tốt nhất.",
+      ),
+    ).toBeVisible();
+  });
+});
+
+describe("skill tiles (T-R6.12)", () => {
+  it("tiles a one-part paper by its skills, named as the bank names them", async () => {
+    await i18n.changeLanguage("en");
+    serve(
+      scored([
+        choice(1, AB, [1], { skill: "grammar", earned: 1 }),
+        choice(2, AB, [0], { skill: "grammar", earned: 0 }),
+        choice(3, AB, [1], { skill: "vocabulary", earned: 1 }),
+      ]),
+    );
+    renderResult();
+    await screen.findByText("Câu hỏi 1");
+    expect(tiles()).toEqual([
+      ["Grammar", "1 / 2", "50%"],
+      ["Vocabulary", "1 / 1", "100%"],
+    ]);
+  });
+});
+
+describe("a matching answer (T-R6.12)", () => {
+  it("lists the pairs and keys the items missed, under showCorrectAnswers", async () => {
+    await i18n.changeLanguage("en");
+    serve(scored([matching(1, { correctMatches: matchKey(1) })]));
+    renderResult();
+    const card = (await screen.findByText("Nối 1")).closest("article")!;
+    const [mine, key] = card.querySelectorAll<HTMLElement>("[data-slot=pairs]");
+    expect(mine).toHaveTextContent(
+      "1. Paragraph oneA · a bridge2. Paragraph twoC · a market3. Paragraph threeNo answer",
+    );
+    expect(within(mine!).getByText("C · a market")).toHaveClass("line-through");
+    expect(within(mine!).getByText("A · a bridge")).not.toHaveClass("line-through");
+    expect(key).toHaveTextContent(
+      "2. Paragraph twoB · a tower3. Paragraph threeC · a market",
+    );
+    expect(within(card).getByText("1 / 3")).toBeVisible();
+  });
+
+  it("marks no pair and keys nothing when the policy hides correct answers", async () => {
+    // The server never sends the key under this policy; even if it did, no
+    // pair is marked.
+    serve(
+      scored([matching(1, { correctMatches: matchKey(1) })], { review: SCORE_ONLY }),
+    );
+    renderResult();
+    const card = (await screen.findByText("Nối 1")).closest("article")!;
+    const lists = card.querySelectorAll<HTMLElement>("[data-slot=pairs]");
+    expect(lists).toHaveLength(1);
+    expect(card.querySelector(".line-through")).toBeNull();
+    expect(within(card).queryByText("Đáp án đúng")).toBeNull();
   });
 });

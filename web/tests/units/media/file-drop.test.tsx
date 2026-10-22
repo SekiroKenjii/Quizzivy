@@ -98,6 +98,21 @@ describe("the window file drop", () => {
     expect(add.mock.calls).toHaveLength(before);
     add.mockRestore();
   });
+
+  it("leaves a drop something on the page already took to it", () => {
+    fire("dragover", transfer([clip("a.mp3")]));
+    const event = new Event("drop", { bubbles: true, cancelable: true });
+    Object.defineProperty(event, "dataTransfer", {
+      value: transfer([clip("a.mp3")]),
+    });
+    event.preventDefault();
+    act(() => {
+      window.dispatchEvent(event);
+    });
+
+    expect(dropped).toEqual([]);
+    expect(screen.getByText("idle")).toBeInTheDocument();
+  });
 });
 
 function EnabledDrop({ enabled }: Readonly<{ enabled: boolean }>) {

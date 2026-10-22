@@ -32,7 +32,7 @@ type Blank struct {
 	Accepted []string
 }
 
-// PaperQuestion is one question of a test's draft with everything the assistant may read of it and nothing about a student. Number is its place in the draft, from 1, counting a group's members one by one in the order the builder shows them. GroupID names the group the question is a member of, and is empty for a standalone question. Passage is the plain text of the shared material of its group, empty for a question with none. OrderFixed says its options may not be reordered because a group's labels depend on them. Gapped says it answers a gap in its group's material, so its prompt belongs to the gap and is not reworded. Rich says the prompt, an option or the explanation holds more than plain paragraphs, so a rewrite of its text would lose what the text carries and is not proposed.
+// PaperQuestion is one question of a test's draft with everything the assistant may read of it and nothing about a student. Number is its place in the draft, from 1, counting a group's members one by one in the order the builder shows them. GroupID names the group the question is a member of, and is empty for a standalone question. Passage is the plain text of the shared material of its group, empty for a question with none. OrderFixed says its options may not be reordered because a group's labels depend on them. Gapped says it answers a gap in its group's material, so its prompt belongs to the gap and is not reworded. Rich says the prompt, an option or the explanation holds more than plain paragraphs, so a rewrite of its text would lose what the text carries and is not proposed. MaxWords is a short answer's word limit, zero when it has none.
 type PaperQuestion struct {
 	ID          string
 	Number      int
@@ -45,6 +45,7 @@ type PaperQuestion struct {
 	OrderFixed  bool
 	Gapped      bool
 	Rich        bool
+	MaxWords    int
 	Options     []Option
 	Blanks      []Blank
 }
@@ -81,14 +82,21 @@ type Bank struct {
 	Truncated bool
 }
 
-// GradedAnswer is one student answer and the question it answers, without anything that says who gave it: no name, no id, no class, no attempt. Points is the question's points, Accepted the answers it accepts or the sample answer, Answer the student's text, and Manual whether the answer waits for a teacher's mark; an answer the grader marked itself does not.
+// GradedAnswer is one student answer and the question it answers, without anything that says who gave it: no name, no id, no class, no attempt. Points is the question's points, Accepted the answers it accepts or the sample answer, Criteria an essay's rubric criteria in the rubric's order, Answer the student's text, and Manual whether the answer waits for a teacher's mark; an answer the grader marked itself does not.
 type GradedAnswer struct {
 	Type     string
 	Prompt   string
 	Points   float64
 	Accepted []string
+	Criteria []Criterion
 	Answer   string
 	Manual   bool
+}
+
+// Criterion is one of an essay's rubric criteria.
+type Criterion struct {
+	ID    string
+	Label string
 }
 
 // WrongAnswer is a distinct wrong answer text and how many papers gave it.
