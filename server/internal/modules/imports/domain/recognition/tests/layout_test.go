@@ -619,27 +619,32 @@ func TestAVietnameseCompoundSubjectStaysThePassage(t *testing.T) {
 	}
 }
 
-// QC-R6GRM-9: in a Roman section whose heading carries the instruction, a line of five words or more that opens the
-// group with questions straight after it is pointed at, as under a range heading. A shorter line is not.
+// QC-R6GRM-9, QC-R6GRM-14: in a Roman section whose heading is an instruction, a line of five words or more that
+// opens the group with questions straight after it is pointed at, as under a range heading. A shorter line is not,
+// nor the first instruction line under a Roman title.
 func TestALongLineUnderARomanInstructionPointsAtAPossiblePassage(t *testing.T) {
 	for _, line := range []string{
 		"Choose your words carefully, the old saying goes, because they cannot be taken back.",
 		"Tìm việc làm ở thành phố ngày nay rất khó.",
 		"Read the passage below carefully.",
 	} {
-		d := recognize(t, exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
-		if got := notices(d, domain.CodeLongInstruction); len(got) != 1 || got[0].Severity != domain.Informational || got[0].Target != d.Sections[0].ID {
-			t.Fatalf("%s: one informational finding on the section: %+v", line, got)
+		for _, heading := range []string{"I. Write TRUE, FALSE or NOT GIVEN.", "I. Read the text below.", "I. TRUE, FALSE OR NOT GIVEN"} {
+			d := recognize(t, exam(lines(heading, line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. NOT GIVEN")))
+			if got := notices(d, domain.CodeLongInstruction); len(got) != 1 || got[0].Severity != domain.Informational || got[0].Target != d.Sections[0].ID {
+				t.Fatalf("%s / %s: one informational finding on the section: %+v", heading, line, got)
+			}
 		}
 	}
 	passage := "The museum opened in 1990 after a long campaign by local residents, who raised money for more than a decade."
 	for name, doc := range map[string]domain.EvidenceDocument{
-		"a four-word line":       exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a passage after it":     exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage below carefully.", passage, "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a format on the line":   exam(lines("I. Read the passage.", "Write TRUE, FALSE or NOT GIVEN for each statement.", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a title for a heading":  exam(lines("I. READING", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"two plain instructions": exam(lines("Read the passage and answer the questions.", "Write TRUE, FALSE or NOT GIVEN.", "Decide for yourself whether each statement is right.", "1. The museum opened in 1990.", "2. Entry is free.")),
-		"a four-word head line":  exam(lines("Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a four-word line":         exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a passage after it":       exam(lines("I. Write TRUE, FALSE or NOT GIVEN.", "Read the passage below carefully.", passage, "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a format on the line":     exam(lines("I. Read the passage.", "Write TRUE, FALSE or NOT GIVEN for each statement.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"under a Roman title":      exam(lines("I. GRAMMAR", "Choose the best answer to complete each sentence.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"under a Vietnamese title": exam(lines("I. TRẮC NGHIỆM (3 điểm)", "Chọn đáp án đúng nhất cho mỗi câu sau.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a title for a heading":    exam(lines("I. READING", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"two plain instructions":   exam(lines("Read the passage and answer the questions.", "Write TRUE, FALSE or NOT GIVEN.", "Decide for yourself whether each statement is right.", "1. The museum opened in 1990.", "2. Entry is free.")),
+		"a four-word head line":    exam(lines("Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Read the passage carefully.", "1. The museum opened in 1990.", "2. Entry is free.")),
 	} {
 		t.Run(name, func(t *testing.T) {
 			if got := notices(recognize(t, doc, key(lines("1. TRUE\t2. NOT GIVEN"))), domain.CodeLongInstruction); len(got) != 0 {

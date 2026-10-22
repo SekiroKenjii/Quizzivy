@@ -118,9 +118,12 @@ type sectionBuilder struct {
 	origin       domain.Origin
 	items        []item
 	source       []domain.SourceRef
-	// heading is the text of a Roman section heading that carries its instruction ("I. Choose the best answer."),
-	// while a broken line may still complete it (completesInstruction).
+	// heading is the text of a Roman section heading with text after its numeral, while a broken line may still
+	// complete it (completesInstruction).
 	heading string
+	// instructs reports whether that heading is an instruction ("I. Choose the best answer."), not a title
+	// ("I. GRAMMAR").
+	instructs bool
 }
 
 type exam struct {
@@ -410,11 +413,12 @@ func prose(text string) bool {
 }
 
 // sectionProse reports whether text, an imperative-led line that opens the first group of a Roman section whose
-// heading carries the instruction, reads like a passage's sentence (prose): the grammar cannot tell it from a second
-// instruction line, so the draft points at it as it does under a range heading (QC-R6GRM-9, D-073).
+// heading is itself an instruction, reads like a passage's sentence (prose): the grammar cannot tell it from a second
+// instruction line, so the draft points at it as it does under a range heading (QC-R6GRM-9, D-073). Under a Roman
+// title ("I. GRAMMAR") the line is the instruction's first, which is never pointed at (QC-R6GRM-14).
 func (e *exam) sectionProse(text string) bool {
 	_, ok := e.lastInstruction()
-	return e.group == nil && ok && prose(text)
+	return e.group == nil && ok && e.section.instructs && prose(text)
 }
 
 // bareHeading reports whether the open group is a range heading, or a run of them, with nothing under it yet.
@@ -474,6 +478,7 @@ func (e *exam) openSection(l *line, ordinal int) {
 	s.title, s.instructions = sectionTitle(text)
 	if _, end, ok := e.rules.roman(l.text); ok && visible(l.text[end:]) {
 		s.heading = text
+		s.instructs = isInstruction(matchable(l.text[end:])) || answerFormat(text)
 	}
 	e.sections = append(e.sections, s)
 	e.section = s
