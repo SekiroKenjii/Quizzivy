@@ -193,12 +193,19 @@ describe("an essay", () => {
     expect(
       screen.queryByRole("button", { name: "Dùng tiêu chí IELTS Writing" }),
     ).toBeNull();
-    expect(screen.getByRole("button", { name: "Đưa tiêu chí 1 lên" })).toBeDisabled();
+    // QC-R6AC-6: paused at full strength, still in the Tab order, and a no-op.
+    const up = screen.getByRole("button", { name: "Đưa tiêu chí 1 lên" });
+    expect(up).toHaveAttribute("aria-disabled", "true");
+    expect(up).toBeEnabled();
+    await user.click(up);
+    expect(last().rubric![0]!.label).toBe("Hoàn thành yêu cầu đề bài");
 
     await user.click(screen.getByRole("button", { name: "Đưa tiêu chí 1 xuống" }));
     expect(last().rubric![0]!.label).toBe("Mạch lạc và liên kết");
     await user.click(screen.getByRole("button", { name: "Xoá tiêu chí 4" }));
     expect(last().rubric).toHaveLength(3);
+    // QC-R6AC-3: focus lands on "Add criterion", not the page.
+    expect(screen.getByRole("button", { name: "Thêm tiêu chí" })).toHaveFocus();
 
     for (let i = 0; i < 3; i++)
       await user.click(screen.getByRole("button", { name: "Thêm tiêu chí" }));
@@ -279,6 +286,33 @@ describe("matching", () => {
       screen.getByRole("combobox", { name: "Lựa chọn đúng cho mục A" }),
     ).toHaveAttribute("aria-invalid", "true");
     expect(blockingIssue(last(), "x")).toBe("questionEditor.errors.matchItemUnset");
+    // QC-R6AC-1: the trigger shows the numeral only, as the deck does.
+    expect(
+      screen.getByRole("combobox", { name: "Lựa chọn đúng cho mục B" }),
+    ).toHaveTextContent(/^ii$/);
+    // QC-R6AC-3: focus lands on "Add option".
+    expect(screen.getByRole("button", { name: "Thêm lựa chọn" })).toHaveFocus();
+  });
+
+  it("keeps two items and two options, saying why, and returns an item to Choose…", async () => {
+    const { user, last } = renderArea(
+      matching({ options: [option("cat"), option("dog")] }),
+    );
+    const removeItem = screen.getByRole("button", { name: "Xoá mục A" });
+    expect(removeItem).toHaveAttribute("aria-disabled", "true");
+    await user.click(removeItem);
+    expect(await screen.findByText("Câu nối cần ít nhất 2 mục")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "Xoá lựa chọn i" }));
+    expect(
+      await screen.findByText("Câu nối cần ít nhất 2 lựa chọn"),
+    ).toBeInTheDocument();
+    expect(last()?.options ?? [option("cat"), option("dog")]).toHaveLength(2);
+
+    await user.click(screen.getByRole("combobox", { name: "Lựa chọn đúng cho mục A" }));
+    await user.click(
+      within(await screen.findByRole("listbox")).getByRole("option", { name: "Chọn…" }),
+    );
+    expect(last().matchItems![0]!.correctOption).toBe(-1);
   });
 
   it("picks an item's option from the select and flags one option on two items unless reuse is on", async () => {

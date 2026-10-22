@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowRight, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,10 @@ type Option = QuestionValues["options"][number];
 type Item = NonNullable<QuestionValues["matchItems"]>[number];
 
 const UNSET = "";
+/** MIN_MATCH_OPTIONS is the fewest options a matching question takes, as for a choice question. */
+const MIN_MATCH_OPTIONS = 2;
+/** CHOOSE is the list's "Choose…" entry, which returns an item to unset (Radix allows no empty value). */
+const CHOOSE = "-1";
 
 /** A row's frame and its bare input, as the builder draws a matching row. */
 const ROW =
@@ -56,6 +60,8 @@ export function MatchingEditor({
   const itemsHeading = useId();
   const optionsHeading = useId();
   const note = useId();
+  const addItemButton = useRef<HTMLButtonElement>(null);
+  const addOptionButton = useRef<HTMLButtonElement>(null);
   const items = value.matchItems ?? [];
   const options = value.options;
   const reuse = value.matchAllowReuse === true;
@@ -88,7 +94,25 @@ export function MatchingEditor({
     setOptions([...options, { id: null, text: "", isCorrect: false }]);
   }
 
+  function removeItem(index: number) {
+    if (items.length <= MIN_MATCH_ITEMS) {
+      toast.error(
+        t("questionEditor.matching.minItemsToast", { count: MIN_MATCH_ITEMS }),
+      );
+      return;
+    }
+    setItems(items.filter((_, i) => i !== index));
+    addItemButton.current?.focus();
+  }
+
   function removeOption(index: number) {
+    if (options.length <= MIN_MATCH_OPTIONS) {
+      toast.error(
+        t("questionEditor.matching.minOptionsToast", { count: MIN_MATCH_OPTIONS }),
+      );
+      return;
+    }
+    addOptionButton.current?.focus();
     setOptions(
       options.filter((_, i) => i !== index),
       items.map((item) => ({
@@ -165,14 +189,19 @@ export function MatchingEditor({
                         unset || taken ? "border-danger" : "border-border",
                       )}
                     >
-                      <SelectValue placeholder={t("questionEditor.matching.choose")} />
+                      <SelectValue placeholder={t("questionEditor.matching.choose")}>
+                        {unset ? null : matchOptionKey(item.correctOption)}
+                      </SelectValue>
                     </SelectTrigger>
                     <SelectContent align="end">
+                      <SelectItem value={CHOOSE}>
+                        {t("questionEditor.matching.choose")}
+                      </SelectItem>
                       {options.map((option, j) => (
                         <SelectItem key={option.id ?? `new-${j}`} value={String(j)}>
                           {matchOptionKey(j)}
                           {option.text.trim() === "" ? null : (
-                            <span className="text-muted-fg max-w-48 truncate">
+                            <span className="text-muted-fg ml-2 max-w-48 truncate">
                               {option.text}
                             </span>
                           )}
@@ -186,8 +215,8 @@ export function MatchingEditor({
                     size="icon-sm"
                     className="text-muted-fg size-7 flex-none rounded-[6px]"
                     aria-label={t("questionEditor.matching.removeItem", { key })}
-                    disabled={items.length <= MIN_MATCH_ITEMS}
-                    onClick={() => setItems(items.filter((_, i) => i !== index))}
+                    aria-disabled={items.length <= MIN_MATCH_ITEMS || undefined}
+                    onClick={() => removeItem(index)}
                   >
                     <X aria-hidden="true" className="size-3.5" />
                   </Button>
@@ -199,6 +228,7 @@ export function MatchingEditor({
             type="button"
             variant="ghost"
             size="sm"
+            ref={addItemButton}
             className={ADD}
             onClick={addItem}
           >
@@ -259,7 +289,7 @@ export function MatchingEditor({
                     size="icon-sm"
                     className="text-muted-fg size-7 flex-none rounded-[6px]"
                     aria-label={t("questionEditor.matching.removeOption", { key })}
-                    disabled={options.length <= 2}
+                    aria-disabled={options.length <= MIN_MATCH_OPTIONS || undefined}
                     onClick={() => removeOption(index)}
                   >
                     <X aria-hidden="true" className="size-3.5" />
@@ -272,6 +302,7 @@ export function MatchingEditor({
             type="button"
             variant="ghost"
             size="sm"
+            ref={addOptionButton}
             className={ADD}
             onClick={addOption}
           >

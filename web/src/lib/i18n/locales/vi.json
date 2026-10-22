@@ -2759,7 +2759,9 @@
       "extra": "Thừa",
       "extraTitle": "Không nối với mục nào, nên dùng làm phương án gây nhiễu",
       "reuse": "Mỗi lựa chọn có thể dùng nhiều lần",
-      "maxItemsToast": "Tối đa {{count}} mục"
+      "maxItemsToast": "Tối đa {{count}} mục",
+      "minItemsToast": "Câu nối cần ít nhất {{count}} mục",
+      "minOptionsToast": "Câu nối cần ít nhất {{count}} lựa chọn"
     },
     "rubric": {
       "label": "Tiêu chí chấm",

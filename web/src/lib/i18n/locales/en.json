@@ -2759,7 +2759,9 @@
       "extra": "Extra",
       "extraTitle": "Matches no item, so it works as a distractor",
       "reuse": "Each choice can be used more than once",
-      "maxItemsToast": "Up to {{count}} items"
+      "maxItemsToast": "Up to {{count}} items",
+      "minItemsToast": "A matching question needs at least {{count}} items",
+      "minOptionsToast": "A matching question needs at least {{count}} options"
     },
     "rubric": {
       "label": "Rubric criteria",
