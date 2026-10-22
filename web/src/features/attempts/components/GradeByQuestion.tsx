@@ -22,6 +22,10 @@ import {
   type QuestionAnswerRow,
 } from "../api";
 import { answersKey, monitorKey, reviewKey } from "../keys";
+import { gradeFieldMessage } from "../gradeErrors";
+import { handMarked, markBand, markFields, markOf, type EssayMark } from "../essayMark";
+import { EssayBands } from "./BandScale";
+import type { GradeMarks } from "./GradingCard";
 
 /**
  * G-04: one question across every paper, rubric pinned on the left, names
@@ -45,7 +49,11 @@ export function GradeByQuestion({
   const [questionId, setQuestionId] = useState(initialQuestionId);
   const [showNames, setShowNames] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
-  const inputs = useRef(new Map<string, HTMLInputElement>());
+  const [fieldFailure, setFieldFailure] = useState<{
+    attemptId: string;
+    message: string;
+  } | null>(null);
+  const inputs = useRef(new Map<string, HTMLElement>());
 
   const answers = useQuery({
     queryKey: answersKey(assignmentId, questionId),
@@ -53,10 +61,11 @@ export function GradeByQuestion({
   });
 
   const grade = useMutation({
-    mutationFn: ({ row, points }: { row: QuestionAnswerRow; points: number }) =>
+    mutationFn: ({ row, marks }: { row: QuestionAnswerRow; marks: GradeMarks }) =>
       gradeAttempt(row.attemptId, [
-        { questionId, points, comment: row.graderComment ?? null },
+        { questionId, ...marks, comment: row.graderComment ?? null },
       ]),
+    onMutate: () => setFieldFailure(null),
     onSuccess: async (_, { row }) => {
       setFailure(null);
       await queryClient.invalidateQueries({
@@ -67,8 +76,11 @@ export function GradeByQuestion({
       await queryClient.invalidateQueries({ queryKey: ["teacher-dashboard"] });
       await queryClient.invalidateQueries({ queryKey: ["teacher-attempts"] });
     },
-    onError: (cause) => {
-      setFailure(cause instanceof ApiError ? cause.message : t("review.saveFailed"));
+    onError: (cause, { row }) => {
+      const field = gradeFieldMessage(cause, questionId, t);
+      if (field !== null) setFieldFailure({ attemptId: row.attemptId, message: field });
+      else
+        setFailure(cause instanceof ApiError ? cause.message : t("review.saveFailed"));
       if (answerRemovedRefusal(cause))
         void queryClient.invalidateQueries({
           queryKey: answersKey(assignmentId, questionId),
@@ -93,9 +105,9 @@ export function GradeByQuestion({
     if (row) inputs.current.get(row.attemptId)?.focus();
   };
   const saveRow =
-    (row: QuestionAnswerRow, index: number) => (points: number, andNext: boolean) =>
+    (row: QuestionAnswerRow, index: number) => (marks: GradeMarks, andNext: boolean) =>
       grade.mutate(
-        { row, points },
+        { row, marks },
         { onSuccess: () => (andNext ? goNext() : focusRow(index + 1)) },
       );
   const goNext = () => {
@@ -165,7 +177,7 @@ export function GradeByQuestion({
         failed={t("byQuestion.loadFailed")}
       >
         {(data) =>
-          data.question.type !== "short_answer" ? (
+          !handMarked(data.question.type) ? (
             <EmptyState
               action={
                 nextId === undefined ? undefined : (
@@ -266,6 +278,16 @@ export function GradeByQuestion({
                             })
                       }
                       max={data.question.points}
+                      rubric={
+                        data.question.type === "essay"
+                          ? (data.question.rubric ?? [])
+                          : null
+                      }
+                      error={
+                        fieldFailure?.attemptId === row.attemptId
+                          ? fieldFailure.message
+                          : null
+                      }
                       pending={grade.isPending}
                       inputRef={(el) => {
                         if (el) inputs.current.set(row.attemptId, el);
@@ -276,7 +298,12 @@ export function GradeByQuestion({
                     />
                   ))
                 )}
-                <p className="text-muted-foreground text-xs">
+                <p
+                  className={cn(
+                    "text-muted-foreground text-xs",
+                    data.question.type === "essay" && "hidden",
+                  )}
+                >
                   <Trans
                     i18nKey="byQuestion.keys"
                     values={{ max: data.question.points, modifier: commandKeyLabel() }}
@@ -292,10 +319,14 @@ export function GradeByQuestion({
   );
 }
 
+type Rubric = Parameters<typeof markBand>[0];
+
 function AnswerRow({
   row,
   label,
   max,
+  rubric,
+  error,
   pending,
   inputRef,
   onSave,
@@ -304,9 +335,11 @@ function AnswerRow({
   row: QuestionAnswerRow;
   label: string;
   max: number;
+  rubric: Rubric | null;
+  error: string | null;
   pending: boolean;
-  inputRef: (el: HTMLInputElement | null) => void;
-  onSave: (points: number, andNext: boolean) => void;
+  inputRef: (el: HTMLElement | null) => void;
+  onSave: (marks: GradeMarks, andNext: boolean) => void;
   onMove: (delta: -1 | 1) => void;
 }>) {
   const { t } = useTranslation();
@@ -366,7 +399,17 @@ function AnswerRow({
             {nfc(text ?? "")}
           </p>
         )}
-        {!blank && (
+        {!blank && rubric !== null && (
+          <EssayRowMarks
+            row={row}
+            rubric={rubric}
+            error={error}
+            pending={pending}
+            inputRef={inputRef}
+            onSave={(marks) => onSave(marks, false)}
+          />
+        )}
+        {!blank && rubric === null && (
           <div className="flex items-center gap-2">
             <Button
               variant="outline"
@@ -393,7 +436,7 @@ function AnswerRow({
                   onMove(event.key === "ArrowDown" ? 1 : -1);
                 } else if (event.key === "Enter" && valid) {
                   event.preventDefault();
-                  onSave(value, event.metaKey || event.ctrlKey);
+                  onSave({ points: value }, event.metaKey || event.ctrlKey);
                 }
               }}
             />
@@ -410,7 +453,7 @@ function AnswerRow({
               size="sm"
               className="ml-auto"
               disabled={!valid || pending}
-              onClick={() => onSave(value, false)}
+              onClick={() => onSave({ points: value }, false)}
             >
               <Check aria-hidden="true" />
               {t("byQuestion.save")}
@@ -419,5 +462,47 @@ function AnswerRow({
         )}
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * EssayRowMarks marks one paper's essay in G-04: its band, or a band per
+ * rubric criterion with the derived band, and Save once the mark is complete.
+ */
+function EssayRowMarks({
+  row,
+  rubric,
+  error,
+  pending,
+  inputRef,
+  onSave,
+}: Readonly<{
+  row: QuestionAnswerRow;
+  rubric: Rubric;
+  error: string | null;
+  pending: boolean;
+  inputRef: (el: HTMLElement | null) => void;
+  onSave: (marks: GradeMarks) => void;
+}>) {
+  const { t } = useTranslation();
+  const [mark, setMark] = useState<EssayMark>(() => markOf(row));
+  const complete = markBand(rubric, mark) !== null;
+  return (
+    <div
+      className="space-y-3"
+      ref={(el) => inputRef(el?.querySelector<HTMLElement>("[data-score]") ?? null)}
+    >
+      <EssayBands rubric={rubric} mark={mark} error={error} onChange={setMark} />
+      <div className="flex justify-end">
+        <Button
+          size="sm"
+          disabled={!complete || pending}
+          onClick={() => onSave(markFields(rubric, mark))}
+        >
+          <Check aria-hidden="true" />
+          {t("byQuestion.save")}
+        </Button>
+      </div>
+    </div>
   );
 }

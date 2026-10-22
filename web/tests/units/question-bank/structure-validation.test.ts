@@ -177,6 +177,14 @@ describe("the R6 types and settings (T-R6.9a)", () => {
     expect(
       keys({ ...value, options: Array.from({ length: 13 }, (_, i) => opt(`o${i}`)) }),
     ).toContain("questionEditor.errors.maxMatchOptions");
+    const long = (text: string) => ({
+      ...value,
+      matchItems: [{ ...value.matchItems[0]!, text }, value.matchItems[1]!],
+    });
+    expect(keys(long("x".repeat(500)))).toEqual([]);
+    expect(keys(long("x".repeat(501)))).toContain(
+      "questionEditor.errors.matchItemTooLong",
+    );
   });
 
   test("a choice type still stops at eight options", () => {
@@ -226,6 +234,20 @@ describe("the R6 types and settings (T-R6.9a)", () => {
       );
   });
 
+  test("a short answer's word limit runs from 1 to 100", () => {
+    const value = {
+      ...emptyQuestion(),
+      type: "short_answer",
+      prompt: "p",
+      options: [],
+    };
+    for (const maxWords of [1, 100]) expect(keys({ ...value, maxWords })).toEqual([]);
+    for (const maxWords of [0, 101])
+      expect(keys({ ...value, maxWords })).toContain(
+        "questionEditor.errors.maxWordsRange",
+      );
+  });
+
   test("an essay's rubric has at most six distinct, named criteria", () => {
     const value = {
       ...emptyQuestion(),
@@ -237,6 +259,17 @@ describe("the R6 types and settings (T-R6.9a)", () => {
     expect(keys(value)).toEqual([]);
     expect(
       keys({ ...value, rubric: [...value.rubric, { id: null, label: " ideas " }] }),
+    ).toContain("questionEditor.errors.duplicateCriterion");
+    // QC-R6A-2: the same Vietnamese label, composed and decomposed.
+    const composed = "Ý tưởng";
+    expect(
+      keys({
+        ...value,
+        rubric: [
+          { id: null, label: composed.normalize("NFC") },
+          { id: null, label: composed.normalize("NFD") },
+        ],
+      }),
     ).toContain("questionEditor.errors.duplicateCriterion");
     expect(keys({ ...value, rubric: [{ id: null, label: " " }] })).toContain(
       "questionEditor.errors.criterionRequired",

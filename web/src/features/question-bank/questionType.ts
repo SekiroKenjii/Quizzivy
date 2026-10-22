@@ -213,7 +213,9 @@ function canonicalOption(
  * blanks only for fill in the blank; the sample answer between short answer
  * and essay. Each R6 setting stays only on its own type. Points the teacher
  * left at the old type's default take the new type's (nine for an essay, one
- * otherwise); points they set are kept.
+ * otherwise); points they set are kept. A value equal to the default cannot
+ * be told from it, so nine points set on a choice question come back as one
+ * after a trip through essay (QC-R6A-4, accepted: the field shows the change).
  */
 export function retype(value: QuestionValues, type: QuestionType): QuestionValues {
   const options = optionsFor(value, type);

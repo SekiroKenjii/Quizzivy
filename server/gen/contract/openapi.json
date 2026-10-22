@@ -10352,16 +10352,16 @@
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 7
+              "maxLength": 16
             },
-            "description": "The labels (`A`, `B`, …) of the correct options in `from`, in order.\nFor a matching question, one label per item in order: its number,\nan arrow and the label of the option it is keyed to (`1→B`), or\n`–` in place of the option when it is keyed to none.\n"
+            "description": "The labels (`A`, `B`, …) of the correct options in `from`, in order.\nFor a TFNG question, the value of the correct option instead:\n`true`, `false` or `not_given`, which the reader names in its own\nlanguage. For a matching question, one label per item in order:\nthe item's key, an arrow and the key of the choice it is keyed to,\nas the editor draws them (D-063, `A → iii`), or `–` in place of\nthe choice when it is keyed to none.\n"
           },
           "answerTo": {
             "type": "array",
             "items": {
               "type": "string",
               "minLength": 1,
-              "maxLength": 7
+              "maxLength": 16
             },
             "description": "The labels of the correct options in `to`, in order, as in `answerFrom`."
           },

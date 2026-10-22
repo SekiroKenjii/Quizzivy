@@ -8248,9 +8248,12 @@ export interface components {
             fields?: components["schemas"]["DiffField"][];
             /**
              * @description The labels (`A`, `B`, …) of the correct options in `from`, in order.
-             *     For a matching question, one label per item in order: its number,
-             *     an arrow and the label of the option it is keyed to (`1→B`), or
-             *     `–` in place of the option when it is keyed to none.
+             *     For a TFNG question, the value of the correct option instead:
+             *     `true`, `false` or `not_given`, which the reader names in its own
+             *     language. For a matching question, one label per item in order:
+             *     the item's key, an arrow and the key of the choice it is keyed to,
+             *     as the editor draws them (D-063, `A → iii`), or `–` in place of
+             *     the choice when it is keyed to none.
              */
             answerFrom?: string[];
             /** @description The labels of the correct options in `to`, in order, as in `answerFrom`. */
