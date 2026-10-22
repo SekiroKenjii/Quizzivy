@@ -26,6 +26,9 @@ const question = z.object({
     "true_false",
     "fill_blank",
     "short_answer",
+    "tfng",
+    "matching",
+    "essay",
   ]),
   level: z
     .enum(["pre_a1", "a1", "a2", "b1", "b2", "c1", "c2"])
@@ -45,6 +48,15 @@ const question = z.object({
   transcript: z.string().nullish(),
   explanation: z.string().nullish(),
   sampleAnswer: z.string().nullish(),
+  selectCount: z.number().int().nullable().exactOptional(),
+  maxWords: z.number().int().nullable().exactOptional(),
+  matchAllowReuse: z.boolean().nullable().exactOptional(),
+  matchItems: z
+    .array(
+      z.object({ id: z.uuid().nullish(), text: z.string(), correctOption: z.number() }),
+    )
+    .optional(),
+  rubric: z.array(z.object({ id: z.uuid().nullish(), label: z.string() })).optional(),
   tags: z.array(z.string()).optional(),
   options: z
     .array(
@@ -219,6 +231,12 @@ export function independentBundle(source: GroupBundle): GroupBundle {
       input: {
         ...input,
         options: (input.options ?? []).map((option) => ({ ...option, id: null })),
+        ...(input.matchItems
+          ? { matchItems: input.matchItems.map((item) => ({ ...item, id: null })) }
+          : {}),
+        ...(input.rubric
+          ? { rubric: input.rubric.map((criterion) => ({ ...criterion, id: null })) }
+          : {}),
         blanks: (input.blanks ?? []).map((blank) => ({
           ...blank,
           id: null,

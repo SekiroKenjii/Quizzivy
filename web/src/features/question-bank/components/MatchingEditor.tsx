@@ -80,6 +80,7 @@ export function MatchingEditor({
     if (items.length >= MAX_MATCH_ITEMS) {
       toast.error(
         t("questionEditor.matching.maxItemsToast", { count: MAX_MATCH_ITEMS }),
+        { id: "matching-items-bound" },
       );
       return;
     }
@@ -88,7 +89,9 @@ export function MatchingEditor({
 
   function addOption() {
     if (options.length >= MAX_MATCH_OPTIONS) {
-      toast.error(t("questionEditor.maxOptionsToast", { count: MAX_MATCH_OPTIONS }));
+      toast.error(t("questionEditor.maxOptionsToast", { count: MAX_MATCH_OPTIONS }), {
+        id: "matching-options-bound",
+      });
       return;
     }
     setOptions([...options, { id: null, text: "", isCorrect: false }]);
@@ -98,6 +101,7 @@ export function MatchingEditor({
     if (items.length <= MIN_MATCH_ITEMS) {
       toast.error(
         t("questionEditor.matching.minItemsToast", { count: MIN_MATCH_ITEMS }),
+        { id: "matching-items-bound" },
       );
       return;
     }
@@ -109,6 +113,7 @@ export function MatchingEditor({
     if (options.length <= MIN_MATCH_OPTIONS) {
       toast.error(
         t("questionEditor.matching.minOptionsToast", { count: MIN_MATCH_OPTIONS }),
+        { id: "matching-options-bound" },
       );
       return;
     }
@@ -200,6 +205,8 @@ export function MatchingEditor({
                       {options.map((option, j) => (
                         <SelectItem key={option.id ?? `new-${j}`} value={String(j)}>
                           {matchOptionKey(j)}
+                          {/* The space keeps "iii Trees" two words for a screen reader (QC-R6AC-10). */}
+                          {option.text.trim() === "" ? null : " "}
                           {option.text.trim() === "" ? null : (
                             <span className="text-muted-fg ml-2 max-w-48 truncate">
                               {option.text}
