@@ -5267,9 +5267,9 @@
           "title": "An option refers to another option",
           "help": "This option refers to another option by its letter, such as “Both A and B”, which breaks if the options are shuffled. Reword the option, or confirm if you won't shuffle this question's options."
         },
-        "LONG_INSTRUCTION": {
-          "title": "This instruction is long",
-          "help": "If part of it is a reading passage, move it into the section's passage."
+        "PASSAGE_IN_INSTRUCTION": {
+          "title": "This instruction may hold passage text",
+          "help": "If part of this instruction is passage text, move it into the section's passage."
         },
         "COLORED_TEXT_IN_CONTENT": {
           "title": "Coloured text inside a question",

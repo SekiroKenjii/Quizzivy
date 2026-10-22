@@ -66,6 +66,9 @@ type groupBuilder struct {
 	// prose holds the lines the instruction took after its first line, the heading's or the Roman section's, that
 	// read like a passage's sentence (proseLine, sectionProse): QC-R6GRM-2, QC-R6GRM-9, D-073.
 	prose []segment
+	// joined holds the instruction lines that may be a passage's sentence whatever follows them (vietnameseJoined,
+	// D-075).
+	joined []segment
 }
 
 func (g *groupBuilder) instructionText() string {
@@ -675,6 +678,9 @@ func (e *exam) textLine(l *line) {
 		if e.proseLine(text) {
 			e.group.prose = append(e.group.prose, whole)
 		}
+		if vietnameseJoined(text) {
+			e.group.joined = append(e.group.joined, whole)
+		}
 		e.group.instruction = append(e.group.instruction, whole)
 		e.group.source = append(e.group.source, whole.refs()...)
 	case e.completesInstruction(text):
@@ -687,6 +693,9 @@ func (e *exam) textLine(l *line) {
 		e.group = &groupBuilder{id: identity(e.source, l.pieces[0].block.ID, "group"), instruction: []segment{whole}, accepting: true, source: whole.refs()}
 		if pointed {
 			e.group.prose = []segment{whole}
+		}
+		if vietnameseJoined(text) {
+			e.group.joined = []segment{whole}
 		}
 		e.section.items = append(e.section.items, item{group: e.group})
 	case e.group != nil && e.group.accepting && len(e.group.questions) == 0:
