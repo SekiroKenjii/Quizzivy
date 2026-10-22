@@ -40,7 +40,7 @@ type PlanUnit struct {
 
 // Input maps an included draft question onto the bank's write model.
 func (q DraftQuestion) Input() (questions.Input, error) {
-	in := questions.Input{Type: questions.Type(q.Type), PromptContent: q.Prompt, Prompt: plainText(q.Prompt), Points: q.Points, Tags: []string{}}
+	in := questions.Input{Type: questions.Type(q.Type), PromptContent: q.Prompt, Prompt: plainText(q.Prompt), Points: q.Points, SelectCount: q.SelectCount, MaxWords: q.MaxWords, Tags: []string{}}
 	if in.Prompt == "" {
 		return in, content.ErrInvalidDocument
 	}
@@ -113,7 +113,7 @@ func groupBundle(g DraftGroup, sectionTitle string, newID func() string) (tests.
 		}
 		ids[q.ID] = newID()
 		order := "shuffle"
-		if isChoice(q.Type) {
+		if isChoice(q.Type) || q.Type == string(questions.TFNG) {
 			order = "fixed"
 		}
 		bundle.Questions = append(bundle.Questions, tests.GroupQuestion{ID: ids[q.ID], Input: in})

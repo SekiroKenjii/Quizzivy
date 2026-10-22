@@ -16,19 +16,21 @@ const (
 	singleChoice   = "single_choice"
 	multipleChoice = "multiple_choice"
 	trueFalse      = "true_false"
+	tfng           = "tfng"
 	fillBlank      = "fill_blank"
 	shortAnswer    = "short_answer"
 	defaultPoints  = "1"
 )
 
 type builder struct {
-	exam      *exam
-	tfSection map[*sectionBuilder]bool
-	byLabel   map[string][]*questionBuilder
-	byBlank   map[string]*questionBuilder
-	blankKeys map[*questionBuilder]map[string][]keyValue
-	linked    map[*questionBuilder]string
-	notices   []domain.Finding
+	exam        *exam
+	tfSection   map[*sectionBuilder]bool
+	tfngSection map[*sectionBuilder]bool
+	byLabel     map[string][]*questionBuilder
+	byBlank     map[string]*questionBuilder
+	blankKeys   map[*questionBuilder]map[string][]keyValue
+	linked      map[*questionBuilder]string
+	notices     []domain.Finding
 }
 
 func newBuilder(e *exam) *builder {
@@ -68,6 +70,33 @@ func (q *questionBuilder) gaps() []gap {
 		out = append(out, q.rules.gaps(s.line.text, s.start, s.end)...)
 	}
 	return out
+}
+
+// instructions are the texts that instruct q, the most specific first: its own, its group's, its section's.
+func (q *questionBuilder) instructions() []string {
+	var out []string
+	if text := q.instructionText(); text != "" {
+		out = append(out, text)
+	}
+	if q.group != nil {
+		if text := q.group.instructionText(); text != "" {
+			out = append(out, text)
+		}
+	}
+	if text := sectionInstruction(q.section); text != "" {
+		out = append(out, text)
+	}
+	return out
+}
+
+// instructed is the first non-zero value read from q's instructions, the most specific first.
+func (q *questionBuilder) instructed(read func(string) int) int {
+	for _, text := range q.instructions() {
+		if n := read(text); n > 0 {
+			return n
+		}
+	}
+	return 0
 }
 
 func (q *questionBuilder) tasks() taskSet {
@@ -141,10 +170,13 @@ func (b *builder) applyBlank(entry keyEntry) bool {
 	return true
 }
 
+// markTrueFalseSections finds the sections whose keys say what their option-less questions are: a section keyed
+// only true and false, with at least one true, is true/false; one keyed only true, false and not given, with at
+// least one not given, is tfng.
 func (b *builder) markTrueFalseSections() {
-	b.tfSection = map[*sectionBuilder]bool{}
-	sawTrue := map[*sectionBuilder]bool{}
-	other := map[*sectionBuilder]bool{}
+	b.tfSection, b.tfngSection = map[*sectionBuilder]bool{}, map[*sectionBuilder]bool{}
+	sawTrue, sawNotGiven := map[*sectionBuilder]bool{}, map[*sectionBuilder]bool{}
+	other, otherThanTFNG := map[*sectionBuilder]bool{}, map[*sectionBuilder]bool{}
 	for _, q := range b.exam.all() {
 		if len(q.options) > 0 || q.openCloze {
 			continue
@@ -156,10 +188,19 @@ func (b *builder) markTrueFalseSections() {
 			case value == "T":
 				sawTrue[q.section] = true
 			}
+			switch value, ok := tfngValue(k.value); {
+			case !ok:
+				otherThanTFNG[q.section] = true
+			case value == "NG":
+				sawNotGiven[q.section] = true
+			}
 		}
 	}
 	for s := range sawTrue {
 		b.tfSection[s] = !other[s]
+	}
+	for s := range sawNotGiven {
+		b.tfngSection[s] = !otherThanTFNG[s]
 	}
 }
 
@@ -234,6 +275,9 @@ func (b *builder) question(q *questionBuilder) domain.DraftQuestion {
 	if b.tfSection[q.section] && len(q.options) == 0 {
 		tasks |= taskTrueFalse
 	}
+	if b.tfngSection[q.section] && len(q.options) == 0 {
+		tasks |= taskTFNG
+	}
 	kind := decideType(q, tasks, len(gaps), values)
 	out := domain.DraftQuestion{ID: q.id, Label: q.label.text, Task: tasks.name(), Type: kind, Options: []domain.DraftOption{}, Blanks: []domain.DraftBlank{}, Points: defaultPoints, Source: nonNil(q.source)}
 	out.Origins = domain.Origins{Type: domain.InferredStructure, Prompt: domain.SourceExplicit, Options: domain.SourceExplicit, Answer: domain.SourceExplicit, Points: domain.Defaulted}
@@ -244,10 +288,19 @@ func (b *builder) question(q *questionBuilder) domain.DraftQuestion {
 		if out.Answer.State == domain.AnswerKnown && len(out.Answer.OptionIDs) > 1 && kind == singleChoice {
 			out.Type = multipleChoice
 		}
+		if n := q.instructed(selectCountOf); n >= 2 && kind != trueFalse {
+			out.Type, out.SelectCount = multipleChoice, &n
+		}
+	case tfng:
+		out.Options, out.Origins.Options = tfngOptions(q.id), domain.InferredStructure
+		out.Answer = tfngAnswer(out.Options, q.keys)
 	case fillBlank:
 		out.Blanks, out.Answer = blanks(gaps, q.keys, b.blankKeys[q])
 	case shortAnswer:
 		out.Answer = textAnswer(q.keys)
+		if n := q.instructed(wordLimitOf); n > 0 {
+			out.MaxWords = &n
+		}
 	default:
 		out.Options, out.Origins.Options = b.options(q, kind)
 		out.Answer = unresolved(q.keys)
@@ -307,6 +360,8 @@ func decideType(q *questionBuilder, tasks taskSet, gaps int, values []keyValue) 
 		return trueFalse
 	case len(q.options) >= 1:
 		return singleChoice
+	case tasks.has(taskTFNG):
+		return tfng
 	case q.rules.text && anyValue(values, isNotGiven):
 		return shortAnswer
 	case tasks.has(taskTrueFalse) || anyValue(values, isTrueFalseWord):
@@ -344,6 +399,38 @@ func trueFalseValue(v string) (string, bool) {
 		return "F", true
 	}
 	return "", false
+}
+
+// tfngValue reads a True / False / Not given key: TRUE, FALSE or NOT GIVEN, T, F or NG, or the Vietnamese words.
+func tfngValue(v string) (string, bool) {
+	if value, ok := trueFalseValue(v); ok {
+		return value, true
+	}
+	switch strings.Join(strings.Fields(strings.ToLower(strings.Trim(v, " ."))), " ") {
+	case "ng", "not given", "không có thông tin":
+		return "NG", true
+	}
+	return "", false
+}
+
+// tfngOptions are a tfng question's three options in the bank's fixed order: True, False, Not given.
+func tfngOptions(questionID string) []domain.DraftOption {
+	return []domain.DraftOption{
+		{ID: identity(questionID, "option", "T"), Label: "T", Content: plainContent("True")},
+		{ID: identity(questionID, "option", "F"), Label: "F", Content: plainContent("False")},
+		{ID: identity(questionID, "option", "NG"), Label: "NG", Content: plainContent("Not given")},
+	}
+}
+
+// tfngAnswer settles a tfng key; a value that is not one of the three is unusable, so the teacher marks it.
+func tfngAnswer(options []domain.DraftOption, values []keyValue) domain.DraftAnswer {
+	return settle(values, func(v string) (string, bool) {
+		value, ok := tfngValue(v)
+		if !ok {
+			return "", false
+		}
+		return optionByLabel(options, value), true
+	}, func(a *domain.DraftAnswer, normalized string) { a.OptionIDs = []string{normalized} })
 }
 
 func isTrueFalseWord(v string) bool {

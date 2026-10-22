@@ -23,7 +23,7 @@ const (
 var (
 	pointsPattern = regexp.MustCompile(`^\d{1,6}(\.\d{1,2})?$`)
 	gapPattern    = regexp.MustCompile(`^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`)
-	questionTypes = []string{string(questions.SingleChoice), string(questions.MultipleChoice), string(questions.TrueFalse), string(questions.FillBlank), string(questions.ShortAnswer), UnsupportedType}
+	questionTypes = []string{string(questions.SingleChoice), string(questions.MultipleChoice), string(questions.TrueFalse), string(questions.FillBlank), string(questions.ShortAnswer), string(questions.TFNG), UnsupportedType}
 	origins       = []Origin{SourceExplicit, InferredStructure, Defaulted, TeacherEntered}
 )
 
@@ -90,6 +90,8 @@ func (c *editChecker) question(q DraftQuestion) {
 	c.claim(q.ID)
 	c.check(runes(q.Label) <= 32 && runes(q.Task) <= 32 && slices.Contains(questionTypes, q.Type) && pointsPattern.MatchString(q.Points))
 	c.check(len(q.Options) <= maxOptions && len(q.Blanks) <= maxBlanks && len(q.Source) <= maxMembers)
+	c.check(q.SelectCount == nil || (*q.SelectCount >= 2 && *q.SelectCount <= questions.MaxSelectCount))
+	c.check(q.MaxWords == nil || (*q.MaxWords >= 1 && *q.MaxWords <= questions.MaxWordsLimit))
 	c.check(validOrigin(q.Origins.Type) && validOrigin(q.Origins.Prompt) && validOrigin(q.Origins.Options) && validOrigin(q.Origins.Answer) && validOrigin(q.Origins.Points))
 	_, err := content.Parse(q.Prompt)
 	c.check(err == nil)
