@@ -140,10 +140,11 @@ it("shows matching as pairs against the key", () => {
       }}
     />,
   );
-  expect(screen.getAllByText("Matched to i Harbour")).toHaveLength(2);
+  expect(screen.getByText("Matched to i · Harbour · correct")).toBeVisible();
+  expect(screen.getByText("Matched to i · Harbour")).toBeVisible();
   expect(screen.getByText("Not matched")).toBeVisible();
-  expect(screen.getByText("Key: ii Market")).toBeVisible();
-  expect(screen.getAllByText(/^Key:/)).toHaveLength(2);
+  expect(screen.getByText("Correct answer: ii · Market")).toBeVisible();
+  expect(screen.getAllByText(/^Correct answer:/)).toHaveLength(2);
 });
 
 it("shows an essay's text, word count, band and criteria", () => {
@@ -201,7 +202,7 @@ it("writes a paper's band where the server gives one, else its points", () => {
   const vi = i18n.getFixedT("vi");
   expect(
     paperScoreText({ earned: 6, total: 9, pendingManual: 0, band: 6 }, "en", en),
-  ).toBe("6.0 band");
+  ).toBe("Band 6.0");
   expect(
     paperScoreText({ earned: 6.5, total: 9, pendingManual: 0, band: 6.5 }, "vi", vi),
   ).toBe("Band 6,5");

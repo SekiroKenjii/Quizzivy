@@ -249,7 +249,7 @@ func (b *builder) draft() domain.Draft {
 		if section.Title == "" {
 			section.Title = b.exam.rangeTitle(s)
 		}
-		b.flagLongInstruction(id, s)
+		b.flagPassageInInstruction(id, s)
 		for _, it := range s.items {
 			if it.group != nil {
 				g := b.group(it.group)
@@ -264,20 +264,33 @@ func (b *builder) draft() domain.Draft {
 	return d
 }
 
-// flagLongInstruction points the teacher at a heading's instruction that took a line reading like a passage, when
-// questions follow it with no passage of their own: the line may be the passage (QC-R6GRM-2, D-073). It is
-// informational, so a long instruction that is really one costs nothing.
-func (b *builder) flagLongInstruction(section string, s *sectionBuilder) {
+// flagPassageInInstruction points the teacher at an instruction that may hold passage text: one that took a line
+// reading like a passage, when questions follow it with no passage of their own (QC-R6GRM-2, D-073), or one that
+// kept a Vietnamese line the grammar cannot read either way, whatever follows it (D-075). It is informational, so an
+// instruction that is really one costs nothing.
+func (b *builder) flagPassageInInstruction(section string, s *sectionBuilder) {
 	for _, it := range s.items {
 		g := it.group
-		if g == nil || len(g.prose) == 0 || len(g.stimulus) > 0 {
+		if g == nil {
+			continue
+		}
+		var lines []segment
+		if len(g.stimulus) == 0 {
+			lines = slices.Clone(g.prose)
+		}
+		for _, j := range g.joined {
+			if !slices.Contains(lines, j) {
+				lines = append(lines, j)
+			}
+		}
+		if len(lines) == 0 {
 			continue
 		}
 		var refs []domain.SourceRef
-		for _, p := range g.prose {
+		for _, p := range lines {
 			refs = append(refs, p.refs()...)
 		}
-		b.notice(domain.CodeLongInstruction, domain.Informational, section, "", len(g.prose), refs)
+		b.notice(domain.CodePassageInInstruction, domain.Informational, section, "", len(lines), refs)
 	}
 }
 

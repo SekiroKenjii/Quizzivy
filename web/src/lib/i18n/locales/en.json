@@ -4330,7 +4330,8 @@
     "pendingNote_one": "{{count}} question needs your mark.",
     "pendingNote_other": "{{count}} questions need your mark.",
     "noQuestions": "This paper has no questions.",
-    "questionMeta": "Question {{n}} · {{type}} · {{points}} pts",
+    "questionMeta_one": "Question {{n}} · {{type}} · {{count}} pt",
+    "questionMeta_other": "Question {{n}} · {{type}} · {{count}} pts",
     "sampleAnswer": "Sample answer — only you can see this",
     "attemptOf": "attempt {{n}}/{{total}}",
     "submittedAt": "submitted {{time}}",
@@ -4349,7 +4350,8 @@
       "partial": "Partly correct",
       "pending": "To grade",
       "unanswered": "Unanswered",
-      "removed": "Removed"
+      "removed": "Removed",
+      "banded": "Graded on a band"
     },
     "studentAnswer": "Student's answer",
     "unanswered": "The student didn't answer this question.",
@@ -4377,11 +4379,12 @@
     "overLimit": "Over the word limit ({{words}} of {{max}})",
     "notMatched": "Not matched",
     "matchedTo": "Matched to {{choice}}",
-    "matchKey": "Key: {{choice}}",
+    "matchKey": "Correct answer: {{choice}}",
+    "matchedRight": "Matched to {{choice}} · correct",
     "essayBand": "Band {{band}}",
     "chooseCount": "Choose {{n}} · {{correct}} of {{n}} picks correct",
     "chooseOver": "Choose {{n}} · {{picked}} picked, more than {{n}}, so none count",
-    "paperBand": "{{band}} band"
+    "paperBand": "Band {{band}}"
   },
   "timeline": {
     "loadFailed": "Couldn't load this attempt's timeline.",
@@ -4533,7 +4536,8 @@
     "verdict": {
       "correct": "Correct",
       "wrong": "Wrong",
-      "partial": "Partly correct"
+      "partial": "Partly correct",
+      "banded": "Graded on a band"
     },
     "points": "{{earned}} / {{total}}",
     "waiting": "Waiting",
@@ -5312,9 +5316,9 @@
           "title": "An option refers to another option",
           "help": "This option refers to another option by its letter, such as “Both A and B”, which breaks if the options are shuffled. Reword the option, or confirm if you won't shuffle this question's options."
         },
-        "LONG_INSTRUCTION": {
-          "title": "This instruction is long",
-          "help": "If part of it is a reading passage, move it into the section's passage."
+        "PASSAGE_IN_INSTRUCTION": {
+          "title": "This instruction may hold passage text",
+          "help": "If part of this instruction is passage text, move it into the section's passage."
         },
         "COLORED_TEXT_IN_CONTENT": {
           "title": "Coloured text inside a question",

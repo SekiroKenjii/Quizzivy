@@ -120,6 +120,14 @@ const vi = {
   leavePartialBody:
     "Bộ tiêu chí chưa cho đủ band thì không lưu được, nên rời trang sẽ bỏ band và nhận xét của mọi bài luận còn chấm dở. Nhận xét và điểm của câu trả lời đang mở vẫn được lưu trước khi rời.",
   dropBandsAndLeave: "Bỏ band dở và rời đi",
+  reviewLeave: {
+    title: "Rời trang khi điểm chưa lưu?",
+    body: "Điểm, band hoặc nhận xét bạn vừa cho ở đây chưa được lưu. Rời trang sẽ bỏ chúng.",
+    confirm: "Rời đi",
+  },
+  gradedElsewhere:
+    "Câu trả lời này vừa được chấm ở nơi khác (tab khác hoặc giáo viên khác). Lưu sẽ thay điểm đó.",
+  showThatGrade: "Xem điểm đó",
   gradeError: {
     GRADE_NEEDS_BAND: "Chọn band cho bài luận này.",
     GRADE_CRITERIA_INCOMPLETE:
@@ -264,6 +272,14 @@ const en = {
   leavePartialBody:
     "A rubric without a band on every criterion can’t be saved, so leaving drops the bands and comment of any essay left part-marked. The open answer’s comment and score are saved before you go.",
   dropBandsAndLeave: "Drop those bands and leave",
+  reviewLeave: {
+    title: "Leave with unsaved marks?",
+    body: "The score, band or comment you gave here is not saved. Leaving drops it.",
+    confirm: "Leave",
+  },
+  gradedElsewhere:
+    "This answer was just graded elsewhere (another tab or teacher). Saving replaces that grade.",
+  showThatGrade: "Show that grade",
   gradeError: {
     GRADE_NEEDS_BAND: "Choose a band for this essay.",
     GRADE_CRITERIA_INCOMPLETE:

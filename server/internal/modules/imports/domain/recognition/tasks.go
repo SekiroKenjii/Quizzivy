@@ -51,7 +51,7 @@ var taskNames = []struct {
 }
 
 var (
-	trueFalseTask = regexp.MustCompile(`(?i)true\s*(?:or|/)\s*false|\bT\s*/\s*F\b|đúng\s*(?:hay|hoặc|/)\s*sai`)
+	trueFalseTask = regexp.MustCompile(`(?i)true\s*(?:\(T\)\s*)?(?:or|/)\s*false|\bT\s*/\s*F\b|đúng\s*(?:\([TĐ]\)\s*)?(?:hay|hoặc|/)\s*sai`)
 	tfngTask      = regexp.MustCompile(`(?is)\btrue\b.{0,80}?\bfalse\b.{0,80}?\bnot\s+given\b|\bT\s*[/,]\s*F\s*(?:[/,]|\bor\b)\s*NG\b|(?:đúng|dung).{0,40}?sai.{0,40}?(?:không|khong)\s+(?:có|co)\s+(?:thông|thong)\s+tin`)
 )
 
@@ -197,12 +197,15 @@ func declarative(rest string) bool {
 
 var (
 	promise = regexp.MustCompile(`(?i)\band\s+you(?:'ll|\s+(?:will|would|can|could|may|might)\b)`)
-	// vietnameseClause ends a Vietnamese first clause at a comma or a semicolon: a predicate in a later clause ("Điền
-	// vào chỗ trống, mỗi chỗ trống là một từ") belongs to the instruction (QC-R6GRM-6). A "và" does not end it, since
-	// it often joins a compound subject ("Viết nhật ký và đọc sách là…", QC-R6GRM-10).
-	vietnameseClause = regexp.MustCompile(`[,;]`)
-	taskPromise      = regexp.MustCompile(`(?i)\b(?:answers?|questions?)\b`)
-	vietnameseMarks  = [][]string{{"là"}, {"giúp"}, {"khiến"}, {"ngày", "càng"}}
+	// vietnameseClause ends a Vietnamese first clause at a comma, a semicolon or a joining "và"/"rồi": a predicate in a
+	// later clause ("Điền vào chỗ trống, mỗi chỗ trống là một từ", "Đọc đoạn văn và chọn những câu là ý chính") belongs
+	// to the instruction (QC-R6GRM-6, QC-R6GRM-13). A compound subject ("Viết nhật ký và đọc sách là…") reads the same,
+	// so the line stays the instruction and the draft points at it (vietnameseJoined, QC-R6GRM-10, D-075).
+	vietnameseClause = regexp.MustCompile(`[,;]|\s(?:và|rồi)\s`)
+	// vietnamesePunctuation ends a clause at a comma or a semicolon only.
+	vietnamesePunctuation = regexp.MustCompile(`[,;]`)
+	taskPromise           = regexp.MustCompile(`(?i)\b(?:answers?|questions?)\b`)
+	vietnameseMarks       = [][]string{{"là"}, {"giúp"}, {"khiến"}, {"ngày", "càng"}}
 	// vietnameseAsks holds the question words that make a sentence the task's question ("… là từ nào"), and the word
 	// that makes "là" a gloss ("có nghĩa là"), not a predicate.
 	vietnameseAsks = map[string]bool{"nào": true, "gì": true, "ai": true, "đâu": true, "nghĩa": true}
@@ -234,8 +237,30 @@ func startsLower(word string) bool {
 // whole words (Go's \b only knows ASCII letters, so "là" inside "làm" must not count), and asks nothing: a sentence
 // with a question word or a gloss ("Tìm từ khác loại là từ nào", "Chọn từ có nghĩa là …") is the task.
 func vietnamesePredicate(sentence string) bool {
+	return vietnamesePredicateBefore(sentence, vietnameseClause)
+}
+
+// vietnameseJoined reports whether text, an imperative-led line, holds a Vietnamese predicate only after a joining
+// "và"/"rồi" in its first clause: a second command ("Đọc đoạn văn và chọn những câu là ý chính") or a passage with a
+// compound subject ("Viết nhật ký và đọc sách là…"). The grammar cannot tell them apart, so the line stays the
+// instruction and the draft points at it (D-075). A line that names an answer format is an instruction whatever its
+// grammar, so it is not pointed at (QC-R6GRM-20).
+func vietnameseJoined(text string) bool {
+	m := imperative.FindStringSubmatchIndex(text)
+	if m == nil {
+		return false
+	}
+	sentence := text[m[2]:]
+	if i := strings.IndexAny(sentence, ".?!:"); i >= 0 {
+		sentence = sentence[:i]
+	}
+	return !answerFormat(text) && !vietnamesePredicateBefore(sentence, vietnameseClause) && vietnamesePredicateBefore(sentence, vietnamesePunctuation)
+}
+
+// vietnamesePredicateBefore is vietnamesePredicate with the first clause ending at end.
+func vietnamesePredicateBefore(sentence string, end *regexp.Regexp) bool {
 	clause := " " + norm.NFC.String(strings.ToLower(sentence)) + " "
-	if loc := vietnameseClause.FindStringIndex(clause); loc != nil {
+	if loc := end.FindStringIndex(clause); loc != nil {
 		clause = clause[:loc[0]]
 	}
 	words := strings.Fields(clause)

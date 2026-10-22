@@ -48,6 +48,17 @@ describe("verdict", () => {
     expect(verdict(choice(1, AB, [0], { earned: 0 }), OPEN)).toBe("wrong");
   });
 
+  it("is banded for an essay marked on a band, never partly correct", () => {
+    const banded = essay(1, "Viết.", "Đã viết.", {
+      points: 9,
+      pendingManual: false,
+      earned: 6,
+      band: 6,
+    });
+    expect(verdict(banded, OPEN)).toBe("banded");
+    expect(verdict(banded, CLOSED)).toBe("unknown");
+  });
+
   it("is waiting while the teacher has not graded, whatever the policy shows", () => {
     const waiting = essay(1, "Viết một câu.", "Một câu.");
     expect(verdict(waiting, OPEN)).toBe("waiting");
