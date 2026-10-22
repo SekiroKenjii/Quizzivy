@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { QuestionProse } from "@/components/shared/content/QuestionProse";
 import { PromptMedia } from "@/features/take-test/components/PromptMedia";
 import { QuestionSheet } from "@/features/take-test/components/QuestionSheet";
@@ -91,6 +91,23 @@ describe("media in a student's prompt", () => {
       "alt",
       "",
     );
+  });
+
+  it("tells a student an expired image did not load and keeps its alt text", () => {
+    const { container } = sheet({
+      ...question(
+        [text("Look."), { type: "image", assetId: MAP, alt: "A map of the island" }],
+        "Look.\n\nA map of the island",
+      ),
+      promptAssets: [image],
+    });
+
+    fireEvent.error(container.querySelector(`img[src="${image.url}"]`)!);
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Hình ảnh chưa tải được. Hãy thử lại.",
+    );
+    expect(screen.getByText("A map of the island")).toBeInTheDocument();
   });
 
   it("shows the alt text when the reader was not signed the file", () => {

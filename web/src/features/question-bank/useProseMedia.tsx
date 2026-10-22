@@ -4,6 +4,7 @@ import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
   insertProseMedia,
+  mediaRoom,
   placeAudioMarker,
   removeAudioMarker,
   type MediaSource,
@@ -225,7 +226,9 @@ export function useProseMedia({
         notify.error(t("contentEditor.media.onlyImages"));
         return;
       }
-      send(images, { kind: "image", field, editor });
+      const room = mediaRoom(editor);
+      if (images.length > room) notify.error(t("contentEditor.media.refused"));
+      if (room > 0) send(images.slice(0, room), { kind: "image", field, editor });
     },
     register: (field, editor) => {
       if (editor) editors.current.set(field, editor);

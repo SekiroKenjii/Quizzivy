@@ -12,6 +12,7 @@ import {
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
 import { useProseMedia } from "@/features/question-bank/useProseMedia";
+import { useFileDrop } from "@/hooks/useFileDrop";
 import "@/lib/i18n";
 
 const RECORDING: MediaAsset = {
@@ -128,5 +129,38 @@ describe("a page's prose media host", () => {
       "file",
     );
     expect(screen.queryByLabelText("Chọn tệp từ máy")).toBeNull();
+  });
+
+  it("keeps a file dropped into the text from the page's media drop", async () => {
+    const field = vi.fn();
+    function MediaFieldDrop() {
+      useFileDrop(field);
+      return null;
+    }
+    const elementFromPoint = document.elementFromPoint;
+    document.elementFromPoint = () => null;
+    try {
+      render(
+        <QueryClientProvider client={new QueryClient()}>
+          <Page onChange={() => undefined} />
+          <MediaFieldDrop />
+        </QueryClientProvider>,
+      );
+      const text = await screen.findByRole("textbox", { name: "Đề bài" });
+      const drop = new Event("drop", { bubbles: true, cancelable: true });
+      Object.defineProperty(drop, "dataTransfer", {
+        value: {
+          types: ["Files"],
+          files: [new File(["x"], "map.png", { type: "image/png" })],
+        },
+      });
+      Object.assign(drop, { clientX: 0, clientY: 0 });
+      text.dispatchEvent(drop);
+
+      expect(drop.defaultPrevented).toBe(true);
+      expect(field).not.toHaveBeenCalled();
+    } finally {
+      document.elementFromPoint = elementFromPoint;
+    }
   });
 });

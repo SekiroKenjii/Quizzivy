@@ -190,9 +190,15 @@ describe("the toolbar's Image and Audio", () => {
 
     await user.click(await screen.findByRole("button", { name: "Âm thanh" }));
     expect(await screen.findByText("Gỡ hình ảnh trước.")).toBeInTheDocument();
-    expect(
-      screen.getByRole("menuitem", { name: /Tải lên từ thiết bị/ }),
-    ).toHaveAttribute("aria-disabled", "true");
+    const upload = screen.getByRole("menuitem", { name: /Tải lên từ thiết bị/ });
+    expect(upload).toHaveAttribute("aria-disabled", "true");
+    expect(upload.className.split(/\s+/)).toEqual(
+      expect.arrayContaining([
+        "data-[disabled]:opacity-100",
+        "data-[disabled]:text-foreground/50",
+      ]),
+    );
+    expect(upload.className).not.toContain("opacity-45");
   });
 
   it("are not offered where no page hosts media", async () => {

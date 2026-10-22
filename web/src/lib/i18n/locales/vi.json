@@ -2593,6 +2593,7 @@
       "placeholderMismatch": "Ký hiệu chỗ trống chưa khớp.",
       "optionContent": "Định dạng phương án không hợp lệ hoặc không khớp nội dung văn bản.",
       "questionContent": "Nội dung có định dạng không hợp lệ hoặc không khớp văn bản.",
+      "markerNeedsAudio": "Vị trí âm thanh trong nội dung cần tệp âm thanh của câu hỏi. Hãy thêm trong mục Media của câu hỏi hoặc gỡ vị trí này.",
       "pointPrecision": "Điểm chỉ được có tối đa hai chữ số thập phân.",
       "pointsTooLarge": "Điểm tối đa là 999999,99.",
       "trueFalseCount": "Câu đúng/sai phải có đúng hai phương án.",
@@ -3951,6 +3952,7 @@
     "transcript": "Nội dung bài nghe"
   },
   "takeTest": {
+    "imageUnavailable": "Hình ảnh chưa tải được. Hãy thử lại.",
     "openPassage": "Mở ngữ liệu",
     "openRecording": "Mở bài nghe",
     "drawerHint": "Vuốt sang trái để quay lại câu hỏi",
@@ -4761,7 +4763,7 @@
       "questionAudio": "Âm thanh của câu hỏi",
       "questionAudioHint": "{{name}} · phát tại đây theo giới hạn số lần nghe của câu hỏi",
       "questionAudioMissing": "Câu hỏi chưa có âm thanh. Hãy thêm trong mục Media của câu hỏi hoặc gỡ mục này.",
-      "pasteOnItsOwn": "Hãy thêm từng hình bằng nút Hình ảnh."
+      "pasteOnItsOwn": "Dán hoặc thả riêng từng hình ảnh để tải lên."
     }
   },
   "groups": {

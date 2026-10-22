@@ -216,7 +216,7 @@ test("bank leaves pasted images out unloaded, says so, and takes only image file
   const preview = page.getByRole("dialog", { name: "Xem trước nội dung sau khi dán" });
   await expect(
     preview.getByText(
-      "Đã bỏ 2 hình ảnh trong nội dung sao chép. Hãy thêm từng hình bằng nút Hình ảnh.",
+      "Đã bỏ 2 hình ảnh trong nội dung sao chép. Dán hoặc thả riêng từng hình ảnh để tải lên.",
       { exact: true },
     ),
   ).toBeVisible();

@@ -169,7 +169,9 @@ function Editor({
     },
     onError: (cause) =>
       setError(
-        cause instanceof ApiError ? cause.message : t("questionEditor.saveFailed"),
+        cause instanceof ApiError
+          ? (contentRefusal(cause) ?? cause.message)
+          : t("questionEditor.saveFailed"),
       ),
   });
 
@@ -335,4 +337,10 @@ function Editor({
       />
     </div>
   );
+}
+
+function contentRefusal(cause: ApiError): string | null {
+  const reason =
+    cause.details?.["promptContent"] ?? cause.details?.["explanationContent"];
+  return typeof reason === "string" ? reason : null;
 }

@@ -45,7 +45,12 @@ export function PromptMedia({
     if (node.type === "image")
       return (
         <figure className="my-3">
-          <ContentImage src={file.url} alt={node.alt} onRetry={onRetry} />
+          <ContentImage
+            src={file.url}
+            alt={node.alt}
+            onRetry={onRetry}
+            failure={t("takeTest.imageUnavailable")}
+          />
         </figure>
       );
     return (

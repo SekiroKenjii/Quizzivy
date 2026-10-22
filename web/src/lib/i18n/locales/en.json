@@ -2593,6 +2593,7 @@
       "placeholderMismatch": "The blank markers do not match.",
       "optionContent": "Option formatting is invalid or does not match its text.",
       "questionContent": "Rich content is invalid or does not match its text.",
+      "markerNeedsAudio": "The audio's place in the prompt needs the question's own audio. Add it under the question's Media, or remove the place.",
       "pointPrecision": "Points can have at most two decimal places.",
       "pointsTooLarge": "Points can be at most 999999.99.",
       "trueFalseCount": "True/false requires exactly two options.",
@@ -3951,6 +3952,7 @@
     "transcript": "Recording transcript"
   },
   "takeTest": {
+    "imageUnavailable": "This image did not load. Try again.",
     "openPassage": "Open the passage",
     "openRecording": "Open the audio",
     "drawerHint": "Swipe left to go back to the question",
@@ -4761,7 +4763,7 @@
       "questionAudio": "Question audio",
       "questionAudioHint": "{{name}} · plays here with the question's play limit",
       "questionAudioMissing": "The question has no audio. Add it under Question media or remove this.",
-      "pasteOnItsOwn": "Add each one with Image."
+      "pasteOnItsOwn": "Paste or drop an image on its own to upload it."
     }
   },
   "groups": {

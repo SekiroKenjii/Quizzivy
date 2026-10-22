@@ -11,6 +11,7 @@ import type { Node as EditorNode } from "@tiptap/pm/model";
 import { NodeSelection, type EditorState } from "@tiptap/pm/state";
 import type { components } from "@/lib/api/schema";
 import type { ProseField, QuestionMediaBlock } from "../questionContent";
+import { QUESTION_MEDIA_LIMITS } from "../model";
 
 export type MediaAsset = components["schemas"]["MediaAsset"];
 
@@ -77,6 +78,15 @@ function markerPosition(state: EditorState): number | null {
     if (found === null && isMarker(node)) found = offset;
   });
   return found;
+}
+
+/** mediaRoom is how many more media blocks, the marker among them, an editor's document takes. */
+export function mediaRoom(editor: Editor): number {
+  let used = 0;
+  editor.state.doc.forEach((node) => {
+    if (node.type.name === "proseImage" || node.type.name === "proseAudio") used += 1;
+  });
+  return Math.max(0, QUESTION_MEDIA_LIMITS.blocks - used);
 }
 
 /** hasAudioMarker reports whether an editor's prompt holds the marker that places the question's audio. */

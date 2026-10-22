@@ -115,13 +115,13 @@ export function ProseMediaMenu({
           <DropdownMenuItem
             key={item.key}
             disabled={item.disabled ?? false}
-            className="items-start py-2"
+            className="group data-[disabled]:text-foreground/50 items-start py-2 data-[disabled]:opacity-100"
             onSelect={item.run}
           >
             <item.icon aria-hidden="true" className="mt-px size-4!" />
             <span className="min-w-0">
               <span className="block text-[13px] font-medium">{item.label}</span>
-              <span className="text-muted-fg block text-[11.5px] leading-normal">
+              <span className="text-muted-fg group-data-[disabled]:text-foreground/40 block text-[11.5px] leading-normal">
                 {item.hint}
               </span>
             </span>

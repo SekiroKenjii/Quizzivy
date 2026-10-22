@@ -3,6 +3,7 @@ import {
   questionExplanationContentSchema,
   questionPromptContentSchema,
   isQuestionPromptContent,
+  placesAudio,
 } from "@/components/shared/content/questionContent";
 import { optionContentSchema } from "@/components/shared/content/optionContent";
 import { contentPlainText } from "@/components/shared/content/plainText";
@@ -154,6 +155,17 @@ export const questionSchema = z
   })
   .superRefine((value, context) => {
     validateStructure(value, context);
+    if (
+      value.mediaAssetId === null &&
+      value.promptContent != null &&
+      isQuestionPromptContent(value.promptContent) &&
+      placesAudio(value.promptContent)
+    )
+      context.addIssue({
+        code: "custom",
+        path: ["promptContent"],
+        message: "questionEditor.errors.markerNeedsAudio",
+      });
     for (const [field, text] of [
       ["promptContent", value.prompt],
       ["explanationContent", value.explanation],
