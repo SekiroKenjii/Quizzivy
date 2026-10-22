@@ -5886,6 +5886,18 @@ components:
             The essays' points-weighted mean band, rounded to 0.5. Present only
             when every scored question on the paper is a graded essay, and on a
             student's payload only under `review.showScore`.
+        gradedBy:
+          type: object
+          required: [name]
+          additionalProperties: false
+          description: |
+            Who graded the paper, on the student's result only (D-072). Present
+            only under `review.showScore`, only when every hand-graded answer
+            was graded by the same account, and only while that account keeps
+            its name (it has not been anonymised). Otherwise absent. Name only:
+            no id, no avatar.
+          properties:
+            name: { type: string, minLength: 1, maxLength: 200 }
 
     Attempt:
       type: object
