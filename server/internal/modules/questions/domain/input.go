@@ -149,6 +149,9 @@ func (in Input) Validate(assetKind *string) error {
 	validateBlanks(in, errs)
 	validateMedia(in, assetKind, errs)
 	validateMediaAlt(in, assetKind, errs)
+	if err := in.ValidatePlacedAudio(assetKind); err != nil {
+		errs.Fields = append(errs.Fields, err.(*ValidationError).Fields...)
+	}
 
 	validateTypeFields(in, errs)
 
@@ -223,7 +226,7 @@ func validateBlanks(in Input, errs *ValidationError) {
 }
 
 func validateGapBindings(in Input, errs *ValidationError) {
-	document, err := content.ParseQuestionPrompt(in.PromptContent)
+	document, err := content.ParsePromptWithMedia(in.PromptContent)
 	if err != nil {
 		return
 	}

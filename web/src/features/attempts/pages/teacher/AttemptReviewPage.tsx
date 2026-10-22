@@ -38,12 +38,16 @@ import {
   gradeAttempt,
   type AdminQuestion,
   type AttemptReview,
+  type GradeItem,
   type ReviewAnswer,
 } from "../../api";
 import { monitorKey, reviewKey } from "../../keys";
 import { AnswerReview } from "../../components/AnswerReview";
 import { GradeByQuestion } from "../../components/GradeByQuestion";
 import { GradingCard } from "../../components/GradingCard";
+import { gradeFieldMessage } from "../../gradeErrors";
+import { handMarked } from "../../essayMark";
+import { paperScoreText } from "../../paperScore";
 import { DOT, type Verdict } from "../../components/answerStyles";
 
 type Tab = "paper" | "integrity";
@@ -64,6 +68,10 @@ export default function AttemptReviewPage() {
   const [picked, setCurrent] = useState<number | null>(null);
   const [pointsFor, setPointsFor] = useState<string | null>(null);
   const [failure, setFailure] = useState<string | null>(null);
+  const [fieldFailure, setFieldFailure] = useState<{
+    questionId: string;
+    message: string;
+  } | null>(null);
 
   const review = useQuery({
     queryKey: reviewKey(id),
@@ -73,21 +81,17 @@ export default function AttemptReviewPage() {
   const invalidate = () =>
     invalidateReview(queryClient, id, review.data?.attempt.assignmentId);
   const grade = useMutation({
-    mutationFn: ({
-      questionId,
-      points,
-      comment,
-    }: {
-      questionId: string;
-      points: number;
-      comment: string | null;
-    }) => gradeAttempt(id, [{ questionId, points, comment }]),
+    mutationFn: (item: GradeItem) => gradeAttempt(id, [item]),
+    onMutate: () => setFieldFailure(null),
     onSuccess: async () => {
       setFailure(null);
       await invalidate();
     },
-    onError: (cause) => {
-      setFailure(failureMessage(cause, t("review.saveFailed")));
+    onError: (cause, item) => {
+      const field = gradeFieldMessage(cause, item.questionId, t);
+      if (field !== null)
+        setFieldFailure({ questionId: item.questionId, message: field });
+      else setFailure(failureMessage(cause, t("review.saveFailed")));
       if (answerRemovedRefusal(cause)) void invalidate();
     },
   });
@@ -154,7 +158,7 @@ export default function AttemptReviewPage() {
     setPointsFor(null);
   };
 
-  const manualIds = questions.filter((q) => q.type === "short_answer").map((q) => q.id);
+  const manualIds = questions.filter((q) => handMarked(q.type)).map((q) => q.id);
   if (byQuestion && manualIds.length > 0) {
     const from = startManualId(question, manualIds);
     return (
@@ -192,6 +196,12 @@ export default function AttemptReviewPage() {
                   {scoreText(score.earned, score.total, locale, t).split("/")[0]}
                 </span>
                 <span className="text-muted-fg">/{score.total}</span>
+                {score.band != null && (
+                  <span className="text-muted-fg">
+                    {" · "}
+                    {paperScoreText(score, locale, t)}
+                  </span>
+                )}
               </span>
             )}
             {tab === "paper" && pending > 0 && gradable && (
@@ -347,25 +357,24 @@ export default function AttemptReviewPage() {
                 <Card id="review-answer" tabIndex={-1}>
                   <CardContent className="space-y-4">
                     <AnswerReview question={question} answer={answer} />
-                    {question.type === "short_answer" &&
-                      question.sampleAnswer != null && (
-                        <details open className="bg-muted rounded-lg border p-4">
-                          <summary className="text-muted-fg flex w-fit cursor-pointer items-center gap-1.5 rounded-sm text-xs">
-                            <Eye className="size-3.5" aria-hidden="true" />
-                            {t("review.sampleAnswer")}
-                          </summary>
-                          <p className="mt-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap">
-                            {question.sampleAnswer}
-                          </p>
-                          {question.explanation != null && (
-                            <QuestionProse
-                              className="text-muted-fg mt-2 text-xs"
-                              text={question.explanation}
-                              content={question.explanationContent}
-                            />
-                          )}
-                        </details>
-                      )}
+                    {handMarked(question.type) && question.sampleAnswer != null && (
+                      <details open className="bg-muted rounded-lg border p-4">
+                        <summary className="text-muted-fg flex w-fit cursor-pointer items-center gap-1.5 rounded-sm text-xs">
+                          <Eye className="size-3.5" aria-hidden="true" />
+                          {t("review.sampleAnswer")}
+                        </summary>
+                        <p className="mt-2.5 text-sm leading-relaxed [overflow-wrap:anywhere] whitespace-pre-wrap">
+                          {question.sampleAnswer}
+                        </p>
+                        {question.explanation != null && (
+                          <QuestionProse
+                            className="text-muted-fg mt-2 text-xs"
+                            text={question.explanation}
+                            content={question.explanationContent}
+                          />
+                        )}
+                      </details>
+                    )}
                     {question.audio && (
                       <AudioNote
                         question={question}
@@ -375,10 +384,10 @@ export default function AttemptReviewPage() {
                   </CardContent>
                 </Card>
 
-                {question.type === "short_answer" && answer?.answerRemoved === true && (
+                {handMarked(question.type) && answer?.answerRemoved === true && (
                   <RecordedGrade answer={answer} max={question.points} />
                 )}
-                {question.type === "short_answer" &&
+                {handMarked(question.type) &&
                   gradable &&
                   answer?.answerRemoved !== true && (
                     <GradingCard
@@ -386,19 +395,23 @@ export default function AttemptReviewPage() {
                       question={question}
                       answer={answer}
                       pending={grade.isPending}
-                      error={null}
+                      error={
+                        fieldFailure?.questionId === question.id
+                          ? fieldFailure.message
+                          : null
+                      }
                       focusPoints={pointsFor === question.id}
                       onPointsFocused={() => setPointsFor(null)}
-                      onSave={(points, comment) =>
+                      onSave={(marks, comment) =>
                         grade.mutate(
-                          { questionId: question.id, points, comment },
+                          { questionId: question.id, ...marks, comment },
                           { onSuccess: next },
                         )
                       }
                       onSkip={next}
                     />
                   )}
-                {question.type === "short_answer" && !gradable && (
+                {handMarked(question.type) && !gradable && (
                   <p className="text-muted-fg text-sm">
                     {t(live ? "review.notYetSubmitted" : "review.voided")}
                   </p>
@@ -478,7 +491,7 @@ function RailStats({ data }: Readonly<{ data: AttemptReview }>) {
   let manualTotal = 0;
   for (const q of questions) {
     const a = answers[q.id];
-    if (q.type === "short_answer") {
+    if (handMarked(q.type)) {
       manualTotal += q.points;
       manualEarned += a?.manualScore ?? 0;
     } else {
@@ -722,5 +735,5 @@ function startManualId(
   question: { readonly id: string; readonly type: string } | null,
   manualIds: readonly string[],
 ): string {
-  return question?.type === "short_answer" ? question.id : manualIds[0]!;
+  return question && handMarked(question.type) ? question.id : manualIds[0]!;
 }

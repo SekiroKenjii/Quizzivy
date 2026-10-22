@@ -63,7 +63,10 @@ func (s *Postgres) Replace(ctx context.Context, in domain.ReplaceInput) (domain.
 
 const replacementGroupJoins = ` FROM app.question_groups g LEFT JOIN app.test_sections s ON s.id=g.owner_section_id LEFT JOIN app.tests t ON t.id=s.test_id AND t.deleted_at IS NULL `
 const replacementGroupOwner = `CASE WHEN g.owner_section_id IS NULL THEN g.owner_id ELSE t.owner_id END`
-const replacementGroupsUsing = `g.id IN (SELECT group_id FROM app.group_recordings WHERE media_asset_id=$1 UNION SELECT group_id FROM app.group_stimulus_assets WHERE media_asset_id=$1 UNION SELECT context_group_id FROM app.questions WHERE media_asset_id=$1 AND context_group_id IS NOT NULL AND deleted_at IS NULL)`
+const replacementGroupsUsing = `g.id IN (SELECT group_id FROM app.group_recordings WHERE media_asset_id=$1 UNION SELECT group_id FROM app.group_stimulus_assets WHERE media_asset_id=$1 UNION SELECT context_group_id FROM app.questions WHERE media_asset_id=$1 AND context_group_id IS NOT NULL AND deleted_at IS NULL UNION SELECT q.context_group_id FROM app.question_media_references r JOIN app.questions q ON q.id=r.question_id WHERE r.media_asset_id=$1 AND q.context_group_id IS NOT NULL AND q.deleted_at IS NULL)`
+
+// replacementQuestionUses is a question that attaches the asset or shows it in its prompt or explanation (DG-109).
+const replacementQuestionUses = `(q.media_asset_id=$1 OR EXISTS (SELECT 1 FROM app.question_media_references r WHERE r.question_id=q.id AND r.media_asset_id=$1))`
 
 func replacementGroups(ctx context.Context, tx pgx.Tx, id, owner string) ([]string, error) {
 	rows, err := tx.Query(ctx, `SELECT g.id::text`+replacementGroupJoins+`WHERE `+replacementGroupOwner+`=$2::uuid AND `+replacementGroupsUsing+` ORDER BY g.id FOR UPDATE OF g`, id, owner)
@@ -73,7 +76,7 @@ func replacementGroups(ctx context.Context, tx pgx.Tx, id, owner string) ([]stri
 	return pgx.CollectRows(rows, pgx.RowTo[string])
 }
 func replacementQuestions(ctx context.Context, tx pgx.Tx, id, owner string, groups []string) ([]string, error) {
-	rows, err := tx.Query(ctx, `SELECT q.id::text FROM app.questions q WHERE q.media_asset_id=$1 AND q.deleted_at IS NULL AND ((q.context_group_id IS NULL AND q.owner_id=$2::uuid) OR q.context_group_id=ANY($3::uuid[])) ORDER BY q.id FOR UPDATE OF q`, id, owner, groups)
+	rows, err := tx.Query(ctx, `SELECT q.id::text FROM app.questions q WHERE `+replacementQuestionUses+` AND q.deleted_at IS NULL AND ((q.context_group_id IS NULL AND q.owner_id=$2::uuid) OR q.context_group_id=ANY($3::uuid[])) ORDER BY q.id FOR UPDATE OF q`, id, owner, groups)
 	if err != nil {
 		return nil, err
 	}
@@ -144,18 +147,19 @@ func replacementGraph(ctx context.Context, tx pgx.Tx, in domain.ReplaceInput, as
 	if _, err := tx.Exec(ctx, `UPDATE app.media_assets SET replaced_by=$2 WHERE id=$1`, in.ID, asset.ID); err != nil {
 		return result, err
 	}
-	rows, err := tx.Query(ctx, `UPDATE app.questions SET media_asset_id=$2 WHERE id=ANY($3::uuid[]) AND media_asset_id=$1 RETURNING context_group_id::text`, in.ID, asset.ID, questions)
+	rows, err := tx.Query(ctx, `UPDATE app.questions SET media_asset_id=$2 WHERE id=ANY($3::uuid[]) AND media_asset_id=$1 RETURNING id::text, context_group_id::text`, in.ID, asset.ID, questions)
 	if err != nil {
 		return result, err
 	}
-	changed := map[string]bool{}
+	changed, repointed := map[string]bool{}, map[string]bool{}
 	for rows.Next() {
+		var question string
 		var group *string
-		if err := rows.Scan(&group); err != nil {
+		if err := rows.Scan(&question, &group); err != nil {
 			rows.Close()
 			return result, err
 		}
-		result.Repointed.Questions++
+		repointed[question] = true
 		if group != nil {
 			changed[*group] = true
 		}
@@ -165,6 +169,10 @@ func replacementGraph(ctx context.Context, tx pgx.Tx, in domain.ReplaceInput, as
 	if err != nil {
 		return result, err
 	}
+	if err := repointQuestionProse(ctx, tx, in.ID, asset.ID, questions, repointed, changed); err != nil {
+		return result, err
+	}
+	result.Repointed.Questions = len(repointed)
 	if err := repointGroupRows(ctx, tx, in.ID, asset.ID, groups, changed); err != nil {
 		return result, err
 	}
@@ -212,6 +220,82 @@ func repointGroupRows(ctx context.Context, tx pgx.Tx, old, newID string, groups 
 		}
 	}
 	return nil
+}
+
+type replacementProse struct {
+	id                  string
+	group               *string
+	prompt, explanation []byte
+}
+
+// repointQuestionProse rewrites the live questions' prompts and explanations
+// that show the old asset to show the new one, and moves their reference rows
+// with them, as repointGroupContent does for a group's materials (DG-109). A
+// question counts once however many of its fields changed; frozen rows stay
+// as published.
+func repointQuestionProse(ctx context.Context, tx pgx.Tx, old, newID string, questions []string, repointed, changed map[string]bool) error {
+	rows, err := tx.Query(ctx, `SELECT q.id::text, q.context_group_id::text, q.prompt_content, q.explanation_content FROM app.questions q
+		WHERE q.id=ANY($2::uuid[]) AND EXISTS (SELECT 1 FROM app.question_media_references r WHERE r.question_id=q.id AND r.media_asset_id=$1) ORDER BY q.id`, old, questions)
+	if err != nil {
+		return err
+	}
+	shown, err := pgx.CollectRows(rows, func(row pgx.CollectableRow) (replacementProse, error) {
+		var p replacementProse
+		err := row.Scan(&p.id, &p.group, &p.prompt, &p.explanation)
+		return p, err
+	})
+	if err != nil {
+		return err
+	}
+	ids := make([]string, 0, len(shown))
+	for _, p := range shown {
+		prompt, err := rebindProse(content.ParsePromptWithMedia, p.prompt, old, newID)
+		if err != nil {
+			return err
+		}
+		explanation, err := rebindProse(content.ParseExplanationWithMedia, p.explanation, old, newID)
+		if err != nil {
+			return err
+		}
+		if _, err := tx.Exec(ctx, `UPDATE app.questions SET prompt_content=$2, explanation_content=$3 WHERE id=$1`, p.id, prompt, explanation); err != nil {
+			return err
+		}
+		ids = append(ids, p.id)
+		repointed[p.id] = true
+		if p.group != nil {
+			changed[*p.group] = true
+		}
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	if _, err := tx.Exec(ctx, `INSERT INTO app.question_media_references (question_id, field, media_asset_id, media_asset_kind)
+		SELECT question_id, field, $2, media_asset_kind FROM app.question_media_references WHERE question_id=ANY($3::uuid[]) AND media_asset_id=$1
+		ON CONFLICT DO NOTHING`, old, newID, ids); err != nil {
+		return err
+	}
+	_, err = tx.Exec(ctx, `DELETE FROM app.question_media_references WHERE question_id=ANY($2::uuid[]) AND media_asset_id=$1`, old, ids)
+	return err
+}
+
+// rebindProse is raw with the old asset named as the new one, under the
+// field's media rules; a document that does not name it is returned as stored.
+func rebindProse(parse func([]byte) (content.Document, error), raw []byte, old, newID string) ([]byte, error) {
+	if len(raw) == 0 {
+		return raw, nil
+	}
+	document, err := parse(raw)
+	if err != nil {
+		return nil, err
+	}
+	if !documentNames(document, old) {
+		return raw, nil
+	}
+	rewritten, err := document.WithAssetIDs(map[string]string{old: newID})
+	if err != nil {
+		return nil, err
+	}
+	return rewritten.MarshalJSON()
 }
 
 type replacementStimulus struct {
@@ -265,7 +349,7 @@ func documentNames(d content.Document, id string) bool {
 }
 func replacementLeft(ctx context.Context, tx pgx.Tx, id, owner string) (domain.ReplacementCounts, error) {
 	var counts domain.ReplacementCounts
-	err := tx.QueryRow(ctx, `SELECT count(*) FROM app.questions q LEFT JOIN app.question_groups g ON g.id=q.context_group_id LEFT JOIN app.test_sections s ON s.id=g.owner_section_id LEFT JOIN app.tests t ON t.id=s.test_id AND t.deleted_at IS NULL WHERE q.media_asset_id=$1 AND q.deleted_at IS NULL AND CASE WHEN q.context_group_id IS NULL THEN q.owner_id ELSE `+replacementGroupOwner+` END <> $2::uuid`, id, owner).Scan(&counts.Questions)
+	err := tx.QueryRow(ctx, `SELECT count(*) FROM app.questions q LEFT JOIN app.question_groups g ON g.id=q.context_group_id LEFT JOIN app.test_sections s ON s.id=g.owner_section_id LEFT JOIN app.tests t ON t.id=s.test_id AND t.deleted_at IS NULL WHERE `+replacementQuestionUses+` AND q.deleted_at IS NULL AND CASE WHEN q.context_group_id IS NULL THEN q.owner_id ELSE `+replacementGroupOwner+` END <> $2::uuid`, id, owner).Scan(&counts.Questions)
 	if err != nil {
 		return counts, err
 	}

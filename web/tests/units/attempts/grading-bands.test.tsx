@@ -1,4 +1,4 @@
-import { beforeEach, expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -41,6 +41,7 @@ const rubric = [
 let queue: GradingQueueItem[];
 let grades: unknown[];
 let refusal: { code: string; status: number } | null;
+let hold: Promise<void> | null;
 
 beforeEach(async () => {
   await act(async () => setLocale("en"));
@@ -48,6 +49,7 @@ beforeEach(async () => {
   queue = [essay];
   grades = [];
   refusal = null;
+  hold = null;
   server.use(
     http.get(`${BASE}/teacher/grading/queue`, () =>
       contractJson("/teacher/grading/queue", "get", 200, {
@@ -73,6 +75,7 @@ beforeEach(async () => {
     ),
     http.post(`${BASE}/teacher/attempts/:id/grade`, async ({ request }) => {
       grades.push(await request.json());
+      await hold;
       if (refusal)
         return HttpResponse.json(
           {
@@ -96,7 +99,10 @@ beforeEach(async () => {
 
 function mount() {
   const router = createMemoryRouter(
-    [{ path: "/teacher/grading", element: <GradingPage /> }],
+    [
+      { path: "/teacher/grading", element: <GradingPage /> },
+      { path: "/teacher", element: <p>Overview</p> },
+    ],
     { initialEntries: ["/teacher/grading"] },
   );
   render(
@@ -106,6 +112,7 @@ function mount() {
       <RouterProvider router={router} />
     </QueryClientProvider>,
   );
+  return router;
 }
 
 it("draws the thirteen bands, 3 to 9 in half steps, each with its key", async () => {
@@ -169,12 +176,20 @@ it("marks a rubric one criterion at a time, derives the band live, and saves onl
   const task = await screen.findByRole("group", { name: "Task achievement" });
   const coherence = screen.getByRole("group", { name: "Coherence and cohesion" });
   const next = screen.getByRole("button", { name: /Save & next/ });
-  expect(next).toBeDisabled();
+  expect(next).toHaveAttribute("aria-disabled", "true");
+  expect(next).toBeEnabled();
   expect(screen.getByText("Overall band: give every criterion a band")).toBeVisible();
 
   await user.click(within(task).getByRole("button", { name: "Give band 6.0" }));
   expect(grades).toEqual([]);
-  expect(next).toBeDisabled();
+  expect(next).toHaveAttribute("aria-disabled", "true");
+  // The paused button still says what is missing.
+  await user.click(next);
+  expect(
+    (await screen.findAllByText("Give every criterion a band first.")).length,
+  ).toBeGreaterThan(0);
+  expect(grades).toEqual([]);
+  await user.click(within(task).getByRole("button", { name: "Give band 6.0" }));
   // A key in a scale sets that scale and moves on to the next criterion.
   await user.keyboard("{Shift>}6{/Shift}");
   expect(within(task).getByRole("button", { name: "Give band 6.5" })).toHaveAttribute(
@@ -197,7 +212,7 @@ it("marks a rubric one criterion at a time, derives the band live, and saves onl
     ],
   });
   expect(screen.getByText("Overall band: 7.0")).toBeVisible();
-  await waitFor(() => expect(next).toBeEnabled());
+  await waitFor(() => expect(next).toHaveAttribute("aria-disabled", "false"));
 });
 
 it("sets the first criterion without a band when a key is pressed outside the scales", async () => {
@@ -218,6 +233,12 @@ it("sets the first criterion without a band when a key is pressed outside the sc
 });
 
 it("shows a refused grade beside the scales, in the reader's language", async () => {
+  const scrolled: Element[] = [];
+  const scroll = vi
+    .spyOn(Element.prototype, "scrollIntoView")
+    .mockImplementation(function (this: Element) {
+      scrolled.push(this);
+    });
   refusal = { code: "GRADE_CRITERIA_INCOMPLETE", status: 422 };
   queue = [{ ...essay, rubric }];
   const user = userEvent.setup({ delay: null });
@@ -234,9 +255,90 @@ it("shows a refused grade beside the scales, in the reader's language", async ()
   expect(alert).toHaveTextContent(
     "Give every criterion a band. If the rubric looks different, reload the page.",
   );
-  expect(
-    screen.getByRole("group", { name: "Task achievement" }).closest("fieldset"),
-  ).toContainElement(alert);
+  // A long rubric puts the message below the fold, so it is brought into view.
+  expect(scrolled).toContain(alert);
+  scroll.mockRestore();
+});
+
+it("asks before leaving a part-marked rubric, and leaves without its bands", async () => {
+  queue = [{ ...essay, rubric }];
+  const user = userEvent.setup({ delay: null });
+  const router = mount();
+  const task = await screen.findByRole("group", { name: "Task achievement" });
+  await user.click(within(task).getByRole("button", { name: "Give band 6.0" }));
+  await act(async () => void router.navigate("/teacher"));
+  const dialog = await screen.findByRole("dialog");
+  expect(dialog).toHaveTextContent("Leave with an unsaved score?");
+  expect(dialog).toHaveTextContent(
+    "A rubric without a band on every criterion can’t be saved, so leaving drops the bands and comment of any essay left part-marked. The open answer’s comment and score are saved before you go.",
+  );
+  await user.click(
+    within(dialog).getByRole("button", { name: "Drop those bands and leave" }),
+  );
+  expect(await screen.findByText("Overview")).toBeVisible();
+  expect(grades).toEqual([]);
+});
+
+it("still asks when the part-marked rubric is no longer the open answer", async () => {
+  const other = "018f0000-0000-7000-8000-00000000dd99";
+  queue = [
+    { ...essay, rubric },
+    { ...essay, questionId: other, questionNumber: 2 },
+  ];
+  const user = userEvent.setup({ delay: null });
+  const router = mount();
+  const task = await screen.findByRole("group", { name: "Task achievement" });
+  await user.click(within(task).getByRole("button", { name: "Give band 6.0" }));
+  (document.activeElement as HTMLElement | null)?.blur();
+  await user.keyboard("j");
+  await waitFor(() =>
+    expect(screen.queryByRole("group", { name: "Task achievement" })).toBeNull(),
+  );
+  await act(async () => void router.navigate("/teacher"));
+  expect(await screen.findByRole("dialog")).toHaveTextContent(
+    "any essay left part-marked",
+  );
+  await user.click(screen.getByRole("button", { name: "Stay" }));
+  expect(screen.queryByText("Overview")).toBeNull();
+});
+
+it("counts a refused band as unsaved, so leaving asks first", async () => {
+  refusal = { code: "GRADE_NEEDS_BAND", status: 422 };
+  const user = userEvent.setup({ delay: null });
+  const router = mount();
+  await user.click(await screen.findByRole("button", { name: "Give band 6.0" }));
+  await screen.findByRole("alert");
+  await act(async () => void router.navigate("/teacher"));
+  expect(await screen.findByRole("dialog")).toHaveTextContent(
+    "Leave with an unsaved score?",
+  );
+});
+
+it("keeps the last band pressed while a save is in flight and saves it after", async () => {
+  let open!: () => void;
+  hold = new Promise((resolve) => (open = resolve));
+  const user = userEvent.setup({ delay: null });
+  mount();
+  await screen.findByRole("group", { name: "Band" });
+  await user.keyboard("3");
+  await waitFor(() => expect(grades).toHaveLength(1));
+  await user.keyboard("45");
+  expect(screen.getByRole("button", { name: "Give band 5.0" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  hold = null;
+  open();
+  await waitFor(() => expect(grades).toHaveLength(2));
+  expect(grades[1]).toEqual({
+    items: [{ questionId: ESSAY_ID, band: 5, comment: null }],
+  });
+  await waitFor(() =>
+    expect(screen.getByRole("button", { name: "Give band 5.0" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    ),
+  );
 });
 
 it("names the bands in Vietnamese first", async () => {
@@ -246,4 +348,67 @@ it("names the bands in Vietnamese first", async () => {
   expect(
     screen.getByText("Phím 3–9 chọn band, Shift + phím cộng thêm nửa band"),
   ).toBeVisible();
+});
+
+it("drops only the part-marked bands: the open answer's comment is saved before leaving", async () => {
+  const other = "018f0000-0000-7000-8000-00000000dd99";
+  queue = [
+    { ...essay, rubric },
+    { ...essay, questionId: other, questionNumber: 2 },
+  ];
+  const user = userEvent.setup({ delay: null });
+  const router = mount();
+  const task = await screen.findByRole("group", { name: "Task achievement" });
+  await user.click(within(task).getByRole("button", { name: "Give band 6.0" }));
+  (document.activeElement as HTMLElement | null)?.blur();
+  await user.keyboard("j");
+  const band = await screen.findByRole("group", { name: "Band" });
+  await user.click(within(band).getByRole("button", { name: "Give band 7.0" }));
+  await waitFor(() => expect(grades).toHaveLength(1));
+  await user.type(screen.getByLabelText(/^Comment/), "Clear overview.");
+  await act(async () => void router.navigate("/teacher"));
+  const dialog = await screen.findByRole("dialog");
+  await user.click(
+    within(dialog).getByRole("button", { name: "Drop those bands and leave" }),
+  );
+  expect(await screen.findByText("Overview")).toBeVisible();
+  expect(grades).toEqual([
+    { items: [{ questionId: other, band: 7, comment: null }] },
+    { items: [{ questionId: other, band: 7, comment: "Clear overview." }] },
+  ]);
+});
+
+it("keeps the part-marked bands when the open answer's save is refused", async () => {
+  const other = "018f0000-0000-7000-8000-00000000dd99";
+  queue = [
+    { ...essay, rubric },
+    { ...essay, questionId: other, questionNumber: 2 },
+  ];
+  const user = userEvent.setup({ delay: null });
+  const router = mount();
+  const task = await screen.findByRole("group", { name: "Task achievement" });
+  await user.click(within(task).getByRole("button", { name: "Give band 6.0" }));
+  (document.activeElement as HTMLElement | null)?.blur();
+  await user.keyboard("j");
+  await screen.findByRole("group", { name: "Band" });
+  // A comment with no band cannot be saved.
+  await user.type(screen.getByLabelText(/^Comment/), "Needs a band.");
+  await act(async () => void router.navigate("/teacher"));
+  const dialog = await screen.findByRole("dialog");
+  await user.click(
+    within(dialog).getByRole("button", { name: "Drop those bands and leave" }),
+  );
+  expect(
+    await within(dialog).findByText("Pick a band first (keys 3–9)."),
+  ).toBeVisible();
+  expect(screen.queryByText("Overview")).toBeNull();
+  await user.click(within(dialog).getByRole("button", { name: "Stay" }));
+  (document.activeElement as HTMLElement | null)?.blur();
+  await user.keyboard("k");
+  const back = await screen.findByRole("group", { name: "Task achievement" });
+  expect(within(back).getByRole("button", { name: "Give band 6.0" })).toHaveAttribute(
+    "aria-pressed",
+    "true",
+  );
+  expect(grades).toEqual([]);
 });

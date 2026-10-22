@@ -51,13 +51,22 @@ const PAPER = [
 const NOTE =
   "text-muted-fg text-ui flex items-center gap-2.5 rounded-xl border border-dashed px-3.5 py-3 leading-normal";
 
-function sentence(summary: Summary, t: TFunction): string {
+function sentence(summary: Summary, grader: string | null, t: TFunction): string {
   switch (summary.kind) {
     case "graded":
       return t(summary.key ? "result.summary.gradedKey" : "result.summary.graded", {
         correct: summary.correct,
         total: summary.total,
       });
+    case "band":
+      return [
+        grader === null
+          ? t("result.summary.band")
+          : t("result.summary.bandBy", { name: grader }),
+        ...(summary.strongest === null
+          ? []
+          : [t("result.summary.strongest", { criterion: summary.strongest })]),
+      ].join(" ");
     case "partly":
       return [
         t("result.summary.auto", { count: summary.marked }),
@@ -176,7 +185,9 @@ function RunLine({
 /**
  * ResultPage is the student's result for one attempt, as the design deck
  * draws it: the summary card with the score ring, the paper's class and
- * title and one sentence about where grading stands; the tiles; then every
+ * title and one sentence about where grading stands; the teacher's comment
+ * when the paper has one hand-graded answer, titled with the grader's name
+ * when the server sends it; the tiles; then every
  * answer under a filter, with a line naming what the review policy hides.
  * The class comes from the assignment lists the shell already holds, which
  * the page reads again only when nothing holds them. Shared
@@ -295,7 +306,7 @@ function Loaded({
             {data.testTitle}
           </h1>
           <p className="text-muted-fg text-base text-pretty">
-            {sentence(view.summary, t)}
+            {sentence(view.summary, view.grader, t)}
           </p>
           {view.classAverage !== null && (
             <p data-slot="class-average" className="text-muted-fg text-sm text-pretty">
@@ -308,6 +319,23 @@ function Loaded({
           )}
         </div>
       </section>
+
+      {view.callout !== null && (
+        <aside
+          data-slot="comment-callout"
+          aria-label={
+            view.grader === null
+              ? t("result.teacherComment")
+              : t("result.commentFrom", { name: view.grader })
+          }
+          className="bg-brand-soft flex flex-col gap-0.5 rounded-xl px-4 py-3.5 text-base leading-[1.55]"
+        >
+          <span className="font-semibold">
+            {view.grader ?? t("result.teacherComment")}
+          </span>
+          <span className="whitespace-pre-wrap">{view.callout.comment}</span>
+        </aside>
+      )}
 
       <ResultTiles tiles={view.tiles} wide={wide} />
 
@@ -388,6 +416,8 @@ function Loaded({
                   number={numbers.get(question.id) ?? 0}
                   review={review}
                   compact={prompt !== null}
+                  comment={view.callout?.questionId !== question.id}
+                  criteria={!view.tiles.some((tile) => tile.kind === "criterion")}
                   onRetry={onRetry}
                 />
               </div>

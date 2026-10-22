@@ -1703,7 +1703,8 @@
       "score": "{{earned}} / {{total}}",
       "beingGraded": "Chờ chấm",
       "submitted": "Đã nộp",
-      "justNow": "Vừa xong"
+      "justNow": "Vừa xong",
+      "band": "Band {{band}}"
     },
     "classes": {
       "subtitle": "Giáo viên của bạn và bài tiếp theo ở từng lớp.",
@@ -2759,7 +2760,9 @@
       "extra": "Thừa",
       "extraTitle": "Không nối với mục nào, nên dùng làm phương án gây nhiễu",
       "reuse": "Mỗi lựa chọn có thể dùng nhiều lần",
-      "maxItemsToast": "Tối đa {{count}} mục"
+      "maxItemsToast": "Tối đa {{count}} mục",
+      "minItemsToast": "Câu nối cần ít nhất {{count}} mục",
+      "minOptionsToast": "Câu nối cần ít nhất {{count}} lựa chọn"
     },
     "rubric": {
       "label": "Tiêu chí chấm",
@@ -3966,6 +3969,8 @@
     "wordLimit_other": "{{words}}/{{count}} từ",
     "wordLimitOver_one": "{{words}}/{{count}} từ · quá số từ",
     "wordLimitOver_other": "{{words}}/{{count}} từ · quá số từ",
+    "wordLimitHintOne": "Viết MỘT TỪ.",
+    "wordLimitHint": "Viết KHÔNG QUÁ {{words}} TỪ.",
     "yourEssay": "Bài luận của bạn",
     "essayPlaceholder": "Viết bài luận của bạn",
     "leave": "Thoát khỏi bài làm",
@@ -4078,6 +4083,14 @@
       "9": "chín",
       "10": "mười",
       "11": "mười một"
+    },
+    "matching": {
+      "done": "Đã nối {{k}}/{{n}}",
+      "options": "Các lựa chọn",
+      "usedBy": "được nối với",
+      "item": "{{key}} {{text}}",
+      "chipUsed": "{{key}}, đã nối với {{by}}",
+      "moved": "{{key}} đã chuyển từ {{from}}"
     },
     "viewSubmitted": "Xem bài đã nộp",
     "unknownType": "Câu {{n}} thuộc dạng câu hỏi mới mà trang này chưa hiển thị được. Hãy tải lại trang để làm câu này; các câu trả lời của bạn vẫn được giữ.",
@@ -4357,7 +4370,15 @@
     "keySep": "·",
     "keyEnter": "Enter",
     "wordCount_one": "{{count}} từ",
-    "wordCount_other": "{{count}} từ"
+    "wordCount_other": "{{count}} từ",
+    "overLimit": "Vượt giới hạn từ ({{words}}/{{max}} từ)",
+    "notMatched": "Chưa nối",
+    "matchedTo": "Nối với {{choice}}",
+    "matchKey": "Đáp án: {{choice}}",
+    "essayBand": "Band {{band}}",
+    "chooseCount": "Chọn {{n}} · đúng {{correct}}/{{n}} lựa chọn",
+    "chooseOver": "Chọn {{n}} · đã chọn {{picked}}, quá {{n}} nên không lựa chọn nào được tính",
+    "paperBand": "Band {{band}}"
   },
   "timeline": {
     "loadFailed": "Không tải được diễn biến của lượt làm này.",
@@ -4456,7 +4477,8 @@
       "of": "trên {{total}}",
       "soFar": "trên {{total}}, tạm tính",
       "grading": "đang chấm",
-      "withheld": "Điểm chưa được công bố"
+      "withheld": "Điểm chưa được công bố",
+      "band": "band"
     },
     "summary": {
       "graded": "Bạn trả lời đúng {{correct}}/{{total}} câu.",
@@ -4468,7 +4490,10 @@
       "pending": "Giáo viên đang chấm các câu tự luận của bạn. Điểm sẽ hiện ở đây khi chấm xong.",
       "pendingNotify": "Giáo viên đang chấm các câu tự luận của bạn. Bạn sẽ nhận được thông báo khi có điểm.",
       "withheld": "Bạn đã trả lời {{answered}}/{{total}} câu. Giáo viên chưa công bố điểm.",
-      "withheldUntil": "Bạn đã trả lời {{answered}}/{{total}} câu. Điểm được công bố khi bài đóng."
+      "withheldUntil": "Bạn đã trả lời {{answered}}/{{total}} câu. Điểm được công bố khi bài đóng.",
+      "band": "Bài đã được giáo viên chấm.",
+      "bandBy": "Bài đã được {{name}} chấm.",
+      "strongest": "{{criterion}} là phần bạn làm tốt nhất."
     },
     "tiles": {
       "auto": "Chấm tự động",
@@ -4520,10 +4545,12 @@
     "showTranscript": "Xem lời thoại",
     "noTranscript": "Lời thoại không được hiển thị.",
     "teacherComment": "Nhận xét của giáo viên",
+    "commentFrom": "Nhận xét của {{name}}",
     "cloze": {
       "questions": "Câu {{from}}–{{to}}",
       "chip": "Câu {{n}}, {{word}}"
-    }
+    },
+    "band": "Band {{band}}"
   },
   "queue": {
     "summary": {
@@ -5173,7 +5200,7 @@
       "true_false": "Đúng/Sai",
       "fill_blank": "Điền từ",
       "short_answer": "Trả lời ngắn",
-      "tfng": "Đúng/Sai/Không có thông tin",
+      "tfng": "Đúng / Sai / Không có thông tin",
       "unsupported": "Chưa hỗ trợ"
     },
     "origin": {
@@ -5281,6 +5308,10 @@
         "OPTION_LABEL_REFERENCE": {
           "title": "Lựa chọn nhắc đến lựa chọn khác",
           "help": "Lựa chọn này nhắc đến chữ cái của lựa chọn khác, ví dụ “Cả A và B”; nếu thứ tự lựa chọn bị trộn, câu sẽ sai. Hãy sửa nội dung lựa chọn, hoặc xác nhận nếu bạn sẽ không trộn thứ tự lựa chọn của câu này."
+        },
+        "LONG_INSTRUCTION": {
+          "title": "Phần hướng dẫn này khá dài",
+          "help": "Nếu trong đó có đoạn là bài đọc, hãy chuyển đoạn đó vào Bài đọc của phần này."
         },
         "COLORED_TEXT_IN_CONTENT": {
           "title": "Có chữ màu trong nội dung câu",
@@ -5392,18 +5423,21 @@
       "excludeConfirm": "Loại",
       "restore": "Đưa lại vào đề",
       "typeChangeTitle": "Đổi dạng câu?",
-      "typeChangeBody": "Chuyển từ {{from}} sang {{to}} sẽ bỏ một phần lựa chọn hoặc đáp án hiện có. Bằng chứng trong tài liệu vẫn được giữ.",
+      "typeChangeBody": "Chuyển từ {{from}} sang {{to}} sẽ bỏ một phần lựa chọn, đáp án hoặc thiết lập đáp án hiện có. Bằng chứng trong tài liệu vẫn được giữ.",
       "typeChangeConfirm": "Đổi dạng câu",
       "pointsInvalid": "Điểm phải là số dương, tối đa hai chữ số thập phân.",
       "markOneHint": "Chọn một đáp án đúng",
       "markManyHint": "Chọn mọi đáp án đúng",
-      "markCountHint": "Chọn đúng {{count}} đáp án đúng",
+      "markCountHint": "Đánh dấu đúng {{count}} đáp án",
       "selectCountAny": "Không cố định, đúng hết mới có điểm",
       "selectCountValue": "Chọn {{count}}",
       "selectCountMismatch": "Cần đánh dấu đúng {{count}} phương án, bằng số đáp án cần chọn.",
+      "selectCountReset": "Đã đặt lại Chọn {{count}} thành \"Không cố định\" vì chỉ còn {{options}} phương án.",
+      "selectCountTooFew": "Chọn {{count}} cần ít nhất {{options}} phương án. Hãy thêm phương án hoặc chọn \"Không cố định\".",
       "maxWordsHint": "Để trống nếu không giới hạn. Học sinh thấy giới hạn này; câu trả lời dài hơn chỉ bị đánh dấu, không bị cắt.",
       "maxWordsInvalid": "Nhập số nguyên từ 1 đến 100, hoặc để trống.",
       "tfngOption": { "T": "Đúng", "F": "Sai", "NG": "Không có thông tin" },
+      "tfngShort": "Đúng / Sai / Không có thông tin",
       "markCorrect": "Lựa chọn {{label}} là đáp án đúng",
       "editOption": "Sửa",
       "editOptionNamed": "Sửa lựa chọn {{label}}",

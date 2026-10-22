@@ -1,4 +1,4 @@
-import { useId, useRef } from "react";
+import { useEffect, useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowBigUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -79,7 +79,8 @@ export function BandScale({
  * rubric, otherwise one scale per criterion in authored order and the overall
  * band derived from them as they change (DG-61). `onChange` names the
  * button's `data-score` beside the new mark. `error` is the refused
- * save's field message. `onActive` reports the criterion whose scale took
+ * save's field message, scrolled into view when it appears so a long rubric
+ * does not hide it. `onActive` reports the criterion whose scale took
  * focus, so the page's band keys can follow it.
  */
 export function EssayBands({
@@ -99,6 +100,10 @@ export function EssayBands({
   const locale = useLocale();
   const id = useId();
   const root = useRef<HTMLDivElement>(null);
+  const alert = useRef<HTMLParagraphElement>(null);
+  useEffect(() => {
+    if (error !== null) alert.current?.scrollIntoView({ block: "nearest" });
+  }, [error]);
   const derived = markBand(rubric, mark);
   const setCriterion = (criterionId: string, band: number, byKey: boolean) => {
     onChange(
@@ -158,7 +163,7 @@ export function EssayBands({
         </div>
       )}
       {error !== null && (
-        <p role="alert" className="text-destructive text-sm">
+        <p ref={alert} role="alert" className="text-destructive text-sm">
           {error}
         </p>
       )}

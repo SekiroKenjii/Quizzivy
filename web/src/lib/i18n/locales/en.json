@@ -1703,7 +1703,8 @@
       "score": "{{earned}} / {{total}}",
       "beingGraded": "Being graded",
       "submitted": "Submitted",
-      "justNow": "Just now"
+      "justNow": "Just now",
+      "band": "Band {{band}}"
     },
     "classes": {
       "subtitle": "Your teachers and what's next in each class.",
@@ -2759,7 +2760,9 @@
       "extra": "Extra",
       "extraTitle": "Matches no item, so it works as a distractor",
       "reuse": "Each choice can be used more than once",
-      "maxItemsToast": "Up to {{count}} items"
+      "maxItemsToast": "Up to {{count}} items",
+      "minItemsToast": "A matching question needs at least {{count}} items",
+      "minOptionsToast": "A matching question needs at least {{count}} options"
     },
     "rubric": {
       "label": "Rubric criteria",
@@ -3966,6 +3969,8 @@
     "wordLimit_other": "{{words}} of {{count}} words",
     "wordLimitOver_one": "{{words}} of {{count}} word · too many",
     "wordLimitOver_other": "{{words}} of {{count}} words · too many",
+    "wordLimitHintOne": "Write ONE WORD.",
+    "wordLimitHint": "Write NO MORE THAN {{words}} WORDS.",
     "yourEssay": "Your essay",
     "essayPlaceholder": "Write your essay",
     "leave": "Leave test",
@@ -4078,6 +4083,14 @@
       "9": "nine",
       "10": "ten",
       "11": "eleven"
+    },
+    "matching": {
+      "done": "{{k}} of {{n}} matched",
+      "options": "Options",
+      "usedBy": "matched to",
+      "item": "{{key}} {{text}}",
+      "chipUsed": "{{key}}, matched to {{by}}",
+      "moved": "{{key}} moved from {{from}}"
     },
     "viewSubmitted": "View submitted paper",
     "unknownType": "Question {{n}} is a new kind of question that this page cannot show yet. Reload the page to answer it; your answers are kept.",
@@ -4357,7 +4370,15 @@
     "keySep": "·",
     "keyEnter": "Enter",
     "wordCount_one": "{{count}} word",
-    "wordCount_other": "{{count}} words"
+    "wordCount_other": "{{count}} words",
+    "overLimit": "Over the word limit ({{words}} of {{max}})",
+    "notMatched": "Not matched",
+    "matchedTo": "Matched to {{choice}}",
+    "matchKey": "Key: {{choice}}",
+    "essayBand": "Band {{band}}",
+    "chooseCount": "Choose {{n}} · {{correct}} of {{n}} picks correct",
+    "chooseOver": "Choose {{n}} · {{picked}} picked, more than {{n}}, so none count",
+    "paperBand": "{{band}} band"
   },
   "timeline": {
     "loadFailed": "Couldn't load this attempt's timeline.",
@@ -4456,7 +4477,8 @@
       "of": "of {{total}}",
       "soFar": "of {{total}} so far",
       "grading": "grading",
-      "withheld": "Score not released"
+      "withheld": "Score not released",
+      "band": "band"
     },
     "summary": {
       "graded": "You answered {{correct}} of {{total}} correctly.",
@@ -4468,7 +4490,10 @@
       "pending": "Your teacher is grading your written answers. Your score appears here when grading is finished.",
       "pendingNotify": "Your teacher is grading your written answers. You will get a notification when your score is ready.",
       "withheld": "You answered {{answered}} of {{total}} questions. Your teacher has not released the score.",
-      "withheldUntil": "You answered {{answered}} of {{total}} questions. Your score is released when the test closes."
+      "withheldUntil": "You answered {{answered}} of {{total}} questions. Your score is released when the test closes.",
+      "band": "Graded by your teacher.",
+      "bandBy": "Graded by {{name}}.",
+      "strongest": "{{criterion}} was your strongest area."
     },
     "tiles": {
       "auto": "Marked automatically",
@@ -4520,10 +4545,12 @@
     "showTranscript": "Show transcript",
     "noTranscript": "The transcript isn't shown.",
     "teacherComment": "Teacher's comment",
+    "commentFrom": "Comment from {{name}}",
     "cloze": {
       "questions": "Questions {{from}}–{{to}}",
       "chip": "Question {{n}}, {{word}}"
-    }
+    },
+    "band": "Band {{band}}"
   },
   "queue": {
     "summary": {
@@ -5173,7 +5200,7 @@
       "true_false": "True/False",
       "fill_blank": "Fill in the blank",
       "short_answer": "Short answer",
-      "tfng": "True/False/Not given",
+      "tfng": "True / False / Not given",
       "unsupported": "Not supported"
     },
     "origin": {
@@ -5281,6 +5308,10 @@
         "OPTION_LABEL_REFERENCE": {
           "title": "An option refers to another option",
           "help": "This option refers to another option by its letter, such as “Both A and B”, which breaks if the options are shuffled. Reword the option, or confirm if you won't shuffle this question's options."
+        },
+        "LONG_INSTRUCTION": {
+          "title": "This instruction is long",
+          "help": "If part of it is a reading passage, move it into the section's passage."
         },
         "COLORED_TEXT_IN_CONTENT": {
           "title": "Coloured text inside a question",
@@ -5392,7 +5423,7 @@
       "excludeConfirm": "Exclude",
       "restore": "Restore",
       "typeChangeTitle": "Change question type?",
-      "typeChangeBody": "Changing from {{from}} to {{to}} drops some existing options or answers. The document evidence is kept.",
+      "typeChangeBody": "Changing from {{from}} to {{to}} drops some existing options, answers or answer settings. The document evidence is kept.",
       "typeChangeConfirm": "Change type",
       "pointsInvalid": "Points must be a positive number with at most two decimals.",
       "markOneHint": "Mark one correct answer",
@@ -5401,9 +5432,12 @@
       "selectCountAny": "Any number, marked all or nothing",
       "selectCountValue": "Choose {{count}}",
       "selectCountMismatch": "Mark exactly {{count}} options correct, the number to choose.",
+      "selectCountReset": "Choose {{count}} was reset to \"Any number\": {{options}} options are too few for it.",
+      "selectCountTooFew": "Choose {{count}} needs at least {{options}} options. Add an option or pick \"Any number\".",
       "maxWordsHint": "Leave empty for no limit. Students see the limit, and a longer answer is flagged, never cut.",
       "maxWordsInvalid": "Enter a whole number from 1 to 100, or leave it empty.",
       "tfngOption": { "T": "True", "F": "False", "NG": "Not given" },
+      "tfngShort": "T / F / NG",
       "markCorrect": "Option {{label}} is correct",
       "editOption": "Edit",
       "editOptionNamed": "Edit option {{label}}",

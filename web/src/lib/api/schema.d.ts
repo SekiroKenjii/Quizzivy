@@ -7073,8 +7073,12 @@ export interface components {
          *     asset: it places the question's own audio (`mediaAssetId`, with its
          *     `AudioPolicy` and play count) in the text, at most once, and projects
          *     to nothing. A media block that projects to nothing adds no separator.
-         *     Until the bank's media task (R6-13) every write refuses a media block
-         *     with the bank's field error (400 VALIDATION_FAILED naming promptContent).
+         *     A write may name only assets the caller may read, as `mediaAssetId`
+         *     may; another teacher's asset is refused exactly as a missing one is,
+         *     and an asset whose kind is not its block's is refused too (400
+         *     VALIDATION_FAILED, details naming promptContent). The marker needs the
+         *     question's own audio. A published version freezes the references, and
+         *     a student reaches prompt media through `StudentQuestion.promptAssets`.
          */
         QuestionPromptContent: {
             /** @constant */
@@ -7136,10 +7140,11 @@ export interface components {
          *     is as in a prompt. An audio block names its own asset and plays without
          *     a policy or a count. Explanation media is reachable by a student only
          *     through the result, under the gate that shows explanations; no student
-         *     operation signs it before then. Until the bank's media task (R6-13)
-         *     every write refuses a media block with the bank's field error (400
-         *     VALIDATION_FAILED naming explanationContent). The companion string, the
-         *     update rules and the budgets are `QuestionContent`'s.
+         *     operation signs it before then (`ResultQuestion.explanationAssets`).
+         *     A write may name only assets the caller may read, of the block's kind,
+         *     as in a prompt (400 VALIDATION_FAILED, details naming
+         *     explanationContent). The companion string, the update rules and the
+         *     budgets are `QuestionContent`'s.
          */
         QuestionExplanationContent: {
             /** @constant */
@@ -7152,8 +7157,9 @@ export interface components {
         /**
          * @description An image in a prompt or an explanation, by media asset id. `alt` is the
          *     text a screen reader reads and the plain projection carries; empty
-         *     marks the image decorative. It is never filled from a file name, and no
-         *     file name travels with the node.
+         *     marks the image decorative, and an alt of only white space is refused.
+         *     It is never filled from a file name, and no file name travels with the
+         *     node.
          */
         QuestionContentImage: {
             /**
@@ -7629,6 +7635,12 @@ export interface components {
              */
             prompt: string;
             media?: components["schemas"]["MediaAsset"] | null;
+            /**
+             * @description The media `promptContent` and `explanationContent` show (DG-109),
+             *     signed for the editor, once each, prompt first. Absent when they
+             *     show none; a file that cannot be loaded is left out, as `media` is.
+             */
+            contentAssets?: components["schemas"]["MediaAsset"][];
             /** @description The alt text a teacher wrote for the question's image; absent or null when there is none, and always when `media` is not an image. */
             mediaAlt?: string | null;
             audio?: components["schemas"]["AudioPolicy"] | null;
@@ -7727,6 +7739,13 @@ export interface components {
             media?: components["schemas"]["MediaAsset"] | null;
             /** @description The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key. */
             mediaAlt?: string | null;
+            /**
+             * @description The images `promptContent` shows (DG-109), signed with this
+             *     response, once each in the order the prompt names them. Absent when
+             *     it shows none. The audio marker draws `media`, and an explanation's
+             *     media never appears here (D-064 ruling 6).
+             */
+            promptAssets?: components["schemas"]["MediaAsset"][];
             audio?: components["schemas"]["StudentAudioPolicy"] | null;
             /** @description `tfng` and `matching` options keep their authored order; every other choice type arrives shuffled per `shuffleSeed`. */
             options?: components["schemas"]["StudentOption"][];
@@ -7793,6 +7812,8 @@ export interface components {
             media?: components["schemas"]["MediaAsset"] | null;
             /** @description The alt text frozen with the version for the question's image, as on `StudentQuestion`. Present under every review policy: the picture was already on the paper. */
             mediaAlt?: string | null;
+            /** @description As on `StudentQuestion`. Present under every review policy, as `media` is. */
+            promptAssets?: components["schemas"]["MediaAsset"][];
             options?: components["schemas"]["StudentOption"][];
             blanks?: components["schemas"]["StudentBlank"][];
             /** @description `matching` only, as on `StudentQuestion`. */
@@ -7847,6 +7868,13 @@ export interface components {
             skill?: components["schemas"]["QuestionSkill"] | null;
             /** @description Absent unless review.showExplanations permits the frozen explanation. */
             explanationContent?: components["schemas"]["QuestionExplanationContent"] | null;
+            /**
+             * @description The images and audio `explanationContent` shows (DG-109), signed
+             *     with this response, once each in the order it names them. Only when
+             *     `review.showExplanations`, absent otherwise; no other student
+             *     operation signs them (D-064 ruling 6).
+             */
+            explanationAssets?: components["schemas"]["MediaAsset"][];
             /** @description Only when `review.showExplanations`. */
             explanation?: string | null;
             /**
@@ -8513,6 +8541,18 @@ export interface components {
              *     student's payload only under `review.showScore`.
              */
             band?: components["schemas"]["Band"];
+            /**
+             * @description Who graded the paper, on the student's result only (D-072, D-074).
+             *     Present only under `review.showScore`, when the attempt has at
+             *     least one answer that requires manual grading, none of those is
+             *     pending, one account graded them all, and that account keeps its
+             *     name (it has not been anonymised). Otherwise absent; an override
+             *     of an auto mark does not make its author the paper's grader. Name
+             *     only: no id, no avatar.
+             */
+            gradedBy?: {
+                name: string;
+            };
         };
         Attempt: {
             id: components["schemas"]["Uuid"];

@@ -458,27 +458,38 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
         {model.announcement}
       </p>
       <ConfirmDialog
-        open={blocker.state === "blocked"}
+        open={blocker.state === "blocked" || model.leaveHeld}
         onOpenChange={(open) => {
-          if (!open && blocker.state === "blocked") blocker.reset();
+          if (open) return;
+          model.keepMarking();
+          if (blocker.state === "blocked") blocker.reset();
         }}
         title={t(model.unsavedScore ? "grading.leaveScoreTitle" : "grading.leaveTitle")}
-        description={t(
-          model.unsavedScore ? "grading.leaveScoreBody" : "grading.leaveBody",
+        description={t(leaveBody(model))}
+        confirmLabel={t(
+          model.partial ? "grading.dropBandsAndLeave" : "grading.saveAndLeave",
         )}
-        confirmLabel={t("grading.saveAndLeave")}
         cancelLabel={t("grading.stay")}
+        destructive={model.partial}
         pending={model.busy}
-        error={blocker.state === "blocked" ? model.error : null}
-        onConfirm={() =>
-          void model.leave(() => {
+        error={blocker.state === "blocked" || model.leaveHeld ? model.error : null}
+        onConfirm={() => {
+          const go = () => {
             departing.current = true;
             if (blocker.state === "blocked") blocker.proceed();
-          })
-        }
+          };
+          if (model.partial) void model.discard(go);
+          else void model.leave(go);
+        }}
       />
     </section>
   );
+}
+
+/** leaveBody is what the leave question says: that part-marked bands are dropped, or what is unsaved. */
+function leaveBody(model: { partial: boolean; unsavedScore: boolean }) {
+  if (model.partial) return "grading.leavePartialBody";
+  return model.unsavedScore ? "grading.leaveScoreBody" : "grading.leaveBody";
 }
 
 /** fieldErrorOf is the refused save's message for the open answer's marks, if it is that answer's. */

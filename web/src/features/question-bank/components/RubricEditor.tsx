@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useId, useRef } from "react";
 import { useTranslation } from "react-i18next";
 import { ArrowDown, ArrowUp, ListChecks, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -23,8 +23,9 @@ const ADD = "text-muted-fg h-7.5 rounded-[7px] px-2.5 text-[12.5px] font-normal"
  * for sign-off): add, rename, reorder and remove, up to six, each row named
  * by its number. With none, the hint says the grader sets the band directly,
  * and "Use IELTS Writing criteria" fills in that preset's four labels in the
- * reader's language. Two criteria with the same label, ignoring case and the
- * space around them, have the danger border, as the server refuses them.
+ * reader's language. Two criteria with the same label, compared after NFC and
+ * ignoring case and the space around them, have the danger border, as the
+ * server refuses them.
  */
 export function RubricEditor({
   rubric,
@@ -33,6 +34,7 @@ export function RubricEditor({
   const { t } = useTranslation();
   const heading = useId();
   const hint = useId();
+  const addButton = useRef<HTMLButtonElement>(null);
   const duplicates = duplicateIndexes(rubric);
 
   function add() {
@@ -44,6 +46,7 @@ export function RubricEditor({
   }
 
   function move(index: number, by: -1 | 1) {
+    if (index + by < 0 || index + by >= rubric.length) return;
     const next = [...rubric];
     const [row] = next.splice(index, 1);
     if (row === undefined) return;
@@ -105,7 +108,7 @@ export function RubricEditor({
                   size="icon-sm"
                   className="text-muted-fg size-7 flex-none rounded-[6px]"
                   aria-label={t("questionEditor.rubric.moveUp", { n })}
-                  disabled={index === 0}
+                  aria-disabled={index === 0 || undefined}
                   onClick={() => move(index, -1)}
                 >
                   <ArrowUp aria-hidden="true" className="size-3.5" />
@@ -116,7 +119,7 @@ export function RubricEditor({
                   size="icon-sm"
                   className="text-muted-fg size-7 flex-none rounded-[6px]"
                   aria-label={t("questionEditor.rubric.moveDown", { n })}
-                  disabled={index === rubric.length - 1}
+                  aria-disabled={index === rubric.length - 1 || undefined}
                   onClick={() => move(index, 1)}
                 >
                   <ArrowDown aria-hidden="true" className="size-3.5" />
@@ -127,7 +130,10 @@ export function RubricEditor({
                   size="icon-sm"
                   className="text-muted-fg size-7 flex-none rounded-[6px]"
                   aria-label={t("questionEditor.rubric.remove", { n })}
-                  onClick={() => onChange(rubric.filter((_, i) => i !== index))}
+                  onClick={() => {
+                    onChange(rubric.filter((_, i) => i !== index));
+                    addButton.current?.focus();
+                  }}
                 >
                   <X aria-hidden="true" className="size-3.5" />
                 </Button>
@@ -137,7 +143,14 @@ export function RubricEditor({
         </ol>
       )}
       <div className="flex flex-wrap items-center gap-1">
-        <Button type="button" variant="ghost" size="sm" className={ADD} onClick={add}>
+        <Button
+          ref={addButton}
+          type="button"
+          variant="ghost"
+          size="sm"
+          className={ADD}
+          onClick={add}
+        >
           <Plus aria-hidden="true" className="size-3.5" />
           {t("questionEditor.rubric.add")}
         </Button>

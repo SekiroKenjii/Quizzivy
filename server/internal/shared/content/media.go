@@ -1,5 +1,7 @@
 package content
 
+import "strings"
+
 // profile names the rules a document's media blocks follow. A group material may place images and labelled
 // recordings anywhere; a question's prompt and explanation follow DG-109's narrower rules (D-064).
 type profile uint8
@@ -17,7 +19,8 @@ func isMedia(block any) bool {
 
 // questionMedia validates an image or audio block of a prompt or explanation. Media stand only among the document's own
 // blocks, never in a table cell or a list item, and at most MaxMediaBlocks of them. An image's alt may be empty, which
-// marks it decorative, and projects as written. A prompt's audio is a bare marker placing the question's own audio, once;
+// marks it decorative, and projects as written; an alt of only white space is refused, because empty is the one way to
+// say decorative and a screen reader would be handed a blank description (QC-R6D-2). A prompt's audio is a bare marker placing the question's own audio, once;
 // an explanation's names its asset. Neither projects to any text.
 func (v *validator) questionMedia(value any) (string, bool) {
 	v.media++
@@ -29,7 +32,11 @@ func (v *validator) questionMedia(value any) (string, bool) {
 		if !ok || !v.reference(value, obj) {
 			return "", false
 		}
-		return v.string(obj["alt"], 0, 1000)
+		alt, ok := v.string(obj["alt"], 0, 1000)
+		if ok && alt != "" && strings.TrimSpace(alt) == "" {
+			return "", false
+		}
+		return alt, ok
 	}
 	if v.profile == promptProfile {
 		if _, ok := object(value, typeKey); !ok || v.audioMarker {

@@ -75,7 +75,7 @@ export function QuestionSheet({
           disabled={disabled}
         />
       )}
-      {(kind === "choice" || kind === "fill_blank") && (
+      {(kind === "choice" || kind === "fill_blank" || kind === "matching") && (
         <p className="text-muted-fg text-meta -mt-3 leading-normal">
           {worth(question, t)}
         </p>

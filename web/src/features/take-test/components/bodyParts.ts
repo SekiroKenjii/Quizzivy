@@ -5,7 +5,7 @@ import type { Answer, StudentQuestion } from "../api";
 export const PROMPT = "leading-[1.6]! font-medium text-pretty";
 export const CAPTION = "text-muted-fg text-meta leading-normal";
 export const FIELD =
-  "border-border bg-card text-fg placeholder:text-muted-fg border-[1.5px] outline-none focus:border-primary disabled:opacity-60";
+  "border-border bg-card text-fg placeholder:text-muted-fg border-[1.5px] outline-none focus:border-primary disabled:border-border/60 disabled:text-fg/60";
 
 export type BodyProps = {
   question: StudentQuestion;

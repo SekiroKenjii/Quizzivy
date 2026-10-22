@@ -1,12 +1,13 @@
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
+import { formatBand } from "@/lib/bands";
 import type { Locale } from "@/lib/i18n";
 import { cn } from "@/lib/utils";
 import type { Tile } from "../resultView";
 
 type Face = Readonly<{ key: string; label: string; value: string; bar: string }>;
 
-function face(tile: Tile, n: Intl.NumberFormat, t: TFunction): Face {
+function face(tile: Tile, n: Intl.NumberFormat, locale: string, t: TFunction): Face {
   const score = (earned: number, total: number) =>
     t("result.tiles.score", { earned: n.format(earned), total: n.format(total) });
   switch (tile.kind) {
@@ -35,6 +36,20 @@ function face(tile: Tile, n: Intl.NumberFormat, t: TFunction): Face {
       return {
         key: tile.id,
         label: tile.title,
+        value: score(tile.earned, tile.total),
+        bar: tile.tone === "success" ? "bg-success" : "bg-warning",
+      };
+    case "criterion":
+      return {
+        key: tile.id,
+        label: tile.label,
+        value: formatBand(tile.band, locale),
+        bar: tile.tone === "success" ? "bg-success" : "bg-warning",
+      };
+    case "skill":
+      return {
+        key: tile.skill,
+        label: t(`tests.skill.${tile.skill}`),
         value: score(tile.earned, tile.total),
         bar: tile.tone === "success" ? "bg-success" : "bg-warning",
       };
@@ -67,7 +82,7 @@ export function ResultTiles({
       style={{ gridTemplateColumns: `repeat(${columns}, minmax(0, 1fr))` }}
     >
       {tiles.map((tile) => {
-        const { key, label, value, bar } = face(tile, n, t);
+        const { key, label, value, bar } = face(tile, n, i18n.language, t);
         return (
           <div
             key={key}

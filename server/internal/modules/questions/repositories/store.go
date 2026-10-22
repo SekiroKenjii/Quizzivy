@@ -13,7 +13,10 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-type Postgres struct{ db.Repository }
+type Postgres struct {
+	db.Repository
+	media MediaLocks
+}
 
 func NewPostgres(dbx db.Context) *Postgres { return &Postgres{Repository: db.NewRepository(dbx)} }
 
@@ -177,6 +180,9 @@ func (s *Postgres) write(ctx context.Context, in domain.WriteInput, update bool,
 
 	groupID, ordinal, optionOrder, copiedFromID := ownershipValues(ownership)
 	if err := prepareQuestionContent(ctx, tx, &in, update, groupID); err != nil {
+		return domain.Question{}, err
+	}
+	if err := s.lockProseMedia(ctx, tx, in, ownership != nil); err != nil {
 		return domain.Question{}, err
 	}
 

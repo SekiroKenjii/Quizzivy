@@ -8,9 +8,9 @@ import type { StudentQuestion } from "./api";
  * the paper says so and writes no answer for it.
  */
 export type QuestionKind =
-  "choice" | "fill_blank" | "short_answer" | "essay" | "unknown";
+  "choice" | "fill_blank" | "short_answer" | "essay" | "matching" | "unknown";
 
-type DrawnType = Exclude<StudentQuestion["type"], "matching">;
+type DrawnType = StudentQuestion["type"];
 
 const KIND: Record<DrawnType, Exclude<QuestionKind, "unknown">> = {
   single_choice: "choice",
@@ -20,6 +20,7 @@ const KIND: Record<DrawnType, Exclude<QuestionKind, "unknown">> = {
   fill_blank: "fill_blank",
   short_answer: "short_answer",
   essay: "essay",
+  matching: "matching",
 };
 
 const LABEL: Record<DrawnType, string> = {
@@ -30,12 +31,12 @@ const LABEL: Record<DrawnType, string> = {
   fill_blank: "takeTest.type.fill_blank",
   short_answer: "takeTest.type.short_answer",
   essay: "takeTest.type.essay",
+  matching: "takeTest.type.matching",
 };
 
 /**
  * questionKind reads the kind from the question's type. A type the server
- * added after this page was loaded is `unknown`, never a choice, and so is
- * matching until the engine draws it.
+ * added after this page was loaded is `unknown`, never a choice.
  */
 export function questionKind(question: Pick<StudentQuestion, "type">): QuestionKind {
   return isDrawn(question.type) ? KIND[question.type] : "unknown";
