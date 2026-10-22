@@ -126,18 +126,22 @@ func (s *Postgres) markedQuestions(ctx context.Context, a domain.AttemptRecord, 
 	return questions, &domain.Score{Earned: earned, Total: total, PendingManual: pending, Band: band, GradedBy: grader}, nil
 }
 
-// graderName is the name of the one account that graded every hand-graded
-// answer of the attempt (D-072). It is nil when nothing was graded by hand,
-// when two accounts graded, when a grader's account is gone, or when the
-// grader has been anonymised.
+// graderName is the name of the one account that graded the paper (D-072,
+// D-074): the attempt has an answer that requires manual grading, none of
+// those still waits, one account graded them all, and it has not been
+// anonymised. It is nil otherwise; an override of an auto mark grades no
+// paper. An answer still waiting has no grader yet, so it alone keeps the
+// name out. An answer retention removed waits for nobody and counts for
+// nothing, as in the answered rule.
 func (s *Postgres) graderName(ctx context.Context, attemptID string) (*string, error) {
 	var name *string
 	if err := s.QueryRow(ctx, `
-		WITH graded AS (
+		WITH manual AS (
 		  SELECT graded_by FROM app.attempt_answers
-		   WHERE attempt_id = $1::uuid AND (manual_score IS NOT NULL OR graded_by IS NOT NULL)
+		   WHERE attempt_id = $1::uuid AND requires_manual
+		     AND payload <> '`+retention.RemovedAnswer+`'::jsonb
 		), one AS (
-		  SELECT min(graded_by::text)::uuid AS id FROM graded
+		  SELECT min(graded_by::text)::uuid AS id FROM manual
 		  HAVING count(*) > 0 AND count(graded_by) = count(*) AND count(DISTINCT graded_by) = 1
 		)
 		SELECT coalesce(u.display_name, u.full_name)

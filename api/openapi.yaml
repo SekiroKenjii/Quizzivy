@@ -5891,11 +5891,13 @@ components:
           required: [name]
           additionalProperties: false
           description: |
-            Who graded the paper, on the student's result only (D-072). Present
-            only under `review.showScore`, only when every hand-graded answer
-            was graded by the same account, and only while that account keeps
-            its name (it has not been anonymised). Otherwise absent. Name only:
-            no id, no avatar.
+            Who graded the paper, on the student's result only (D-072, D-074).
+            Present only under `review.showScore`, when the attempt has at
+            least one answer that requires manual grading, none of those is
+            pending, one account graded them all, and that account keeps its
+            name (it has not been anonymised). Otherwise absent; an override
+            of an auto mark does not make its author the paper's grader. Name
+            only: no id, no avatar.
           properties:
             name: { type: string, minLength: 1, maxLength: 200 }
 
