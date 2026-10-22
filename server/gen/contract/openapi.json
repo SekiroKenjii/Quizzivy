@@ -20932,7 +20932,7 @@
             "$ref": "#/components/responses/NotFound"
           },
           "409": {
-            "description": "`GRADING_INCOMPLETE` — a `short_answer` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.",
+            "description": "`GRADING_INCOMPLETE` — a `short_answer` or `essay` is still ungraded; `ATTEMPT_IN_PROGRESS` / `ATTEMPT_VOIDED` as for grade.",
             "content": {
               "application/json": {
                 "schema": {
@@ -26398,7 +26398,7 @@
         "tags": [
           "take-test"
         ],
-        "description": "**Idempotent.** A second call on an already-closed attempt is `409\nATTEMPT_CLOSED`, and a race between a manual tap and an auto-submit\nyields one submission.\n\nObjective types are graded immediately; `short_answer` is marked\n`requiresManual`. Nothing is rejected based on audio play count (§11.4).\n",
+        "description": "**Idempotent.** A second call on an already-closed attempt is `409\nATTEMPT_CLOSED`, and a race between a manual tap and an auto-submit\nyields one submission.\n\nObjective types are graded immediately; `short_answer` and `essay` are\nmarked `requiresManual`. Nothing is rejected based on audio play count (§11.4).\n",
         "requestBody": {
           "content": {
             "application/json": {
