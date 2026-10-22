@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"quizzivy/internal/modules/imports/domain"
 	"slices"
+	"strconv"
 	"strings"
 	"testing"
 )
@@ -475,7 +476,7 @@ func TestAnInstructionBrokenOverHardLinesStaysWhole(t *testing.T) {
 // heading's instruction that took a sentence after its first line, with questions straight after it and no passage,
 // carries one informational finding on its section. An instruction whose later lines name the answer format, or a
 // section with a passage, carries none.
-func TestALongInstructionPointsAtAPossiblePassage(t *testing.T) {
+func TestAPassageLikeLineInAHeadingInstructionIsPointedAt(t *testing.T) {
 	for _, c := range []struct{ heading, instruction, passage string }{
 		{"Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Choose your words carefully, the old saying goes, because they cannot be taken back."},
 		{"Questions 1-2", "Write TRUE, FALSE or NOT GIVEN.", "Complete silence filled the hall when the museum opened in 1990."},
@@ -604,8 +605,8 @@ func instructionsOf(d domain.Draft) string {
 // QC-R6GRM-10, QC-R6GRM-13, D-075: a Vietnamese line with "là"/"giúp"/"khiến"/"ngày càng" after a joining
 // "và"/"rồi" reads two ways: a second command ("Đọc đoạn văn và chọn những câu là ý chính") or a passage with a
 // compound subject ("Viết nhật ký và đọc sách là…"). In every layout it stays the instruction, never a line of the
-// stimulus, and the draft points at it, whether a passage follows or not. Where two instructions in a row leave text
-// unassigned, the draft is no more ready than before.
+// stimulus, and the draft points at it, whether a passage follows or not. After an instruction with nothing under it
+// yet, it joins that instruction, so nothing is left unassigned (D-076).
 func TestAVietnameseLineJoinedByVaStaysTheInstructionAndIsPointedAt(t *testing.T) {
 	passage := "Bảo tàng mở cửa năm 1990 sau nhiều năm vận động của người dân."
 	layouts := map[string][]string{
@@ -636,8 +637,11 @@ func TestAVietnameseLineJoinedByVaStaysTheInstructionAndIsPointedAt(t *testing.T
 				if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || got[0].Severity != domain.Informational || got[0].Count != 1 {
 					t.Fatalf("%s, %s (passage %v): one pointer at one line: %+v", line, name, len(after) > 0, got)
 				}
-				if name == "plain second" && len(notices(d, domain.CodeUnassignedText)) != 1 {
-					t.Fatalf("%s, %s: the first instruction is not lost silently: %+v", line, name, d.Notices)
+				if got := notices(d, domain.CodeUnassignedText); len(got) != 0 {
+					t.Fatalf("%s, %s: the instruction before it is kept: %+v", line, name, got)
+				}
+				if name == "plain second" && !strings.Contains(d.Sections[0].Title+" "+g.Instructions, "Đọc đoạn văn sau. "+line) {
+					t.Fatalf("%s, %s: both lines are the instruction: %q %q", line, name, d.Sections[0].Title, g.Instructions)
 				}
 			}
 		}
@@ -703,4 +707,84 @@ func stimulusText(g *domain.DraftGroup) string {
 		}
 	}
 	return b.String()
+}
+
+// QC-R6GRM-17, QC-R6GRM-19: a Roman heading is an instruction when it is a command that ends its sentence, after a
+// label or a score if it has one; one that only opens with a command word is a title, and the line under it is the
+// instruction's first, which is never pointed at.
+func TestARomanHeadingIsAnInstructionOnlyWhenItIsACommand(t *testing.T) {
+	line := "Choose your words carefully, the old saying goes, because they cannot be taken back."
+	for _, heading := range []string{
+		"I. READING: Read the passage and decide if the statements are true.",
+		"I. (2 points) Read the passage and answer the questions.",
+		"I. Phonetics - Choose the word whose underlined part is pronounced differently.",
+	} {
+		d := recognize(t, exam(lines(heading, line, "1. The museum opened in 1990.", "2. Entry is free.")), key(lines("1. TRUE\t2. FALSE")))
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 {
+			t.Fatalf("%s: the line is pointed at: %+v", heading, got)
+		}
+	}
+	for _, title := range []string{"I. ĐỌC HIỂU (3,0 điểm)", "I. ĐỌC HIỂU", "I. Đọc hiểu", "I. USE OF ENGLISH", "I. READ AND WRITE"} {
+		d := recognize(t, exam(lines(title, "Chọn đáp án đúng nhất cho mỗi câu sau.", "1. When did it open?", "A. 1980\tB. 1990", "2. Who paid?", "A. city\tB. residents")), key(lines("1. B\t2. B")))
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
+			t.Fatalf("%s: the first instruction line is not pointed at: %+v", title, got)
+		}
+	}
+}
+
+// QC-R6GRM-20, QC-R6GRM-21: a Vietnamese line that names an answer format, or whose "và … là" lies past its first
+// sentence, is no ambiguous line (D-075) and carries no pointer.
+func TestAnInstructionNamingItsFormatIsNotAmbiguous(t *testing.T) {
+	passage := "Bảo tàng mở cửa năm 1990 sau nhiều năm vận động của người dân."
+	for _, line := range []string{
+		"Đọc đoạn văn sau và cho biết các câu sau là Đúng (T) hay Sai (F).",
+		"Đọc đoạn văn và chọn đáp án đúng là A, B, C hoặc D.",
+		"Đọc đoạn văn. Viết và đọc là hai kỹ năng em cần luyện.",
+	} {
+		d := recognize(t, exam(lines("Câu 1-2", "Đọc đoạn văn sau.", line, passage, "1. Bảo tàng mở cửa năm nào?", "A. 1980\tB. 1990\tC. 2000\tD. 2010", "2. Ai góp tiền?", "A. a\tB. b\tC. c\tD. d")), key(lines("1. B\t2. B")))
+		if !strings.Contains(d.Sections[0].Title, line) {
+			t.Fatalf("%s stays the instruction: %q", line, d.Sections[0].Title)
+		}
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 0 {
+			t.Fatalf("%s is not pointed at: %+v", line, got)
+		}
+	}
+}
+
+// QC-R6GRM-18, D-076: after the real instruction under a Roman title or with no heading, a compound-subject passage
+// joins the instruction with the pointer on it, so nothing is unassigned and the questions keep the instruction's
+// true / false / not given format. A plain statement after the instruction still opens the passage.
+func TestAnAmbiguousLineJoinsTheOpenInstruction(t *testing.T) {
+	instruction := "Chọn Đúng, Sai hoặc Không có thông tin."
+	line := "Viết nhật ký và đọc sách là hai thói quen tốt của học sinh."
+	for name, head := range map[string][]string{"roman title": {"I. ĐỌC HIỂU"}, "no heading": nil, "label key": {"I. ĐỌC HIỂU"}} {
+		answers := "1. Đúng\t2. Không có thông tin"
+		if name == "label key" {
+			answers = "1. T\t2. NG"
+		}
+		d := recognize(t, exam(lines(append(slices.Clone(head), instruction, line, "1. Học sinh nên viết nhật ký.", "2. Thói quen đọc sách tốn nhiều thời gian.")...)), key(lines(answers)))
+		if got := notices(d, domain.CodeUnassignedText); len(got) != 0 {
+			t.Fatalf("%s: nothing is unassigned: %+v", name, got)
+		}
+		g := d.Sections[0].Items[0].Group
+		if g == nil || !strings.Contains(d.Sections[0].Title+" "+g.Instructions, instruction+" "+line) {
+			t.Fatalf("%s: both lines are the instruction: %q %+v", name, d.Sections[0].Title, g)
+		}
+		if got := notices(d, domain.CodePassageInInstruction); len(got) != 1 || len(got[0].Evidence) != 1 || got[0].Evidence[0].BlockID != "exam-"+strconv.Itoa(len(head)+2) {
+			t.Fatalf("%s: the pointer is on the ambiguous line: %+v", name, got)
+		}
+		for _, label := range []string{"1", "2"} {
+			if q := question(t, d, label); q.Type != "tfng" {
+				t.Fatalf("%s: question %s keeps the format: %+v", name, label, q)
+			}
+		}
+	}
+	d := recognize(t, exam(lines("I. ĐỌC HIỂU", instruction, "Bảo tàng mở cửa năm 1990.", line, "1. Học sinh nên viết nhật ký.", "2. Thói quen đọc sách tốn nhiều thời gian.")), key(lines("1. Đúng\t2. Không có thông tin")))
+	if g := d.Sections[0].Items[0].Group; g != nil && strings.Contains(g.Instructions, line) && strings.Contains(g.Instructions, instruction) {
+		t.Fatalf("after a passage the line does not join the instruction: %+v", d.Sections)
+	}
+	d = recognize(t, exam(lines("I. ĐỌC HIỂU", instruction, "Đọc sách là thói quen tốt của học sinh.", "1. Học sinh nên viết nhật ký.", "2. Thói quen đọc sách tốn nhiều thời gian.")), key(lines("1. Đúng\t2. Không có thông tin")))
+	if g := d.Sections[0].Items[0].Group; g == nil || g.Stimulus == nil || len(notices(d, domain.CodePassageInInstruction)) != 0 {
+		t.Fatalf("a plain statement opens the passage: %+v", d.Sections)
+	}
 }

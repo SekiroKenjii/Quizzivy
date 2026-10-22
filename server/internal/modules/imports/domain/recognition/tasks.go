@@ -51,7 +51,7 @@ var taskNames = []struct {
 }
 
 var (
-	trueFalseTask = regexp.MustCompile(`(?i)true\s*(?:or|/)\s*false|\bT\s*/\s*F\b|đúng\s*(?:hay|hoặc|/)\s*sai`)
+	trueFalseTask = regexp.MustCompile(`(?i)true\s*(?:\(T\)\s*)?(?:or|/)\s*false|\bT\s*/\s*F\b|đúng\s*(?:\([TĐ]\)\s*)?(?:hay|hoặc|/)\s*sai`)
 	tfngTask      = regexp.MustCompile(`(?is)\btrue\b.{0,80}?\bfalse\b.{0,80}?\bnot\s+given\b|\bT\s*[/,]\s*F\s*(?:[/,]|\bor\b)\s*NG\b|(?:đúng|dung).{0,40}?sai.{0,40}?(?:không|khong)\s+(?:có|co)\s+(?:thông|thong)\s+tin`)
 )
 
@@ -243,7 +243,8 @@ func vietnamesePredicate(sentence string) bool {
 // vietnameseJoined reports whether text, an imperative-led line, holds a Vietnamese predicate only after a joining
 // "và"/"rồi" in its first clause: a second command ("Đọc đoạn văn và chọn những câu là ý chính") or a passage with a
 // compound subject ("Viết nhật ký và đọc sách là…"). The grammar cannot tell them apart, so the line stays the
-// instruction and the draft points at it (D-075).
+// instruction and the draft points at it (D-075). A line that names an answer format is an instruction whatever its
+// grammar, so it is not pointed at (QC-R6GRM-20).
 func vietnameseJoined(text string) bool {
 	m := imperative.FindStringSubmatchIndex(text)
 	if m == nil {
@@ -253,7 +254,7 @@ func vietnameseJoined(text string) bool {
 	if i := strings.IndexAny(sentence, ".?!:"); i >= 0 {
 		sentence = sentence[:i]
 	}
-	return !vietnamesePredicateBefore(sentence, vietnameseClause) && vietnamesePredicateBefore(sentence, vietnamesePunctuation)
+	return !answerFormat(text) && !vietnamesePredicateBefore(sentence, vietnameseClause) && vietnamesePredicateBefore(sentence, vietnamesePunctuation)
 }
 
 // vietnamesePredicateBefore is vietnamesePredicate with the first clause ending at end.
