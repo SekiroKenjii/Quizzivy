@@ -7797,6 +7797,8 @@ export interface components {
             blanks?: components["schemas"]["StudentBlank"][];
             /** @description `matching` only, as on `StudentQuestion`. */
             matchItems?: components["schemas"]["StudentMatchItem"][];
+            /** @description `multiple_choice` only, as on `StudentQuestion`: a "choose N" counts as answered with exactly N different picks. Present under every review policy: the rule was on the paper. */
+            selectCount?: components["schemas"]["SelectCount"];
             points: components["schemas"]["Points"];
             /** @description What the student submitted. `null` if unanswered, or removed under the retention policy. */
             answer: components["schemas"]["Answer"] | null;

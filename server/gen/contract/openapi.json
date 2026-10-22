@@ -9189,6 +9189,10 @@
             },
             "description": "`matching` only, as on `StudentQuestion`."
           },
+          "selectCount": {
+            "$ref": "#/components/schemas/SelectCount",
+            "description": "`multiple_choice` only, as on `StudentQuestion`: a \"choose N\" counts as answered with exactly N different picks. Present under every review policy: the rule was on the paper."
+          },
           "points": {
             "$ref": "#/components/schemas/Points"
           },

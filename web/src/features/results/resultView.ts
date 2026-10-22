@@ -7,7 +7,7 @@ type Attempt = AttemptResult["attempt"];
 type Section = AttemptResult["sections"][number];
 type Option = NonNullable<ResultQuestion["options"]>[number];
 
-const MANUAL: ReadonlySet<ResultQuestion["type"]> = new Set(["short_answer"]);
+const MANUAL: ReadonlySet<ResultQuestion["type"]> = new Set(["short_answer", "essay"]);
 const FRESH_MS = 60_000;
 
 /**
