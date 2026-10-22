@@ -163,3 +163,45 @@ describe("progress", () => {
     expect(progress(question(), { type: "text", value: " " })).toBe("none");
   });
 });
+
+/** The R6 cases, the same list the server's live count runs (T-R6.6). */
+describe("answered, for the R6 types", () => {
+  const chooseTwo = question({ type: "multiple_choice", selectCount: 2 });
+  const matching = question({
+    type: "matching",
+    matchAllowReuse: true,
+    matchItems: [
+      { id: "i1", key: "A", text: "item" },
+      { id: "i2", key: "B", text: "item" },
+    ],
+  });
+
+  it("needs exactly N picks on a choose N", () => {
+    expect(answered(chooseTwo, { type: "choice", optionIds: ["o1"] })).toBe(false);
+    expect(answered(chooseTwo, { type: "choice", optionIds: ["o1", "o2"] })).toBe(true);
+  });
+
+  it("needs a pick on a tfng", () => {
+    expect(
+      answered(question({ type: "tfng" }), { type: "choice", optionIds: ["o1"] }),
+    ).toBe(true);
+  });
+
+  it("needs every item paired on a matching question", () => {
+    expect(answered(matching, { type: "matching", pairs: {} })).toBe(false);
+    expect(answered(matching, { type: "matching", pairs: { i1: "o1" } })).toBe(false);
+    expect(
+      answered(matching, { type: "matching", pairs: { i1: "o1", i2: null } } as never),
+    ).toBe(false);
+    expect(
+      answered(matching, { type: "matching", pairs: { i1: "o1", i2: "o1" } }),
+    ).toBe(true);
+    expect(answered(matching, { type: "matching", pairs: ["x"] } as never)).toBe(false);
+  });
+
+  it("needs words in an essay", () => {
+    const essay = question({ type: "essay" });
+    expect(answered(essay, { type: "text", value: "  " })).toBe(false);
+    expect(answered(essay, { type: "text", value: "Some argue that…" })).toBe(true);
+  });
+});
