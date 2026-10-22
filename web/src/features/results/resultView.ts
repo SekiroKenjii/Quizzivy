@@ -181,6 +181,11 @@ export interface ResultView {
   readonly summary: Summary;
   readonly tiles: readonly Tile[];
   readonly callout: Callout | null;
+  /**
+   * grader is the name of the one account that graded every hand-graded
+   * answer, when the server sends it under `showScore` (D-072).
+   */
+  readonly grader: string | null;
   readonly filters: readonly Filter[];
   readonly lock: Lock;
   readonly releasesAt: string | null;
@@ -291,6 +296,11 @@ function strongestOf(questions: readonly ResultQuestion[]): string | null {
   return leaders.length === 1 ? (leaders[0]?.label ?? null) : null;
 }
 
+function graderOf(attempt: Attempt): string | null {
+  const name = attempt.score?.gradedBy?.name.trim() ?? "";
+  return name === "" ? null : name;
+}
+
 /**
  * calloutOf is the comment on the paper's only hand-graded answer, when it
  * has one (DG-84). A paper with two hand-graded answers keeps each comment on
@@ -350,6 +360,7 @@ export function resultView(data: AttemptResult): ResultView {
     releasesAt,
     classAverage: data.classAverage ?? null,
     callout: calloutOf(questions),
+    grader: review.showScore ? graderOf(attempt) : null,
   };
 
   if (score === null) {

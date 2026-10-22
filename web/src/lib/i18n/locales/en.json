@@ -4442,6 +4442,7 @@
       "withheld": "You answered {{answered}} of {{total}} questions. Your teacher has not released the score.",
       "withheldUntil": "You answered {{answered}} of {{total}} questions. Your score is released when the test closes.",
       "band": "Graded by your teacher.",
+      "bandBy": "Graded by {{name}}.",
       "strongest": "{{criterion}} was your strongest area."
     },
     "tiles": {

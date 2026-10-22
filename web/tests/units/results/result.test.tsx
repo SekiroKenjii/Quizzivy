@@ -2054,6 +2054,46 @@ describe("a paper of one banded essay (T-R6.12, the deck's Hand-graded band)", (
   });
 });
 
+describe("the grader's name (D-072)", () => {
+  it("names the grader in the sentence and titles the callout with the name", async () => {
+    await i18n.changeLanguage("en");
+    const body = writingTask();
+    serve({
+      ...body,
+      attempt: {
+        ...body.attempt,
+        score: { ...body.attempt.score!, gradedBy: { name: "Giàu Bùi" } },
+      },
+    });
+    renderResult();
+    expect(
+      await screen.findByText(
+        "Graded by Giàu Bùi. Task achievement was your strongest area.",
+      ),
+    ).toBeVisible();
+    const callout = screen.getByRole("complementary", { name: "Giàu Bùi" });
+    expect(within(callout).getByText("Giàu Bùi")).toBeVisible();
+    expect(within(callout).queryByText("Teacher's comment")).toBeNull();
+  });
+
+  it("writes the name the Vietnamese way", async () => {
+    const body = writingTask();
+    serve({
+      ...body,
+      attempt: {
+        ...body.attempt,
+        score: { ...body.attempt.score!, gradedBy: { name: "Giàu Bùi" } },
+      },
+    });
+    renderResult();
+    expect(
+      await screen.findByText(
+        "Bài đã được Giàu Bùi chấm. Task achievement là phần bạn làm tốt nhất.",
+      ),
+    ).toBeVisible();
+  });
+});
+
 describe("skill tiles (T-R6.12)", () => {
   it("tiles a one-part paper by its skills, named as the bank names them", async () => {
     await i18n.changeLanguage("en");

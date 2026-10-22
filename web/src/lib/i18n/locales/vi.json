@@ -4442,6 +4442,7 @@
       "withheld": "Bạn đã trả lời {{answered}}/{{total}} câu. Giáo viên chưa công bố điểm.",
       "withheldUntil": "Bạn đã trả lời {{answered}}/{{total}} câu. Điểm được công bố khi bài đóng.",
       "band": "Bài đã được giáo viên chấm.",
+      "bandBy": "Bài đã được {{name}} chấm.",
       "strongest": "{{criterion}} là phần bạn làm tốt nhất."
     },
     "tiles": {
