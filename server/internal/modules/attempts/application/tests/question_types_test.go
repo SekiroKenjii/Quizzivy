@@ -218,6 +218,10 @@ func TestAutosaveKeepsOnlyPairsThatBelongToTheQuestion(t *testing.T) {
 		{"an option as the item", w.matching, pairs(w.choices[0], w.choices[1]), false},
 		{"a matching answer on a single choice", w.choice, []byte(`{"type":"matching","pairs":{}}`), false},
 		{"a matching answer on a short answer", w.essay, []byte(`{"type":"matching","pairs":{}}`), false},
+		{"a choice answer on a matching", w.matching, []byte(`{"type":"choice","optionIds":[]}`), false},
+		{"a text answer on a matching", w.matching, []byte(`{"type":"text","value":"A ii"}`), false},
+		{"a true/false answer on a matching", w.matching, []byte(`{"type":"true_false","value":true}`), false},
+		{"a fill-in answer on a matching", w.matching, []byte(`{"type":"fill_blank","values":{}}`), false},
 		{"three picks on a choose two", w.chooseTwo, []byte(`{"type":"choice","optionIds":[]}`), true},
 	}
 	options := questionOf(t, session, w.chooseTwo).Options
