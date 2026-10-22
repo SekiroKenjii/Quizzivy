@@ -2654,7 +2654,10 @@
       "auto": "Chấm tự động khi học viên nộp bài.",
       "manual": "Chấm tay. Mỗi câu trả lời được đưa vào hàng chờ chấm.",
       "anyAccepted": "Câu trả lời đúng khi khớp với một đáp án được chấp nhận.",
-      "exactlyTicked": "Học viên phải chọn đúng các lựa chọn đã đánh dấu."
+      "exactlyTicked": "Học viên phải chọn đúng các lựa chọn đã đánh dấu.",
+      "band": "Bạn chấm theo band từ 3 đến 9.",
+      "itemShare": "Mỗi mục được phần điểm của mình.",
+      "perPick": "Mỗi lựa chọn đúng được phần điểm của mình."
     },
     "questionMedia": {
       "label": "Media của câu hỏi",
@@ -2728,7 +2731,16 @@
     "leaveTitle": "Rời đi mà không lưu?",
     "leaveBody": "Những thay đổi của câu hỏi này chưa được lưu.",
     "leave": "Rời đi",
-    "stay": "Ở lại"
+    "stay": "Ở lại",
+    "includeNotGiven": "Thêm “Không có thông tin”",
+    "includeNotGivenHint": "cho dạng Đúng / Sai / Không có thông tin kiểu IELTS",
+    "optionsHintCount": "đánh dấu {{count}} đáp án đúng",
+    "chooseExactly": "Học viên chọn đúng",
+    "chooseExactlyCount": "Số đáp án học viên chọn",
+    "tickExactly": "Đánh dấu đúng {{count}} đáp án đúng, bằng số đáp án học viên chọn.",
+    "wordLimit": "Giới hạn số từ",
+    "wordLimitHint": "Không bắt buộc. Học viên thấy số từ khi gõ; câu trả lời dài hơn được đánh dấu, không bị cắt.",
+    "wordLimitPlaceholder": "Không giới hạn"
   },
   "builder": {
     "dragInstructions": "Bấm phím cách để nhấc mục, dùng phím mũi tên để chuyển, rồi bấm phím cách để thả hoặc Esc để huỷ.",

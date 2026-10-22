@@ -13,6 +13,7 @@ import type {
   QuestionValues,
 } from "@/features/question-bank/questionSchema";
 import {
+  editorType,
   QUESTION_TYPES,
   retype,
   typeLocked,
@@ -39,7 +40,7 @@ interface QuestionEditorProps {
 }
 
 /**
- * QuestionEditor is §7's five question types in one controlled editor: the
+ * QuestionEditor is every question type in one controlled editor: the
  * prompt, the type's answer block with its grading note, the question's media
  * and the explanation in the middle column; points and tags in the settings
  * rail, which a host can present in its dialog instead.
@@ -58,7 +59,7 @@ export function QuestionEditor({
   const locked = typeLocked(value);
 
   function switchType(type: QuestionType) {
-    if (type === value.type || (type !== "fill_blank" && locked)) return;
+    if (type === editorType(value.type) || (type !== "fill_blank" && locked)) return;
     onChange(retype(value, type));
   }
 
@@ -71,7 +72,7 @@ export function QuestionEditor({
           )}
           <Tabs
             className="ml-auto max-w-full"
-            value={value.type}
+            value={editorType(value.type)}
             onValueChange={(next) => switchType(next as QuestionType)}
           >
             <TabsList

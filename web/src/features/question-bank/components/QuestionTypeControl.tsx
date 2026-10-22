@@ -6,6 +6,7 @@ import type {
   QuestionValues,
 } from "@/features/question-bank/questionSchema";
 import {
+  editorType,
   QUESTION_TYPES,
   retype,
   typeLocked,
@@ -14,8 +15,9 @@ import {
 const KNOWN = new Set<string>(QUESTION_TYPES);
 
 /**
- * QuestionTypeControl is the Question editor's segmented choice of §7's five
- * types. From 768px it keeps one row and scrolls sideways when the card is
+ * QuestionTypeControl is the Question editor's segmented choice of the seven
+ * types it offers (T-R6.9a); a tfng question shows as True / False, whose
+ * switch makes it one. From 768px it keeps one row and scrolls sideways when the card is
  * narrower, as the deck's does; below 768px its options wrap, onto two rows
  * at 360px, and stretch to the row. While gaps bind answers
  * only "Fill in the blank" stays available, and the line under the control
@@ -28,20 +30,21 @@ export function QuestionTypeControl({
   const { t } = useTranslation();
   const hint = useId();
   const locked = typeLocked(value);
+  const shown = editorType(value.type);
   function choose(next: string) {
-    if (next === value.type || !KNOWN.has(next)) return;
+    if (next === shown || !KNOWN.has(next)) return;
     onChange(retype(value, next as QuestionType));
   }
   return (
     <div className="flex min-w-0 flex-col gap-1.5">
       <Segmented
         label={t("questionEditor.typeLabel")}
-        value={value.type}
+        value={shown}
         onChange={choose}
         scroll
         className="self-start max-[767px]:flex max-[767px]:w-full max-[767px]:flex-wrap max-[767px]:[&>button]:flex-auto max-[767px]:[&>button]:justify-center max-[767px]:[&>button]:px-2.5"
         options={QUESTION_TYPES.map((type) => {
-          const blocked = locked && type !== "fill_blank" && type !== value.type;
+          const blocked = locked && type !== "fill_blank" && type !== shown;
           return {
             value: type,
             label: t(`questionEditor.type.${type}`),

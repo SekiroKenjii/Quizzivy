@@ -2654,7 +2654,10 @@
       "auto": "Marked automatically when the student submits.",
       "manual": "Graded by hand. Each answer goes to the grading queue.",
       "anyAccepted": "An answer is correct if it matches any accepted answer.",
-      "exactlyTicked": "Students must choose exactly the ticked options."
+      "exactlyTicked": "Students must choose exactly the ticked options.",
+      "band": "Graded by you on a 3–9 band.",
+      "itemShare": "Each item scores its share of the points.",
+      "perPick": "Each correct pick scores its share of the points."
     },
     "questionMedia": {
       "label": "Question media",
@@ -2728,7 +2731,16 @@
     "leaveTitle": "Leave without saving?",
     "leaveBody": "Your changes to this question are not saved.",
     "leave": "Leave",
-    "stay": "Stay"
+    "stay": "Stay",
+    "includeNotGiven": "Include “Not given”",
+    "includeNotGivenHint": "for IELTS-style True / False / Not given",
+    "optionsHintCount": "tick {{count}} correct answers",
+    "chooseExactly": "Students choose exactly",
+    "chooseExactlyCount": "Number of answers students choose",
+    "tickExactly": "Tick exactly {{count}} correct answers, as many as students choose.",
+    "wordLimit": "Word limit",
+    "wordLimitHint": "Optional. Students see a live word count; a longer answer is flagged, never cut.",
+    "wordLimitPlaceholder": "No limit"
   },
   "builder": {
     "dragInstructions": "Press Space to pick up an item, use the arrow keys to move, then press Space to drop or Escape to cancel.",
