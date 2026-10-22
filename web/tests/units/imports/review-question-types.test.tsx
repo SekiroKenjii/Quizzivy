@@ -49,13 +49,15 @@ describe("a tfng question in the review", () => {
   it("names its type and reads its three fixed options in the teacher's language", async () => {
     await renderReview();
     expect(screen.getByRole("combobox", { name: "Dạng câu" })).toHaveTextContent(
-      "Đúng/Sai/Không có thông tin",
+      "Đúng / Sai / Không có thông tin",
     );
     for (const text of ["Đúng", "Sai", "Không có thông tin"])
       expect(screen.getByText(text)).toBeInTheDocument();
     expect(screen.queryByText("Not given")).toBeNull();
     expect(screen.getByRole("radio", { name: /C/ })).toBeChecked();
-    expect(screen.getByText("Đúng / Sai / KCTT")).toBeInTheDocument();
+    expect(
+      screen.getAllByText("Đúng / Sai / Không có thông tin").length,
+    ).toBeGreaterThan(0);
     for (const key of ["A", "B", "C"])
       expect(screen.getByText(key)).toBeInTheDocument();
     expect(screen.queryByText("NG")).toBeNull();
@@ -71,7 +73,7 @@ describe("a tfng question in the review", () => {
     await user.click(screen.getByRole("combobox", { name: "Dạng câu" }));
     const types = await screen.findByRole("listbox");
     expect(
-      within(types).getByRole("option", { name: "Đúng/Sai/Không có thông tin" }),
+      within(types).getByRole("option", { name: "Đúng / Sai / Không có thông tin" }),
     ).toBeInTheDocument();
   });
 });

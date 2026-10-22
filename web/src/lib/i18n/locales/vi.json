@@ -5121,7 +5121,7 @@
       "true_false": "Đúng/Sai",
       "fill_blank": "Điền từ",
       "short_answer": "Trả lời ngắn",
-      "tfng": "Đúng/Sai/Không có thông tin",
+      "tfng": "Đúng / Sai / Không có thông tin",
       "unsupported": "Chưa hỗ trợ"
     },
     "origin": {
@@ -5353,7 +5353,7 @@
       "maxWordsHint": "Để trống nếu không giới hạn. Học sinh thấy giới hạn này; câu trả lời dài hơn chỉ bị đánh dấu, không bị cắt.",
       "maxWordsInvalid": "Nhập số nguyên từ 1 đến 100, hoặc để trống.",
       "tfngOption": { "T": "Đúng", "F": "Sai", "NG": "Không có thông tin" },
-      "tfngShort": "Đúng / Sai / KCTT",
+      "tfngShort": "Đúng / Sai / Không có thông tin",
       "markCorrect": "Lựa chọn {{label}} là đáp án đúng",
       "editOption": "Sửa",
       "editOptionNamed": "Sửa lựa chọn {{label}}",
