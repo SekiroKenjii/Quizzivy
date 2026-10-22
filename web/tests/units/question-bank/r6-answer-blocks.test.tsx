@@ -98,7 +98,9 @@ describe("“Students choose exactly N” on a multiple choice", () => {
   it("is off by default, starts at two and asks for exactly N ticks", async () => {
     const { user, last } = renderArea({ type: "multiple_choice", options: four });
     expect(screen.queryByRole("spinbutton")).toBeNull();
-    await user.click(screen.getByRole("switch", { name: "Học viên chọn đúng" }));
+    await user.click(
+      screen.getByRole("switch", { name: "Học viên chọn đúng số đáp án" }),
+    );
     expect(last().selectCount).toBe(2);
     expect(
       screen.getByRole("group", { name: /đánh dấu 2 đáp án đúng/ }),
@@ -106,22 +108,33 @@ describe("“Students choose exactly N” on a multiple choice", () => {
     expect(screen.getByText(/Mỗi lựa chọn đúng được phần điểm của mình/)).toBeVisible();
 
     const count = screen.getByRole("spinbutton", { name: "Số đáp án học viên chọn" });
+    expect(count).toHaveAttribute("max", "3");
+    await user.clear(count);
+    // QC-R6AB-2: an empty box falls back to the plain hint, never "NaN".
+    expect(
+      screen.getByRole("group", { name: /đánh dấu mọi đáp án đúng/ }),
+    ).toBeInTheDocument();
+    expect(document.body).not.toHaveTextContent("NaN");
+    await user.type(count, "2.5");
+    expect(screen.getByRole("alert")).toBeInTheDocument();
     await user.clear(count);
     await user.type(count, "3");
     expect(last().selectCount).toBe(3);
     expect(
-      screen.getByText("Đánh dấu đúng 3 đáp án đúng, bằng số đáp án học viên chọn."),
+      screen.getByText("Đánh dấu đủ 3 đáp án đúng, bằng số đáp án học viên chọn."),
     ).toBeVisible();
     expect(blockingIssue(last(), "x")).toBe("questionEditor.errors.selectCountTicks");
 
     await user.clear(count);
     await user.type(count, "4");
     expect(screen.getByRole("alert")).toHaveTextContent(
-      "Học viên chọn từ 2 đến 7 đáp án, và ít hơn số phương án.",
+      "Học viên chọn từ 2 đến 7 đáp án, và ít hơn số đáp án đã cho.",
     );
     expect(blockingIssue(last(), "x")).not.toBeNull();
 
-    await user.click(screen.getByRole("switch", { name: "Học viên chọn đúng" }));
+    await user.click(
+      screen.getByRole("switch", { name: "Học viên chọn đúng số đáp án" }),
+    );
     expect(last().selectCount).toBeNull();
     expect(blockingIssue(last(), "x")).toBeNull();
   });
@@ -143,6 +156,11 @@ describe("a short answer's word limit", () => {
     expect(blockingIssue(last(), "x")).toBeNull();
     await user.clear(limit);
     expect(last().maxWords).toBeNull();
+    // QC-R6AB-5: a fraction is refused, not cut down to 1.
+    await user.type(limit, "1.5");
+    expect(last().maxWords).toBe(1.5);
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+    expect(blockingIssue(last(), "x")).not.toBeNull();
   });
 });
 
