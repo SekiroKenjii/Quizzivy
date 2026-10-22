@@ -52,7 +52,8 @@ type Change struct {
 	// Fields is what differs, for ChangeChanged.
 	Fields []ChangedField
 	// AnswerFrom and AnswerTo are the labels of the correct options of a
-	// choice question, for ChangeAnswer.
+	// choice or TFNG question, or of each matching item and its option, for
+	// ChangeAnswer.
 	AnswerFrom []string
 	AnswerTo   []string
 	// PointsFrom and PointsTo are the two totals, for ChangePoints.
@@ -155,23 +156,47 @@ func changedFields(from, to paperQuestion, fromContext, toContext string) []Chan
 
 func answerChange(from, to paperQuestion) Change {
 	change := Change{Kind: ChangeAnswer, Number: to.number, QuestionID: to.id}
-	if questionsdomain.Type(from.parts.kind).IsChoice() && questionsdomain.Type(to.parts.kind).IsChoice() {
+	fromKind, toKind := questionsdomain.Type(from.parts.kind), questionsdomain.Type(to.parts.kind)
+	switch {
+	case fromKind == questionsdomain.Matching && toKind == questionsdomain.Matching:
+		change.AnswerFrom = matchLabels(from.parts.keys)
+		change.AnswerTo = matchLabels(to.parts.keys)
+	case keyedByOption(fromKind) && keyedByOption(toKind):
 		change.AnswerFrom = optionLabels(from.parts.correct)
 		change.AnswerTo = optionLabels(to.parts.correct)
 	}
 	return change
 }
 
+func keyedByOption(t questionsdomain.Type) bool {
+	return t.IsChoice() || t == questionsdomain.TFNG
+}
+
+func matchLabels(keys []int) []string {
+	labels := make([]string, len(keys))
+	for i, key := range keys {
+		option := "–"
+		if key >= 0 {
+			option = optionLabel(key)
+		}
+		labels[i] = fmt.Sprintf("%d→%s", i+1, option)
+	}
+	return labels
+}
+
 func optionLabels(positions []int) []string {
 	labels := make([]string, len(positions))
 	for i, position := range positions {
-		if position < 26 {
-			labels[i] = string(rune('A' + position))
-			continue
-		}
-		labels[i] = fmt.Sprint(position + 1)
+		labels[i] = optionLabel(position)
 	}
 	return labels
+}
+
+func optionLabel(position int) string {
+	if position < 26 {
+		return string(rune('A' + position))
+	}
+	return fmt.Sprint(position + 1)
 }
 
 func shortPrompt(prompt string) string {

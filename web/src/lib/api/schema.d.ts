@@ -8182,7 +8182,7 @@ export interface components {
          *     | `added` | in `to` only; `questionNumber` and `questionId` are its place in `to` | `prompt` |
          *     | `removed` | in `from` only; `questionNumber` and `questionId` are its place in `from` | `prompt` |
          *     | `changed` | in both; `questionNumber` and `questionId` are its place in `to` | `fields` |
-         *     | `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice question; none otherwise |
+         *     | `answer` | in both, with a different answer key; its place in `to` | `answerFrom`, `answerTo` for a choice, TFNG or matching question; none otherwise |
          *     | `points` | none: the test's total changed; no `questionNumber`, no `questionId` | `pointsFrom`, `pointsTo` |
          *
          *     A question that changed in its words and in its key is reported twice,
@@ -8216,9 +8216,14 @@ export interface components {
             /** @description The question's prompt as plain text, cut to 200 characters with `…` in place of the rest. */
             prompt?: string;
             fields?: components["schemas"]["DiffField"][];
-            /** @description The labels (`A`, `B`, …) of the correct options in `from`, in order. */
+            /**
+             * @description The labels (`A`, `B`, …) of the correct options in `from`, in order.
+             *     For a matching question, one label per item in order: its number,
+             *     an arrow and the label of the option it is keyed to (`1→B`), or
+             *     `–` in place of the option when it is keyed to none.
+             */
             answerFrom?: string[];
-            /** @description The labels of the correct options in `to`, in order. */
+            /** @description The labels of the correct options in `to`, in order, as in `answerFrom`. */
             answerTo?: string[];
             pointsFrom?: components["schemas"]["Points"];
             pointsTo?: components["schemas"]["Points"];
