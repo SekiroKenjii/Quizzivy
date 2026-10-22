@@ -274,11 +274,6 @@ func answer(s sent) string {
 
 func success(s sent) bool { return s.status >= 200 && s.status < 300 }
 
-// substitute sends each scoped id as the caller's own, as another party's and as
-// a missing one. A blind slot is one where the caller's own id answers as a
-// missing one does (QC-R6D-4): once it no longer does, the entry would hide
-// the own-id check, so the run fails until it goes. A spent budget is the one
-// blind the request itself cannot be tried for.
 func (x *iso) substitute(op scopedOp, c isoCase) {
 	x.t.Helper()
 	caller := func(p *party) *party {

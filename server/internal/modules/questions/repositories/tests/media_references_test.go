@@ -147,6 +147,10 @@ func TestTheBankWriteStoresProseMediaItsWriterMayUse(t *testing.T) {
 	if _, err := write(q.ID, domain.Input{PromptContent: prose(lookParagraph), Explanation: &explained, ExplanationContent: prose(lookParagraph, imageBlock(theirs))}); !refused(err, "explanationContent", false) {
 		t.Fatalf("another teacher's image in an explanation answered %v", err)
 	}
+	if _, err := write("", domain.Input{PromptContent: prose(lookParagraph, imageBlock(theirs)),
+		Explanation: &explained, ExplanationContent: prose(lookParagraph, imageBlock(audio))}); !refused(err, "promptContent", false) {
+		t.Fatalf("a foreign prompt image before a wrong-kind explanation block answered %v", err)
+	}
 	if _, err := write("", domain.Input{PromptContent: prose(lookParagraph, imageBlock(audio))}); !refused(err, "promptContent", true) {
 		t.Fatalf("an image block naming a recording answered %v", err)
 	}

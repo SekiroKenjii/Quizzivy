@@ -51,26 +51,27 @@ func (s *Postgres) lockProseMedia(ctx context.Context, tx pgx.Tx, in domain.Writ
 		return fmt.Errorf("questions: media locks unavailable")
 	}
 	ids := proseAssetIDs(refs)
-	live := make([]string, 0, len(ids))
+	var gone []string
 	for _, id := range ids {
 		err := s.media.LockForVersionUse(ctx, tx, id)
 		if errors.Is(err, domain.ErrMediaNotFound) {
+			gone = append(gone, strings.ToLower(id))
 			continue
 		}
 		if err != nil {
 			return fmt.Errorf("questions: lock media %s: %w", id, err)
 		}
-		live = append(live, id)
 	}
 	scope := access.Scope{UserID: in.ActorID, All: in.All}
 	if groupMember {
 		scope = groupAuthorized
 	}
-	kinds := map[string]string{}
-	if len(live) > 0 {
-		if kinds, err = s.media.ReadableKinds(ctx, tx, scope, live); err != nil {
-			return err
-		}
+	kinds, err := s.media.ReadableKinds(ctx, tx, scope, ids)
+	if err != nil {
+		return err
+	}
+	for _, id := range gone {
+		delete(kinds, id)
 	}
 	return usableKinds(refs, kinds)
 }
