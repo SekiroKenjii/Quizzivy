@@ -5364,7 +5364,7 @@
       "acceptedHint": "Mỗi dòng một đáp án",
       "caseSensitive": "Phân biệt chữ hoa, chữ thường",
       "caseSensitiveFor": "Phân biệt hoa thường ở chỗ trống {{label}}",
-      "sampleHint": "Đáp án mẫu chỉ giáo viên thấy khi chấm; câu tự luận có thể không cần.",
+      "sampleHint": "Đáp án mẫu chỉ giáo viên thấy khi chấm; câu trả lời ngắn có thể không cần.",
       "unsupportedHelp": "Nội dung gốc được giữ nguyên. Đổi sang dạng câu phù hợp ở trên, hoặc loại câu này khỏi đề.",
       "candidates": "Các giá trị trong tài liệu",
       "useCandidateNamed": "Dùng giá trị này: {{value}}",
