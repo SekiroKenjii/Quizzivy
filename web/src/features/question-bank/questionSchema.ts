@@ -414,8 +414,9 @@ function validateRubric(
   issue: (path: string, key: string) => void,
 ) {
   if (rubric.length > MAX_RUBRIC_CRITERIA) issue("rubric", "maxCriteria");
+  // The server compares labels after NFC, so "ý" typed decomposed matches it composed.
   const labels = rubric
-    .map((criterion) => criterion.label.trim().toLowerCase())
+    .map((criterion) => criterion.label.normalize("NFC").trim().toLowerCase())
     .filter((label) => label !== "");
   if (new Set(labels).size !== labels.length) issue("rubric", "duplicateCriterion");
 }

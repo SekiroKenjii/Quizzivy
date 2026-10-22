@@ -25,6 +25,7 @@ import type {
   QuestionValues,
 } from "@/features/question-bank/questionSchema";
 import {
+  editorType,
   QUESTION_TYPES,
   retype,
   typeLocked,
@@ -167,7 +168,7 @@ function TypeMenu({
   const Current = QUESTION_TYPE_ICONS[value.type];
   const typeName = t(`questionEditor.type.${value.type}`);
   function choose(type: QuestionType) {
-    if (type === value.type) return;
+    if (type === editorType(value.type)) return;
     onChange(retype(value, type));
   }
   return (
@@ -189,7 +190,7 @@ function TypeMenu({
         <DropdownMenuLabel>{t("questionEditor.typeLabel")}</DropdownMenuLabel>
         {QUESTION_TYPES.map((type) => {
           const Icon = QUESTION_TYPE_ICONS[type];
-          const current = type === value.type;
+          const current = type === editorType(value.type);
           const blocked = !current && locked && type !== "fill_blank";
           return (
             <DropdownMenuItem

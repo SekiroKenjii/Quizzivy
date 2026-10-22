@@ -2,6 +2,8 @@ import { useId, useRef, useState, type ReactNode } from "react";
 import { useTranslation } from "react-i18next";
 import { Check, Plus, Sparkles, TriangleAlert, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Switch } from "@/components/ui/switch";
 import { toast } from "@/components/ui/sonner";
 import { suggestAiDistractors, type AiDistractorsResult } from "@/features/ai/api";
 import { AiEntryButton } from "@/features/ai/components/AiEntryButton";
@@ -17,6 +19,8 @@ import { aiFailureText, useAiSuggestion } from "../useAiSuggestion";
 import {
   choiceProblems,
   MAX_OPTIONS,
+  MAX_SELECT_COUNT,
+  MIN_SELECT_COUNT,
   type QuestionValues,
 } from "@/features/question-bank/questionSchema";
 
@@ -28,6 +32,9 @@ interface OptionsEditorProps {
   onChange: (options: Option[]) => void;
   /** The question these options belong to and its page's AI, for "Suggest wrong options". */
   suggest?: { ai: QuestionAi; question: QuestionValues } | undefined;
+  /** A multiple choice's "Students choose exactly N": null while off. */
+  selectCount?: number | null | undefined;
+  onSelectCountChange?: ((count: number | null) => void) | undefined;
 }
 
 /**
@@ -36,6 +43,10 @@ interface OptionsEditorProps {
  * option" stops at eight with an error toast and remove at two. For multiple
  * choice it says when nothing is ticked, which blocks saving, and when only
  * one is, which is a warning only: the server takes one correct answer.
+ * Given `onSelectCountChange`, a multiple choice offers "Students choose
+ * exactly [N]" (T-R6.9a, undrawn, listed for sign-off), off by default, N
+ * from 2 to 7; while on, the hint reads "tick N correct answers" and any
+ * other number of ticks blocks saving.
  * Given `suggest`, "Suggest wrong options" (V-10) sits beside "Add option"
  * while the assistant is available, and each suggestion it adds fills the
  * first empty option or a new one, through `onChange`.
@@ -45,6 +56,8 @@ export function OptionsEditor({
   multiple,
   onChange,
   suggest,
+  selectCount = null,
+  onSelectCountChange,
 }: Readonly<OptionsEditorProps>) {
   const { t } = useTranslation();
   const [editorEpoch, setEditorEpoch] = useState(0);
@@ -55,7 +68,12 @@ export function OptionsEditor({
     type: multiple ? "multiple_choice" : "single_choice",
     options,
   });
-  const sentence = multiple ? multipleSentence(problems) : null;
+  const ticked = options.filter((option) => option.isCorrect).length;
+  const choosing = multiple && selectCount !== null;
+  const sentence = multiple ? multipleSentence(problems, selectCount, ticked) : null;
+  let hintText = t("questionEditor.optionsHint");
+  if (choosing) hintText = t("questionEditor.optionsHintCount", { count: selectCount });
+  else if (multiple) hintText = t("questionEditor.optionsHintMulti");
 
   function setCorrect(index: number, correct: boolean) {
     onChange(
@@ -94,12 +112,7 @@ export function OptionsEditor({
         className="text-[12.5px] font-medium in-data-[field-size=page]:text-[13px] in-data-[field-size=page]:leading-[19.5px]"
       >
         {t("questionEditor.options")}{" "}
-        <span className="text-muted-fg font-normal">
-          ·{" "}
-          {t(
-            multiple ? "questionEditor.optionsHintMulti" : "questionEditor.optionsHint",
-          )}
-        </span>
+        <span className="text-muted-fg font-normal">· {hintText}</span>
       </p>
 
       <div
@@ -190,6 +203,14 @@ export function OptionsEditor({
         </WithDistractors>
       )}
 
+      {multiple && onSelectCountChange ? (
+        <SelectCountField
+          count={selectCount}
+          options={options.length}
+          onChange={onSelectCountChange}
+        />
+      ) : null}
+
       {sentence ? (
         <p
           id={note}
@@ -199,7 +220,69 @@ export function OptionsEditor({
             aria-hidden="true"
             className="text-warning-ink mt-0.5 size-3.5 flex-none"
           />
-          {t(sentence)}
+          {t(sentence.key, sentence.values ?? {})}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
+/**
+ * SelectCountField is "Students choose exactly [N]": a switch, then N while
+ * it is on. On starts at two. N runs from 2 to 7 and below the option count;
+ * a number outside that says so under the field and blocks saving.
+ */
+function SelectCountField({
+  count,
+  options,
+  onChange,
+}: Readonly<{
+  count: number | null;
+  options: number;
+  onChange: (count: number | null) => void;
+}>) {
+  const { t } = useTranslation();
+  const input = useId();
+  const error = useId();
+  const on = count !== null;
+  const outOfRange =
+    on &&
+    (!Number.isInteger(count) ||
+      count < MIN_SELECT_COUNT ||
+      count > MAX_SELECT_COUNT ||
+      count > options - 1);
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex min-h-8 flex-wrap items-center gap-x-2.5 gap-y-1.5 text-[13px]">
+        <label className="flex cursor-pointer items-center gap-2.5">
+          <Switch
+            size="sm"
+            checked={on}
+            aria-describedby={outOfRange ? error : undefined}
+            onCheckedChange={(next) => onChange(next ? MIN_SELECT_COUNT : null)}
+          />
+          {t("questionEditor.chooseExactly")}
+        </label>
+        {on ? (
+          <Input
+            id={input}
+            type="number"
+            inputMode="numeric"
+            min={MIN_SELECT_COUNT}
+            max={MAX_SELECT_COUNT}
+            step={1}
+            value={Number.isNaN(count) ? "" : count}
+            aria-label={t("questionEditor.chooseExactlyCount")}
+            aria-invalid={outOfRange}
+            aria-describedby={outOfRange ? error : undefined}
+            className="h-8 w-16 rounded-[7px] px-2.5"
+            onChange={(event) => onChange(Number.parseInt(event.target.value, 10))}
+          />
+        ) : null}
+      </div>
+      {outOfRange ? (
+        <p id={error} role="alert" className="text-danger-ink text-xs">
+          {t("questionEditor.errors.selectCountRange")}
         </p>
       ) : null}
     </div>
@@ -299,9 +382,18 @@ function WithDistractors({
   );
 }
 
-function multipleSentence(problems: ReturnType<typeof choiceProblems>) {
-  if (problems.noneCorrect) return "questionEditor.tickTwo";
-  if (problems.oneCorrectOfMany) return "questionEditor.onlyOneTicked";
+function multipleSentence(
+  problems: ReturnType<typeof choiceProblems>,
+  selectCount: number | null,
+  ticked: number,
+): { key: string; values?: { count: number } } | null {
+  if (selectCount !== null && Number.isInteger(selectCount)) {
+    return ticked === selectCount
+      ? null
+      : { key: "questionEditor.tickExactly", values: { count: selectCount } };
+  }
+  if (problems.noneCorrect) return { key: "questionEditor.tickTwo" };
+  if (problems.oneCorrectOfMany) return { key: "questionEditor.onlyOneTicked" };
   return null;
 }
 
