@@ -29,11 +29,17 @@ function marked(
  * reload or a closed tab gets the browser's own prompt meanwhile. A
  * navigation judged after the URL has already left `base` is let through, so
  * a Back pressed while the departing page is still mounted is not reverted.
+ * `copy` replaces the Settings wording for a guard elsewhere.
  */
 export function UnsavedChangesGuard({
   base,
+  copy,
   children,
-}: Readonly<{ base: string; children: ReactNode }>) {
+}: Readonly<{
+  base: string;
+  copy?: { title: string; description: string; confirm: string; stay: string };
+  children: ReactNode;
+}>) {
   const { t } = useTranslation();
   const [unsavedSections, setUnsavedSections] = useState<ReadonlySet<string>>(
     () => new Set(),
@@ -68,10 +74,10 @@ export function UnsavedChangesGuard({
         onOpenChange={(open) => {
           if (!open && blocker.state === "blocked") blocker.reset();
         }}
-        title={t("settings.leave.title")}
-        description={t("controls.unsaved")}
-        confirmLabel={t("settings.leave.confirm")}
-        cancelLabel={t("settings.leave.stay")}
+        title={copy?.title ?? t("settings.leave.title")}
+        description={copy?.description ?? t("controls.unsaved")}
+        confirmLabel={copy?.confirm ?? t("settings.leave.confirm")}
+        cancelLabel={copy?.stay ?? t("settings.leave.stay")}
         destructive
         onConfirm={() => {
           if (blocker.state === "blocked") blocker.proceed();

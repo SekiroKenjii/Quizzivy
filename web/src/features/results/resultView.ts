@@ -19,8 +19,10 @@ const FRESH_MS = 60_000;
  * Verdict is what the result says about one answer. `waiting` is an answer
  * the teacher has yet to grade; `unknown` is an answer whose mark the review
  * policy does not show. `partial` earned some of the points and not all.
+ * `banded` is an essay marked on a band, which is neither right nor wrong.
  */
-export type Verdict = "correct" | "partial" | "wrong" | "waiting" | "unknown";
+export type Verdict =
+  "correct" | "partial" | "wrong" | "banded" | "waiting" | "unknown";
 
 /**
  * verdict reads one answer's mark. It needs the policy to show scores and the
@@ -30,6 +32,7 @@ export type Verdict = "correct" | "partial" | "wrong" | "waiting" | "unknown";
 export function verdict(question: ResultQuestion, review: Review): Verdict {
   if (question.pendingManual === true) return "waiting";
   if (!review.showScore || question.earned == null) return "unknown";
+  if (question.band != null) return "banded";
   if (question.earned >= question.points) return "correct";
   return question.earned > 0 ? "partial" : "wrong";
 }

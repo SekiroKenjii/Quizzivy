@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import type { TFunction } from "i18next";
 import { useTranslation } from "react-i18next";
 import {
+  Award,
   Check,
   Hourglass,
   Minus,
@@ -50,6 +51,11 @@ const MARK: Record<
     icon: X,
     tone: "bg-danger-soft text-danger-ink",
     label: "result.verdict.wrong",
+  },
+  banded: {
+    icon: Award,
+    tone: "bg-brand-soft text-brand-ink",
+    label: "result.verdict.banded",
   },
   waiting: { icon: Hourglass, tone: "bg-warning-soft text-warning-ink", label: null },
   unknown: { icon: Minus, tone: "bg-muted text-muted-fg", label: null },

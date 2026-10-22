@@ -24,6 +24,7 @@ import {
   ATTEMPT_ID,
   BASE,
   assignment,
+  defaultRows,
   STUDENT_ID,
   monitor,
   review,
@@ -226,6 +227,36 @@ describe("actual assignment detail permission and identity gates", () => {
       expect(requests.notes).toEqual([]);
     },
   );
+
+  it("writes a banded paper's band on the roster and in the sheet", async () => {
+    const banded = { earned: 6, total: 9, pendingManual: 0, band: 6 };
+    server.use(
+      http.get(`${BASE}/teacher/assignments/${ASSIGNMENT_ID}/attempts`, () => {
+        const rows = defaultRows().map((row) =>
+          row.attemptId === B ? { ...row, score: banded } : row,
+        );
+        return contractJson(
+          "/teacher/assignments/{id}/attempts",
+          "get",
+          200,
+          monitor(rows),
+        );
+      }),
+      http.get(`${BASE}/teacher/attempts/:id`, ({ params }) => {
+        const data = paper(String(params.id));
+        return contractJson("/teacher/attempts/{id}", "get", 200, {
+          ...data,
+          attempt: { ...data.attempt, score: banded },
+        });
+      }),
+    );
+    mount(`${PATH}?attempt=${ATTEMPT_ID}`);
+    const sheet = await screen.findByRole("dialog");
+    expect(await within(sheet).findByText("Band 6,0")).toBeInTheDocument();
+    expect(
+      within(screen.getByRole("table", { hidden: true })).getByText("Band 6,0"),
+    ).toBeInTheDocument();
+  });
 
   it("sends no assignment, monitor, review or event query without Teacher workspace", async () => {
     grant(["teaching.grading", "teaching.attempts.intervene"], false);

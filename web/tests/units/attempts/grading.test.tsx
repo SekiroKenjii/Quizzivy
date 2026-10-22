@@ -79,7 +79,8 @@ describe("attempt review and grading", () => {
   it("blocks finishing while a manual item remains, and frees it once graded", async () => {
     const user = renderReview();
     const finish = await screen.findByRole("button", { name: "Hoàn tất chấm" });
-    expect(finish).toBeDisabled();
+    // Paused (R6-00), not disabled: it stays focusable and says why when pressed.
+    expect(finish).toHaveAttribute("aria-disabled", "true");
     expect(screen.getByText("còn 1 câu chờ chấm")).toBeInTheDocument();
 
     await user.clear(screen.getByLabelText("Điểm"));
@@ -93,7 +94,9 @@ describe("attempt review and grading", () => {
       ]),
     );
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Hoàn tất chấm" })).toBeEnabled(),
+      expect(screen.getByRole("button", { name: "Hoàn tất chấm" })).not.toHaveAttribute(
+        "aria-disabled",
+      ),
     );
     expect(screen.queryByText("còn 1 câu chờ chấm")).not.toBeInTheDocument();
   });
