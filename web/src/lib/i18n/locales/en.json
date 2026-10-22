@@ -4495,6 +4495,7 @@
     "showTranscript": "Show transcript",
     "noTranscript": "The transcript isn't shown.",
     "teacherComment": "Teacher's comment",
+    "commentFrom": "Comment from {{name}}",
     "cloze": {
       "questions": "Questions {{from}}–{{to}}",
       "chip": "Question {{n}}, {{word}}"

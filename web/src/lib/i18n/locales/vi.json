@@ -4495,6 +4495,7 @@
     "showTranscript": "Xem lời thoại",
     "noTranscript": "Lời thoại không được hiển thị.",
     "teacherComment": "Nhận xét của giáo viên",
+    "commentFrom": "Nhận xét của {{name}}",
     "cloze": {
       "questions": "Câu {{from}}–{{to}}",
       "chip": "Câu {{n}}, {{word}}"

@@ -323,8 +323,12 @@ function Loaded({
       {view.callout !== null && (
         <aside
           data-slot="comment-callout"
-          aria-label={view.grader ?? t("result.teacherComment")}
-          className="bg-brand-soft flex flex-col gap-0.5 rounded-xl px-4 py-3.5 text-sm leading-[1.55]"
+          aria-label={
+            view.grader === null
+              ? t("result.teacherComment")
+              : t("result.commentFrom", { name: view.grader })
+          }
+          className="bg-brand-soft flex flex-col gap-0.5 rounded-xl px-4 py-3.5 text-base leading-[1.55]"
         >
           <span className="font-semibold">
             {view.grader ?? t("result.teacherComment")}

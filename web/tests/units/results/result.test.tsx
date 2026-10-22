@@ -2071,7 +2071,9 @@ describe("the grader's name (D-072)", () => {
         "Graded by Giàu Bùi. Task achievement was your strongest area.",
       ),
     ).toBeVisible();
-    const callout = screen.getByRole("complementary", { name: "Giàu Bùi" });
+    const callout = screen.getByRole("complementary", {
+      name: "Comment from Giàu Bùi",
+    });
     expect(within(callout).getByText("Giàu Bùi")).toBeVisible();
     expect(within(callout).queryByText("Teacher's comment")).toBeNull();
   });
@@ -2132,7 +2134,11 @@ describe("a matching answer (T-R6.12)", () => {
   });
 
   it("marks no pair and keys nothing when the policy hides correct answers", async () => {
-    serve(scored([matching(1)], { review: SCORE_ONLY }));
+    // The server never sends the key under this policy; even if it did, no
+    // pair is marked.
+    serve(
+      scored([matching(1, { correctMatches: matchKey(1) })], { review: SCORE_ONLY }),
+    );
     renderResult();
     const card = (await screen.findByText("Nối 1")).closest("article")!;
     const lists = card.querySelectorAll<HTMLElement>("[data-slot=pairs]");
