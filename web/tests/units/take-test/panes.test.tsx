@@ -229,7 +229,7 @@ describe("the panes from 768", () => {
       "Câu 2 trên 8 · Một đáp án",
       "Câu 3 trên 8 · Một đáp án",
       "Câu 4 trên 8 · Nhiều đáp án",
-      "Câu 5 trên 8 · Tự luận",
+      "Câu 5 trên 8 · Trả lời ngắn",
       "Câu 6 trên 8 · Đúng/Sai",
       "Câu 7 trên 8 · Điền từ",
     ]) {
