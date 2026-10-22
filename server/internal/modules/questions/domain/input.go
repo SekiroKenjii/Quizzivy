@@ -33,7 +33,25 @@ type Input struct {
 	Points             string
 	Explanation        *string
 	SampleAnswer       *string
+	SelectCount        *int
+	MaxWords           *int
+	MatchAllowReuse    *bool
+	MatchItems         []MatchItemInput
+	Rubric             []RubricCriterionInput
 	Tags               []string
+}
+
+// MatchItemInput is one matching item. CorrectOption names its choice by index
+// in the same input's Options, because a choice this write creates has no id.
+type MatchItemInput struct {
+	ID            *string
+	Text          string
+	CorrectOption int
+}
+
+type RubricCriterionInput struct {
+	ID    *string
+	Label string
 }
 
 // WriteRequest is a write to the bank by ActorID. It reaches only ActorID's own
@@ -132,8 +150,10 @@ func (in Input) Validate(assetKind *string) error {
 	validateMedia(in, assetKind, errs)
 	validateMediaAlt(in, assetKind, errs)
 
-	if in.SampleAnswer != nil && *in.SampleAnswer != "" && in.Type != ShortAnswer {
-		errs.AddIn("sampleAnswer", "Đáp án mẫu chỉ dùng cho câu trả lời ngắn.", "Only a short answer has a sample answer.")
+	validateTypeFields(in, errs)
+
+	if in.SampleAnswer != nil && *in.SampleAnswer != "" && in.Type != ShortAnswer && in.Type != Essay {
+		errs.AddIn("sampleAnswer", "Đáp án mẫu chỉ dùng cho câu trả lời ngắn và bài luận.", "Only a short answer or an essay has a sample answer.")
 	}
 	for i, tag := range in.Tags {
 		if strings.TrimSpace(tag) == "" {
@@ -148,23 +168,28 @@ func (in Input) Validate(assetKind *string) error {
 }
 
 func validateOptions(in Input, errs *ValidationError) {
-	if !in.Type.IsChoice() {
+	if !in.Type.HasOptions() {
 		if len(in.Options) > 0 {
 			errs.AddIn("options", "Loại câu hỏi này không có phương án chọn.", "This question type has no options.")
 		}
+		return
+	}
+	switch in.Type {
+	case TFNG:
+		validateTFNGOptions(in, errs)
+		return
+	case Matching:
+		validateMatchChoices(in, errs)
 		return
 	}
 
 	if len(in.Options) < 2 {
 		errs.AddIn("options", "Cần ít nhất hai phương án.", "Add at least two options.")
 	}
-	correct := 0
 	for i, o := range in.Options {
 		validateOptionText(i, o, errs)
-		if o.IsCorrect {
-			correct++
-		}
 	}
+	correct := correctOptions(in)
 	if correct == 0 {
 		errs.AddIn("options", "Cần ít nhất một phương án đúng.", "Mark at least one option correct.")
 	}

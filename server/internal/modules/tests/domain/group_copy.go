@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	questions "quizzivy/internal/modules/questions/domain"
 	"quizzivy/internal/shared/content"
 	"strings"
 )
@@ -128,6 +129,16 @@ func (c *groupCopier) reserveQuestion(question GroupQuestion) {
 			c.reserved[strings.ToLower(*blank.GapID)] = true
 		}
 	}
+	for _, item := range question.Input.MatchItems {
+		if item.ID != nil {
+			c.reserved[strings.ToLower(*item.ID)] = true
+		}
+	}
+	for _, criterion := range question.Input.Rubric {
+		if criterion.ID != nil {
+			c.reserved[strings.ToLower(*criterion.ID)] = true
+		}
+	}
 }
 
 func (c *groupCopier) reserveDocument(document content.Document) {
@@ -163,12 +174,26 @@ func (c *groupCopier) copyQuestions(questions []GroupQuestion) error {
 				c.blanks[sourceID][before[j]] = *blank.GapID
 			}
 		}
-		for j := range question.Input.Options {
-			id := c.next()
-			question.Input.Options[j].ID = &id
-		}
+		c.renameChildren(&question.Input)
 	}
 	return nil
+}
+
+// renameChildren gives a copied question's options, matching items and rubric
+// criteria fresh ids; an item names its option by index, so it follows.
+func (c *groupCopier) renameChildren(in *questions.Input) {
+	for j := range in.Options {
+		id := c.next()
+		in.Options[j].ID = &id
+	}
+	for j := range in.MatchItems {
+		id := c.next()
+		in.MatchItems[j].ID = &id
+	}
+	for j := range in.Rubric {
+		id := c.next()
+		in.Rubric[j].ID = &id
+	}
 }
 
 func (c *groupCopier) copyStimulus(stimulus *GroupStimulus) error {

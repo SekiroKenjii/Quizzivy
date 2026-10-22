@@ -7,13 +7,16 @@ import (
 	"quizzivy/internal/shared/opt"
 	"strings"
 
+	"github.com/google/uuid"
 	"github.com/jackc/pgx/v5"
 	"golang.org/x/text/unicode/norm"
 )
 
 const (
-	optionsTable = "app.question_options"
-	blanksTable  = "app.question_blanks"
+	optionsTable    = "app.question_options"
+	blanksTable     = "app.question_blanks"
+	matchItemsTable = "app.question_match_items"
+	rubricTable     = "app.question_rubric_criteria"
 )
 
 // heldChildren returns the ids of the rows a question holds in an options or
@@ -64,62 +67,108 @@ func deleteOtherChildren(ctx context.Context, tx pgx.Tx, table, questionID strin
 	return err
 }
 
-// replaceOptions makes the question's options the ones in the input. An option
-// sent with an id the question holds is updated in place, so its id survives
-// the save; one sent without an id, or with an id the question does not hold,
-// is created; one not sent is deleted. Ordinals are the array positions,
-// written under the deferred ordinal constraint so a reorder can move rows one
-// statement at a time.
+// replaceOptions makes the question's options the ones in the input, and its
+// matching items the input's. An option sent with an id the question holds is
+// updated in place, so its id survives the save; one sent without an id, or
+// with an id the question does not hold, is created; one not sent is deleted.
+// Ordinals are the array positions, written under the deferred ordinal
+// constraint so a reorder can move rows one statement at a time. A tfng
+// question's texts are TFNGTexts whatever was sent.
+//
+// An item's key to its option is a NO ACTION foreign key, so the options are
+// written first, then the items are rewritten against the options' final ids
+// (or deleted), and only then are the options no longer sent deleted: no
+// statement deletes an option an item still names.
 func replaceOptions(ctx context.Context, tx pgx.Tx, questionID string, in domain.Input) error {
-	if err := preserveOptionContent(ctx, tx, questionID, in.Options); err != nil {
-		return err
-	}
 	options := in.Options
-	if !in.Type.IsChoice() {
+	switch {
+	case in.Type == domain.TFNG:
+		options = tfngOptions(options)
+	case !in.Type.HasOptions():
 		options = nil
+	}
+	if in.Type != domain.TFNG {
+		if err := preserveOptionContent(ctx, tx, questionID, options); err != nil {
+			return err
+		}
 	}
 	held, err := heldChildren(ctx, tx, optionsTable, questionID)
 	if err != nil {
 		return fmt.Errorf("questions: read options: %w", err)
 	}
 	kept := keptIDs(options, func(o domain.OptionInput) *string { return o.ID }, held)
-	if err := deleteOtherChildren(ctx, tx, optionsTable, questionID, kept); err != nil {
+	ids, err := writeOptions(ctx, tx, questionID, options, kept)
+	if err != nil {
+		return err
+	}
+	var items []domain.MatchItemInput
+	if in.Type == domain.Matching {
+		items = in.MatchItems
+	}
+	if err := replaceMatchItems(ctx, tx, questionID, items, ids); err != nil {
+		return err
+	}
+	if err := deleteOtherChildren(ctx, tx, optionsTable, questionID, ids); err != nil {
 		return fmt.Errorf("questions: clear options: %w", err)
-	}
-	if len(options) == 0 {
-		return nil
-	}
-	if _, err := tx.Exec(ctx, `SET CONSTRAINTS app.question_options_ordinal_key DEFERRED`); err != nil {
-		return fmt.Errorf("questions: defer option order: %w", err)
-	}
-	updates := &pgx.Batch{}
-	var created [][]any
-	for i, o := range options {
-		if kept[i] == "" {
-			created = append(created, []any{questionID, i, o.Text, o.IsCorrect, nullableContent(o.Content)})
-			continue
-		}
-		updates.Queue(`UPDATE app.question_options
-			   SET ordinal = $2, text = $3, is_correct = $4, content = $5
-			 WHERE id = $1 AND question_id = $6`,
-			kept[i], i, o.Text, o.IsCorrect, nullableContent(o.Content), questionID)
-	}
-	if err := tx.SendBatch(ctx, updates).Close(); err != nil {
-		return fmt.Errorf("questions: update options: %w", err)
-	}
-	if len(created) > 0 {
-		_, err := tx.CopyFrom(ctx,
-			pgx.Identifier{"app", "question_options"},
-			[]string{"question_id", "ordinal", "text", "is_correct", "content"},
-			pgx.CopyFromRows(created))
-		if err != nil {
-			return fmt.Errorf("questions: write options: %w", err)
-		}
 	}
 	if _, err := tx.Exec(ctx, `SET CONSTRAINTS app.question_options_ordinal_key IMMEDIATE`); err != nil {
 		return fmt.Errorf("questions: order options: %w", err)
 	}
 	return nil
+}
+
+// tfngOptions is options with TFNGTexts in place of the sent texts and no
+// formatting; it keeps their ids and which one is correct.
+func tfngOptions(options []domain.OptionInput) []domain.OptionInput {
+	out := make([]domain.OptionInput, len(options))
+	for i, option := range options {
+		out[i] = domain.OptionInput{ID: option.ID, IsCorrect: option.IsCorrect}
+		if i < len(domain.TFNGTexts) {
+			out[i].Text = domain.TFNGTexts[i]
+		}
+	}
+	return out
+}
+
+// writeOptions updates the kept options and creates the others, and returns
+// every option's id in input order. Ids are minted here, so the items written
+// next can name an option this save creates.
+func writeOptions(ctx context.Context, tx pgx.Tx, questionID string, options []domain.OptionInput, kept []string) ([]string, error) {
+	if _, err := tx.Exec(ctx, `SET CONSTRAINTS app.question_options_ordinal_key DEFERRED`); err != nil {
+		return nil, fmt.Errorf("questions: defer option order: %w", err)
+	}
+	ids := make([]string, len(options))
+	updates := &pgx.Batch{}
+	var created [][]any
+	for i, o := range options {
+		if kept[i] != "" {
+			ids[i] = kept[i]
+			updates.Queue(`UPDATE app.question_options
+				   SET ordinal = $2, text = $3, is_correct = $4, content = $5
+				 WHERE id = $1 AND question_id = $6`,
+				kept[i], i, o.Text, o.IsCorrect, nullableContent(o.Content), questionID)
+			continue
+		}
+		id, err := uuid.NewV7()
+		if err != nil {
+			return nil, fmt.Errorf("questions: option id: %w", err)
+		}
+		ids[i] = id.String()
+		created = append(created, []any{ids[i], questionID, i, o.Text, o.IsCorrect, nullableContent(o.Content)})
+	}
+	if err := tx.SendBatch(ctx, updates).Close(); err != nil {
+		return nil, fmt.Errorf("questions: update options: %w", err)
+	}
+	if len(created) > 0 {
+		_, err := tx.CopyFrom(ctx,
+			pgx.Identifier{"app", "question_options"},
+			[]string{"id", "question_id", "ordinal", "text", "is_correct", "content"},
+			pgx.CopyFromRows(created))
+		if err != nil {
+			return nil, fmt.Errorf("questions: write options: %w", err)
+		}
+	}
+	return ids, nil
 }
 
 // replaceBlanks makes the question's blanks the ones in the input, by the same
