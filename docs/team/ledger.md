@@ -9,9 +9,10 @@ start at [README.md](README.md) "Resuming".
 
 - **As of:** 2026-10-22, 17:45 UTC (D-078: the release PR carries the checkpoint, R6-10 drafted
   its part).
-- **Base:** `work/redesign-r6` at `96a2260c` (#813), cut as `release/0.13.0` for `main`. It holds
-  `develop` (`0bab38fa`, #765) and `main` (`f1ef076f`, v0.12.2): `git log` of either against it
-  is empty. #814 merges `work/redesign-r6` into `develop`. `main` is at `f1ef076f` (v0.12.2).
+- **Base:** `work/redesign-r6` at `96a2260c` (#813), cut as `release/0.13.0` for `main`, which
+  held `develop` (`0bab38fa`, #765) and `main` (`f1ef076f`, v0.12.2). #814 merged
+  `work/redesign-r6` into `develop` at `1520d685`, and `release/0.13.0` merges that in at
+  `0e854127` with no change to its tree. `main` is at `f1ef076f` (v0.12.2).
 - **Objective:** ship v0.13.0 (R6, question types and scoring, `docs/plan/76-r6.md`). The next
   free migration number is **00155** (T-5 governs).
 - **Shipped since the last checkpoint:**
@@ -30,7 +31,8 @@ start at [README.md](README.md) "Resuming".
     and R6-00 (#764, #766: the paused-control sweep) on `develop` before the cut; N-03 found
     nothing to change.
   - T-R6.1a #767 (00145 to 00149) and T-R6.1b #769 (00150 to 00153); T-R6.2 #768; T-R6.2b #772
-    (00154); T-R6.3 #770, #771, #773; T-R6.4 to T-R6.8 #775 to #778, #781, #782, #785, #789;
+    (00154); T-R6.3 #770, #771, #773; T-R6.4 to T-R6.8 #775 to #778, #781, #782, #785, #789,
+    #796, #798, #801 (T-R6.8d to T-R6.8f, the grader's name on the result, D-072, D-074);
     T-R6.5b #793; T-R6.9a #779, #786, #795 and T-R6.9b #807; T-R6.10 #780, #788; T-R6.10b
     #810; T-R6.11 #787, #790, #794; T-R6.12 #799; T-R6.13 #774, #783; T-R6.14 and T-R6.15
     #813; T-R6.16 #806.

@@ -4274,7 +4274,7 @@ Every transactional file in this section, Up and Down, sets `lock_timeout = '5s'
 It waits, without a bound, for transactions older than it, so the deploy should not start beside a long one
 (QC-R6B-5). Nothing in the database ties a criterion, an item or a band to its question's type (QC-R6B-3): the
 bank's rules (T-R6.3) and the grader (T-R6.4) do. A v0.12 binary that regrades an essay overwrites `manual_score`
-and leaves `band`, so no binary older than T-R6.4 may grade once bands are written.
+and leaves `band`, so no binary older than T-R6.7 (band grading) may grade once bands are written.
 
 ## 60. Media in question prose (T-R6.2b, DG-109, D-064)
 

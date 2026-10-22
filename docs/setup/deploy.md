@@ -620,15 +620,19 @@ The rolling strategy then replaces the `app` and `worker` machines, and Pages de
 values, nullable columns, widened CHECKs and new tables. v0.12.2's writes satisfy every new
 CHECK: QC ran v0.12's `questions`, `tests` and `imports` integration suites, the isolation suite
 and the `events` canary on the schema of `00145` to `00149` with no failure (#767), and `00150`
-to `00154` add tables and indexes v0.12.2 never names and one nullable column it never sets,
-whose CHECK holds while it is `NULL` on a question that is not matching.
+to `00154` add tables and indexes v0.12.2 never names and two nullable columns it never sets
+(`match_allow_reuse` in `00152`, `attempt_answers.band` in `00153`), whose CHECKs hold while they
+are `NULL` (on a question that is not matching, for the first).
 
 Each file commits on its own. Every transactional file but `00145` sets
 `lock_timeout = '5s'`, so a file that cannot take its lock within five seconds fails at once
 rather than queue every writer behind it. When that happens the release command stops, the
 deploy is rolled back, the files before it stay applied (v0.12.2 runs on them, as above), and
 v0.12.2 keeps serving. Re-run it from Actions → **Deploy** → *Run workflow* (target `all`):
-goose starts at the first file not yet recorded.
+goose starts at the first file not yet recorded. The release command as a whole is bounded by
+Fly's `release_command_timeout`, five minutes by default (`fly.toml` sets none): a file still
+running then is killed, which rolls back a transactional file and leaves `00151`'s index as
+"Interrupted index build in v0.13.0" below describes.
 
 What each file does, and what it locks:
 
@@ -644,15 +648,17 @@ What each file does, and what it locks:
 - `00148` swaps `questions_sample_answer_only_short_answer` for
   `questions_sample_answer_only_written` (an essay may have a sample answer), and `00149` widens
   `questions_context_option_order` to `tfng` and `matching`; both `NOT VALID`, then validated,
-  on `questions`.
+  on `questions`. Adding a CHECK takes `ACCESS EXCLUSIVE` on `questions`, and each file holds it
+  through its `VALIDATE` scan, as `00146` and `00147` do: every read and write of the bank waits
+  for it. The table is a centre's bank, so the scan is short.
 - `00150` creates `question_rubric_criteria` and `test_version_rubric_criteria` (`UPDATE`
   revoked on the frozen one). Its foreign keys lock `questions` and `test_version_questions`
   against writes until the file commits.
 - `00151` is `-- +goose NO TRANSACTION`: it builds the unique indexes `(question_id, id)` on
   `question_options` and `(test_version_question_id, id)` on `test_version_options`
   `CONCURRENTLY`, each after a `DROP INDEX CONCURRENTLY IF EXISTS`. It blocks no writer, but it
-  waits, with no bound, for every transaction older than it (QC-R6B-5): a long transaction
-  stalls the deploy. See "Interrupted index build in v0.13.0" below.
+  waits for every transaction older than it, bounded only by the release command's timeout
+  (QC-R6B-5): a long transaction stalls the deploy, and past five minutes kills it. See "Interrupted index build in v0.13.0" below.
 - `00152` creates `question_match_items` and `test_version_match_items`, keyed onto `00151`'s
   indexes, and adds `match_allow_reuse` to both question tables, backfilled with `false` on
   matching rows (production has none) before its CHECK is validated. It holds `ACCESS EXCLUSIVE`
@@ -662,7 +668,8 @@ What each file does, and what it locks:
   `attempt_answers` holds a row per answered question and every autosave writes it, and the file
   holds `ACCESS EXCLUSIVE` on it through both `VALIDATE` scans, so autosaves and submits wait
   for them (the engine keeps the answers in its local draft). Its time on the rehearsal is a
-  go/no-go: if it takes more than a few seconds, deploy outside teaching hours.
+  go/no-go: if it takes more than a few seconds, deploy outside teaching hours; if it comes near
+  the release command's five minutes, the deploy cannot run as it stands.
 - `00154` creates `question_media_references` and `test_version_question_media_references`
   (`UPDATE` revoked on the frozen one, `media_asset_binding_guard` on both). Its foreign keys
   lock `questions`, `test_version_questions` and `media_assets` against writes until it commits.
@@ -674,20 +681,21 @@ rewrites a table: every new column is nullable with no default.
 
 **Old tabs.** The API ships before Pages, so for a few minutes the v0.12.2 SPA talks to the
 v0.13.0 API. That is safe: the contract only grows, and no question of a new type exists until
-someone authors one in the v0.13.0 editor. After Pages, a tab still holding the v0.12.2 bundle
-that meets a new type draws the engine's unknown-type block (`UnknownType`, since R3) with
-"Reload page", which brings the renderer; answers already written are in the local draft and on
+someone makes one through v0.13.0 (the editor, the Word import's True / False / Not given, or the
+AI assistant). After Pages, a tab still holding the v0.12.2 bundle that meets a new type draws
+the engine's unknown-type block (`UnknownType`, since R3) with "Tải lại trang" ("Reload the
+page"), which brings the renderer; answers already written are in the local draft and on
 the server. The release notes say so.
 
-**Grading after bands exist.** Once v0.13.0 has written a band, no binary older than T-R6.4 may
-grade: v0.12.2's regrade (`attempts/repositories/review_grade.go`) overwrites `manual_score` and
+**Grading after bands exist.** Once v0.13.0 has written a band, no binary older than T-R6.7 (band
+grading) may grade: v0.12.2's regrade (`attempts/repositories/review_grade.go`) overwrites `manual_score` and
 leaves `band` as it was, and no CHECK can catch the disagreement (`20-data-model.md` §59,
 QC-R6B-5). This is one more reason to roll forward rather than back.
 
 **Before the merge** (the owner):
 
 1. **Rehearse `00145` to `00154` on a Neon branch of production** (below) and put the timings
-   in the release PR: `00153` above all, then `00152`, the `VALIDATE`s of `00146` and `00147`,
+   in the release PR: `00153` above all, then `00152`, the `VALIDATE`s of `00146` to `00149`,
    and `00151`.
 2. **The exam-window and import check**, on production (read only) or a fresh branch of it,
    for the planned window:
@@ -697,6 +705,12 @@ QC-R6B-5). This is one more reason to roll forward rather than back.
    SELECT id, opens_at, closes_at FROM app.assignments
     WHERE published_at IS NOT NULL AND closed_at IS NULL
       AND opens_at < '<window end>' AND closes_at > '<window start>';
+   -- per-student extensions that reach into the window: none, or pick another window
+   SELECT o.assignment_id, o.student_id, o.closes_at
+     FROM app.assignment_student_overrides o
+     JOIN app.assignments a ON a.id = o.assignment_id
+    WHERE a.published_at IS NOT NULL AND a.closed_at IS NULL
+      AND o.closes_at > '<window start>' AND a.opens_at < '<window end>';
    -- attempts still running now
    SELECT count(*) FROM app.attempts WHERE status = 'in_progress' AND deadline_at > now();
    -- Word imports and user imports in flight
@@ -770,7 +784,7 @@ unset BRANCH_DSN
 ```
 
 Put in the release PR the ten per-file times and the total, the counts of `before.txt`, the
-five lines of `after.txt`, and whether the down and second up ran cleanly. A branch has no
+six lines of `after.txt` (the index check prints one per index), and whether the down and second up ran cleanly. A branch has no
 traffic, so its times are the scans alone; on production a file also waits for its locks.
 
 **Smoke** (`76-r6.md`, the release checklist), after Pages has deployed:
@@ -818,12 +832,19 @@ from v0.12.2's code; only the schema half was tested, by QC):
   draws the unknown-type block; reloading brings the same bundle, so the block stays until the
   roll forward.
 - **It marks them wrong.** v0.12.2's `GradingManager.Grade` has no case for `tfng`, `matching`
-  or `essay`: at submit each scores 0 with `requires_manual` false, so an essay is never queued
-  for grading, and a "Choose N" answer is marked all or nothing. After the roll forward, list
-  what was submitted in the window and have the teachers check it:
+  or `essay`: at submit each scores 0 with `requires_manual` false, and a "Choose N" answer is
+  marked all or nothing. Its autosave also writes `requires_manual = (type = 'short_answer')` on
+  every answer it saves. Two cases follow for an essay:
+  - **Typed under v0.13.0, saved or submitted under v0.12.2.** The text is there, but the row
+    has lost its pending flag (`requires_manual` false, `auto_score` 0), so after the roll
+    forward it is not in the grading queue (`answered.AwaitsGrade`).
+  - **First met under v0.12.2.** The student saw the unknown-type block and could not answer.
+
+  After the roll forward, list the attempts submitted in the window with an answer of a new type:
 
   ```sql
-  SELECT a.id AS attempt_id, q.id AS question_id, q.type
+  SELECT a.id AS attempt_id, a.assignment_id, a.student_id, a.status, q.id AS question_id, q.type,
+         aa.requires_manual, aa.auto_score, aa.manual_score
     FROM app.attempt_answers aa
     JOIN app.attempts a ON a.id = aa.attempt_id
     JOIN app.test_version_questions q ON q.id = aa.question_id
@@ -831,11 +852,40 @@ from v0.12.2's code; only the schema half was tested, by QC):
      AND (q.type::text IN ('tfng', 'matching', 'essay') OR q.select_count IS NOT NULL);
   ```
 
+  Then repair, as `quizzivy_migrate`:
+  - **Essays with text and no grade:** put them back in the grading queue, then let the teachers
+    grade them as usual. This writes no audit row; record the run in the release PR.
+
+    ```sql
+    UPDATE app.attempt_answers aa
+       SET requires_manual = true, auto_score = NULL
+      FROM app.attempts a, app.test_version_questions q
+     WHERE a.id = aa.attempt_id AND q.id = aa.question_id
+       AND q.type::text = 'essay' AND aa.manual_score IS NULL AND NOT aa.requires_manual
+       AND a.status IN ('submitted', 'timed_out', 'graded')
+       AND a.submitted_at BETWEEN '<rollback start>' AND '<roll forward>';
+    ```
+
+    The queue lists only `submitted` and `timed_out` attempts: an attempt a teacher already
+    finished under v0.12.2 (`graded`) is opened from the list above and graded again, which a
+    graded attempt allows.
+  - **`tfng`, matching and "Choose N" answers** marked under v0.12.2: the teacher sets the points
+    by question (grading by question takes points on any type but an essay).
+  - **A student who could not answer** (an essay or another new type first met under v0.12.2):
+    give an extra attempt through the assignment's per-student override (`extra_attempts` in
+    `app.assignment_student_overrides`), or a later close date if the window has passed.
+
 - **It must not grade an essay that has a band** (above): its regrade leaves the band stale.
-- **Media in prose is not in its readers.** v0.12.2's "Used in", delete refusal and sweep do not
-  read `question_media_references`, so it may treat an image that only a prompt or an
-  explanation names as unused. `RESTRICT` keeps the asset row; whether the sweep removes the
-  file first was not traced. Avoid deleting media until the roll forward.
+- **Avoid deleting or replacing media until the roll forward, which must come within seven days
+  of any such delete.** v0.12.2's readers ("Used in", the delete refusal, `namedFile` in the
+  sweep) do not read `question_media_references`, so it treats an image or a recording that only
+  a prompt or an explanation names as unused. Its sweep (`media/repositories/retention.go`,
+  `Purge`) removes the object and then only marks the row `purged_at`; it never deletes the row,
+  so `RESTRICT` never fires. A file deleted from the library (`deleted_at`) under v0.12.2 loses
+  its object after `RetiredFileGrace`, seven days, while the paper still draws it. Its `Replace`
+  repoints a group's materials but not question prose, so replacing such a file retires the old
+  one the same way. v0.13.0's `namedFile` reads both new tables, so a roll forward within the
+  seven days cancels the wait.
 
 ## Interrupted index build in v0.13.0 (R6)
 
