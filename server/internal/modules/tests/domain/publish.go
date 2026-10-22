@@ -149,8 +149,10 @@ type Rule string
 
 // Violation is one failed check, anchored to whatever the builder can highlight.
 type Violation struct {
-	Rule       Rule
-	Message    string
+	Rule    Rule
+	Message string
+	// English is Message in English, empty when the check has only the one.
+	English    string
 	SectionID  string
 	QuestionID string
 	GroupID    string

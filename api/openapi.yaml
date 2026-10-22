@@ -5353,11 +5353,16 @@ components:
         `prompt` and `explanation` cover the text and the rich content;
         `options` the text and content of the choices in their order, `blanks`
         the gaps and their case rule, and `media` the attachment with its audio
-        policy and transcript. `context` is the shared material of the group
+        policy and transcript. `items` is the text of a matching question's
+        items in their order, `rubric` an essay's criterion labels in their
+        order, and `rules` the rules a student is told: a multiple choice's
+        `selectCount`, a short answer's `maxWords` and a matching question's
+        `matchAllowReuse`. `context` is the shared material of the group
         the question belongs to, or its being in a group at all, and `section`
-        the part of the paper it sits in. The correct options and the accepted
-        answers are not here: they are `answer` entries.
-      enum: [type, prompt, options, blanks, media, points, explanation, context, section]
+        the part of the paper it sits in. The correct options, the accepted
+        answers and the choice each matching item is keyed to are not here:
+        they are `answer` entries.
+      enum: [type, prompt, options, blanks, items, rubric, rules, media, points, explanation, context, section]
 
     DiffChangeParams:
       type: object

@@ -10113,12 +10113,15 @@
       },
       "DiffField": {
         "type": "string",
-        "description": "The part of a question that differs, for a `changed` entry.\n`prompt` and `explanation` cover the text and the rich content;\n`options` the text and content of the choices in their order, `blanks`\nthe gaps and their case rule, and `media` the attachment with its audio\npolicy and transcript. `context` is the shared material of the group\nthe question belongs to, or its being in a group at all, and `section`\nthe part of the paper it sits in. The correct options and the accepted\nanswers are not here: they are `answer` entries.\n",
+        "description": "The part of a question that differs, for a `changed` entry.\n`prompt` and `explanation` cover the text and the rich content;\n`options` the text and content of the choices in their order, `blanks`\nthe gaps and their case rule, and `media` the attachment with its audio\npolicy and transcript. `items` is the text of a matching question's\nitems in their order, `rubric` an essay's criterion labels in their\norder, and `rules` the rules a student is told: a multiple choice's\n`selectCount`, a short answer's `maxWords` and a matching question's\n`matchAllowReuse`. `context` is the shared material of the group\nthe question belongs to, or its being in a group at all, and `section`\nthe part of the paper it sits in. The correct options, the accepted\nanswers and the choice each matching item is keyed to are not here:\nthey are `answer` entries.\n",
         "enum": [
           "type",
           "prompt",
           "options",
           "blanks",
+          "items",
+          "rubric",
+          "rules",
           "media",
           "points",
           "explanation",
