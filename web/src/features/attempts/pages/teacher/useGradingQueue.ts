@@ -156,8 +156,21 @@ function commentUnsettled(item: GradingQueueItem, draft: GradingDraft | undefine
   return comment !== saved || (draft.points === null && comment !== "");
 }
 
+/** withoutPartials is the drafts without the part-marked rubrics, which no save can write. */
+function withoutPartials(drafts: Record<string, GradingDraft>) {
+  return Object.fromEntries(
+    Object.entries(drafts).filter(([, entry]) => !halfMarked(entry.item, entry)),
+  );
+}
+
+/** markUnsaved says an essay's complete mark is not the one its last save wrote, as after a refused save. */
+function markUnsaved(item: GradingQueueItem, draft: GradingDraft | undefined) {
+  if (!essay(item) || !draft?.mark || draft.points === null) return false;
+  return signature(item, draft) !== draft.acknowledged?.mark;
+}
+
 function scoreUnsettled(item: GradingQueueItem, draft: GradingDraft | undefined) {
-  if (halfMarked(item, draft)) return true;
+  if (halfMarked(item, draft) || markUnsaved(item, draft)) return true;
   if (!draft?.filled || draft.points === null) return false;
   return draft.points !== (draft.acknowledged?.points ?? item.score);
 }
@@ -197,6 +210,8 @@ export function useGradingQueue(params: GradingQueueParams) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldError, setFieldError] = useState<FieldError | null>(null);
+  const queuedMark = useRef<{ item: GradingQueueItem; mark: EssayMark } | null>(null);
+  const [heldLeave, setHeldLeave] = useState<(() => void) | null>(null);
   const [drafts, setDrafts] = useState<Record<string, GradingDraft>>({});
   const [finishes, setFinishes] = useState<Record<string, FinishState>>({});
   const [finishReady, setFinishReady] = useState<FinishState["item"] | null>(null);
@@ -297,10 +312,10 @@ export function useGradingQueue(params: GradingQueueParams) {
       : null;
   useOpenAnswerSync(actor.generation, heldOpen, queue.dataUpdatedAt, drafts, setDrafts);
   const draft = selected ? drafts[gradingItemKey(selected)] : undefined;
-  const unsavedScore = selected ? scoreUnsettled(selected, draft) : false;
-  const unsettled = selected
-    ? unsavedScore || commentUnsettled(selected, draft)
-    : false;
+  const partial = Object.values(drafts).some((entry) => halfMarked(entry.item, entry));
+  const unsavedScore = partial || (selected ? scoreUnsettled(selected, draft) : false);
+  const unsettled =
+    unsavedScore || (selected ? commentUnsettled(selected, draft) : false);
   const notify = (cause: unknown) => failureMessage(cause, t("grading.saveFailed"));
   const report = (cause: unknown, item: GradingQueueItem | undefined) => {
     const field = item ? gradeFieldMessage(cause, item.questionId, t) : null;
@@ -336,6 +351,9 @@ export function useGradingQueue(params: GradingQueueParams) {
   const release = () => {
     lock.current = false;
     if (current()) setBusy(false);
+    const queued = queuedMark.current;
+    queuedMark.current = null;
+    if (queued && current()) void pickBand(queued.item, queued.mark, false);
   };
   const draftFor = (item: GradingQueueItem): GradingDraft => {
     const saved = drafts[gradingItemKey(item)];
@@ -432,16 +450,28 @@ export function useGradingQueue(params: GradingQueueParams) {
   /**
    * pickBand sets an essay's band or one of its criteria. A complete mark
    * saves at once, as a score button does; a rubric still missing a criterion
-   * waits in the draft, which `unsavedScore` reports, and saves nothing.
+   * waits in the draft, which `unsavedScore` reports, and saves nothing. A
+   * mark given while a save is in flight shows at once and waits for that
+   * save, and only the last one waiting is saved, so a quick correction is
+   * kept. `follow` selects the answer; a waiting mark saved after a move
+   * leaves the selection where the move put it.
    */
-  const pickBand = async (item: GradingQueueItem, mark: EssayMark) => {
-    if (!essay(item) || !current() || lock.current) return;
-    setFinishReady(null);
-    setFieldError(null);
+  const pickBand = async (item: GradingQueueItem, mark: EssayMark, follow = true) => {
+    if (!essay(item) || !current()) return;
+    const key = gradingItemKey(item);
     const points = markPoints(rubricOf(item), mark, item.points);
     const next = { ...draftFor(item), mark, points, filled: false };
-    setDrafts((previous) => ({ ...previous, [gradingItemKey(item)]: next }));
-    setPicked(gradingItemKey(item));
+    setDrafts((previous) => ({
+      ...previous,
+      [key]: { ...(previous[key] ?? next), mark, points, filled: false },
+    }));
+    if (lock.current) {
+      queuedMark.current = { item, mark };
+      return;
+    }
+    setFinishReady(null);
+    setFieldError(null);
+    if (follow) setPicked(key);
     if (points === null || !acquire()) return;
     await save(item, next);
   };
@@ -490,31 +520,67 @@ export function useGradingQueue(params: GradingQueueParams) {
       release();
     }
   };
-  const leave = async (action: () => void) => {
+  /** commentWithoutScore is why an answer with a comment but no score cannot be saved, or null. */
+  const commentWithoutScore = (item: GradingQueueItem) => {
+    const next = draftFor(item);
+    if (next.points !== null || next.comment.trim() === (item.comment ?? "").trim())
+      return null;
+    return t(essay(item) ? "grading.pickBandFirst" : "grading.pickFirst");
+  };
+  /**
+   * saveAndGo saves `item`'s comment and score, if it has unsaved ones, and
+   * then runs `action` and the held leave, if any. A refused save keeps the
+   * page and every draft, and says why.
+   */
+  const saveAndGo = async (item: GradingQueueItem | undefined, action?: () => void) => {
     if (!acquire()) return;
     try {
-      if (selected) {
-        const next = draftFor(selected);
-        if (halfMarked(selected, next)) {
-          setError(t("grading.pickCriteriaFirst"));
-          return;
-        }
-        if (
-          next.points === null &&
-          next.comment.trim() !== (selected.comment ?? "").trim()
-        ) {
-          setError(t(essay(selected) ? "grading.pickBandFirst" : "grading.pickFirst"));
-          return;
-        }
-        await flush(selected);
+      const unscored = item ? commentWithoutScore(item) : null;
+      if (unscored !== null) {
+        setError(unscored);
+        return;
       }
-      if (current()) action();
+      if (item) await flush(item);
+      if (!current()) return;
+      setHeldLeave(null);
+      action?.();
+      heldLeave?.();
     } catch (cause) {
-      if (current()) report(cause, selected);
+      if (current()) report(cause, item);
     } finally {
       release();
     }
   };
+  /**
+   * leave saves the open answer and runs `action`. While any essay holds a
+   * part-marked rubric, which no save can write, it holds `action` in
+   * `heldLeave` instead, for the page to ask whether to `discard` those bands.
+   */
+  const leave = async (action: () => void) => {
+    if (partial) {
+      if (current() && !lock.current) setHeldLeave(() => action);
+      return;
+    }
+    await saveAndGo(selected, action);
+  };
+  /**
+   * discard leaves as `leave` does, dropping every part-marked rubric's
+   * bands and comment, which no save can write: the open answer's comment
+   * and score, unless it is one of those rubrics, are saved first, and the
+   * bands go only once that save succeeds.
+   */
+  const discard = async (action?: () => void) => {
+    if (!current() || lock.current) return;
+    setError(null);
+    const open =
+      selected && !halfMarked(selected, draftFor(selected)) ? selected : undefined;
+    await saveAndGo(open, () => {
+      setDrafts(withoutPartials);
+      action?.();
+    });
+  };
+  /** keepMarking closes the leave question and keeps the part-marked rubric. */
+  const keepMarking = () => setHeldLeave(null);
   const move = (delta: number) => {
     const index = selected
       ? items.findIndex((item) => gradingItemKey(item) === gradingItemKey(selected))
@@ -721,6 +787,10 @@ export function useGradingQueue(params: GradingQueueParams) {
     draft,
     unsettled,
     unsavedScore,
+    partial,
+    leaveHeld: heldLeave !== null,
+    discard,
+    keepMarking,
     savedCount,
     busy,
     error,

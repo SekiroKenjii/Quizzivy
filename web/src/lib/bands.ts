@@ -29,9 +29,16 @@ export function bandOfCriteria(
   return Math.floor((sum / rubric.length) * 2 + 0.5) / 2;
 }
 
-/** pointsOfBand is the score a band gives a question worth `points`, as the server stores it. */
+/**
+ * pointsOfBand is the score a band gives a question worth `points`, as the
+ * server stores it: band × points ÷ 9 rounded half up to the cent. It counts
+ * in half bands and cents, so a tie such as 3.5 on 1.17 rounds up to 0.46 as
+ * the server's `round(numeric, 2)` does, where floats would land below it.
+ */
 export function pointsOfBand(band: number, points: number): number {
-  return Math.round(((band * points) / 9) * 100) / 100;
+  const halves = Math.round(band * 2);
+  const cents = Math.round(points * 100);
+  return Math.floor((halves * cents + 9) / 18) / 100;
 }
 
 const BAND_KEY = /^(?:Digit|Numpad)([3-9])$/;

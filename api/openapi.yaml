@@ -3810,8 +3810,12 @@ components:
         asset: it places the question's own audio (`mediaAssetId`, with its
         `AudioPolicy` and play count) in the text, at most once, and projects
         to nothing. A media block that projects to nothing adds no separator.
-        Until the bank's media task (R6-13) every write refuses a media block
-        with the bank's field error (400 VALIDATION_FAILED naming promptContent).
+        A write may name only assets the caller may read, as `mediaAssetId`
+        may; another teacher's asset is refused exactly as a missing one is,
+        and an asset whose kind is not its block's is refused too (400
+        VALIDATION_FAILED, details naming promptContent). The marker needs the
+        question's own audio. A published version freezes the references, and
+        a student reaches prompt media through `StudentQuestion.promptAssets`.
       x-go-type: json.RawMessage
       x-media-blocks: 8
       additionalProperties: false
@@ -3930,10 +3934,11 @@ components:
         is as in a prompt. An audio block names its own asset and plays without
         a policy or a count. Explanation media is reachable by a student only
         through the result, under the gate that shows explanations; no student
-        operation signs it before then. Until the bank's media task (R6-13)
-        every write refuses a media block with the bank's field error (400
-        VALIDATION_FAILED naming explanationContent). The companion string, the
-        update rules and the budgets are `QuestionContent`'s.
+        operation signs it before then (`ResultQuestion.explanationAssets`).
+        A write may name only assets the caller may read, of the block's kind,
+        as in a prompt (400 VALIDATION_FAILED, details naming
+        explanationContent). The companion string, the update rules and the
+        budgets are `QuestionContent`'s.
       x-go-type: json.RawMessage
       x-media-blocks: 8
       additionalProperties: false
@@ -3969,8 +3974,9 @@ components:
       description: |
         An image in a prompt or an explanation, by media asset id. `alt` is the
         text a screen reader reads and the plain projection carries; empty
-        marks the image decorative. It is never filled from a file name, and no
-        file name travels with the node.
+        marks the image decorative, and an alt of only white space is refused.
+        It is never filled from a file name, and no file name travels with the
+        node.
       additionalProperties: false
       required: [type, assetId, alt]
       properties:
@@ -4626,6 +4632,13 @@ components:
             `{{1}}`, `{{2}}`, 1-indexed, matching `blanks[].ordinal`.
         media:
           oneOf: [{ $ref: '#/components/schemas/MediaAsset' }, { type: 'null' }]
+        contentAssets:
+          type: array
+          items: { $ref: '#/components/schemas/MediaAsset' }
+          description: |
+            The media `promptContent` and `explanationContent` show (DG-109),
+            signed for the editor, once each, prompt first. Absent when they
+            show none; a file that cannot be loaded is left out, as `media` is.
         mediaAlt:
           type: [string, 'null']
           description: |
@@ -4773,6 +4786,14 @@ components:
           type: [string, 'null']
           description: |
             The alt text frozen with the version for the question's image, for a screen reader. Absent when the question has none or its media is not an image. It is a description, not an answer key.
+        promptAssets:
+          type: array
+          items: { $ref: '#/components/schemas/MediaAsset' }
+          description: |
+            The images `promptContent` shows (DG-109), signed with this
+            response, once each in the order the prompt names them. Absent when
+            it shows none. The audio marker draws `media`, and an explanation's
+            media never appears here (D-064 ruling 6).
         audio:
           oneOf: [{ $ref: '#/components/schemas/StudentAudioPolicy' }, { type: 'null' }]
         options:
@@ -4872,6 +4893,10 @@ components:
           type: [string, 'null']
           description: |
             The alt text frozen with the version for the question's image, as on `StudentQuestion`. Present under every review policy: the picture was already on the paper.
+        promptAssets:
+          type: array
+          items: { $ref: '#/components/schemas/MediaAsset' }
+          description: As on `StudentQuestion`. Present under every review policy, as `media` is.
         options: { type: array, items: { $ref: '#/components/schemas/StudentOption' } }
         blanks: { type: array, items: { $ref: '#/components/schemas/StudentBlank' } }
         matchItems:
@@ -4951,6 +4976,14 @@ components:
           x-go-type: json.RawMessage
           x-go-type-skip-optional-pointer: true
           description: Absent unless review.showExplanations permits the frozen explanation.
+        explanationAssets:
+          type: array
+          items: { $ref: '#/components/schemas/MediaAsset' }
+          description: |
+            The images and audio `explanationContent` shows (DG-109), signed
+            with this response, once each in the order it names them. Only when
+            `review.showExplanations`, absent otherwise; no other student
+            operation signs them (D-064 ruling 6).
         explanation:
           type: [string, 'null']
           description: Only when `review.showExplanations`.
@@ -5886,6 +5919,20 @@ components:
             The essays' points-weighted mean band, rounded to 0.5. Present only
             when every scored question on the paper is a graded essay, and on a
             student's payload only under `review.showScore`.
+        gradedBy:
+          type: object
+          required: [name]
+          additionalProperties: false
+          description: |
+            Who graded the paper, on the student's result only (D-072, D-074).
+            Present only under `review.showScore`, when the attempt has at
+            least one answer that requires manual grading, none of those is
+            pending, one account graded them all, and that account keeps its
+            name (it has not been anonymised). Otherwise absent; an override
+            of an auto mark does not make its author the paper's grader. Name
+            only: no id, no avatar.
+          properties:
+            name: { type: string, minLength: 1, maxLength: 200 }
 
     Attempt:
       type: object

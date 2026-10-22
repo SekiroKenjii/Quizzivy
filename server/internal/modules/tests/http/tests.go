@@ -10,6 +10,7 @@ import (
 	"quizzivy/internal/modules/tests/domain"
 	"quizzivy/internal/platform/httpapi"
 	"quizzivy/internal/platform/httpx"
+	"quizzivy/internal/shared/content"
 	"strconv"
 )
 
@@ -406,6 +407,9 @@ func (h Tests) toStudentQuestions(
 		if asset != nil {
 			sq.Media = asset
 		}
+		if sq.PromptAssets, err = h.previewPromptAssets(ctx, q.PromptContent); err != nil {
+			return nil, err
+		}
 		out[i] = sq
 	}
 	return out, nil
@@ -466,6 +470,25 @@ func toStudentQuestion(q domain.PreviewQuestion) (openapi.StudentQuestion, error
 		}
 	}
 	return sq, nil
+}
+
+// previewPromptAssets signs the images a previewed prompt shows (DG-109), as
+// the student's paper does; nil when it shows none or storage is off. Only
+// the prompt: the preview is the paper, and the paper carries no explanation.
+func (h Tests) previewPromptAssets(ctx context.Context, prompt []byte) (*[]openapi.MediaAsset, error) {
+	shown, err := content.QuestionMedia(prompt, nil)
+	if err != nil || len(shown) == 0 || h.media == nil {
+		return nil, nil
+	}
+	assets := make([]openapi.MediaAsset, len(shown))
+	for i, ref := range shown {
+		asset, err := h.previewAsset(ctx, &ref.ID)
+		if err != nil {
+			return nil, err
+		}
+		assets[i] = *asset
+	}
+	return &assets, nil
 }
 
 func (h Tests) previewAsset(ctx context.Context, assetID *string) (*openapi.MediaAsset, error) {

@@ -5,6 +5,7 @@ package application_test
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"math"
 	"quizzivy/internal/core/adapters"
 	"quizzivy/internal/modules/attempts/application/query"
@@ -352,5 +353,34 @@ func TestAWithheldResultNeverSelectsTheKeyTheExplanationsOrTheGradersWords(t *te
 	}
 	if strings.Contains(string(raw), secretSampleAnswer) {
 		t.Error("a released result carries the sample answer")
+	}
+}
+
+// TestTheExplanationsMediaFollowsTheExplanationsGate pins resultExtras' SQL
+// gate for the media an explanation shows (D-064 ruling 6, QC-R6M-4): a result
+// that withholds explanations names none of it, and one that shows them names
+// each asset once.
+func TestTheExplanationsMediaFollowsTheExplanationsGate(t *testing.T) {
+	pool := newPool(t)
+	svc, w, session := submitted(t, pool)
+	ctx := context.Background()
+	explanation := fmt.Sprintf(`{"format":"semantic_v1","blocks":[{"type":"paragraph","content":[{"type":"text","text":"Nghe lại.","marks":[]}]},{"type":"audio","assetId":%q}]}`, w.asset)
+	if _, err := pool.Exec(ctx, `UPDATE app.test_version_questions SET explanation_content = $2::jsonb WHERE id = $1::uuid`, w.essay, explanation); err != nil {
+		t.Fatal(err)
+	}
+	read := reader{svc.Queries.Result}
+	for _, shown := range []bool{false, true} {
+		setReview(t, pool, w, true, true, shown)
+		result, err := read.Result(ctx, session.Attempt.ID, w.student)
+		if err != nil {
+			t.Fatal(err)
+		}
+		var named []string
+		for _, q := range result.Questions {
+			named = append(named, q.ExplanationAssets...)
+		}
+		if want := map[bool]int{false: 0, true: 1}[shown]; len(named) != want || (shown && named[0] != w.asset) {
+			t.Errorf("explanations shown %v: the result names %v", shown, named)
+		}
 	}
 }

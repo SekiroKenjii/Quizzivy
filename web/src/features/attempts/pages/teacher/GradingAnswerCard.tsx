@@ -32,8 +32,10 @@ import { markBand, markOf, type EssayMark } from "../../essayMark";
  * page, it puts focus back on the score last chosen, else the card's score.
  * `suggestion`, the AI's score box, stands directly above the score. An essay
  * is marked on its band or its rubric instead (`onBand`), with the band keys
- * 3–9 and Shift for the half above, and Save & next waits until the mark is
- * complete. `fieldError` is a refused save's message for these marks.
+ * 3–9 and Shift for the half above; a band given while a save is in flight
+ * waits for it. Save & next looks paused until the mark is complete and, if
+ * pressed, says what is missing. `fieldError` is a refused save's message for
+ * these marks.
  */
 export function GradingAnswerCard({
   item,
@@ -90,7 +92,7 @@ export function GradingAnswerCard({
   const [activeCriterion, setActiveCriterion] = useState<string | null>(null);
   const bandKey = useEffectEvent((event: KeyboardEvent) => {
     const band = bandKeyEvent(event);
-    if (!essay || busy || band === null || !pageKey(event)) return;
+    if (!essay || band === null || !pageKey(event)) return;
     event.preventDefault();
     const criterion = nextCriterion(rubric, mark, activeCriterion);
     lastScore.current = `${criterion ?? "band"}:${band}`;
@@ -216,18 +218,16 @@ export function GradingAnswerCard({
         )}
         {suggestion}
         {essay ? (
-          <fieldset disabled={busy}>
-            <EssayBands
-              rubric={rubric}
-              mark={mark}
-              error={fieldError}
-              onChange={(next, score) => {
-                lastScore.current = score;
-                onBand(next);
-              }}
-              onActive={setActiveCriterion}
-            />
-          </fieldset>
+          <EssayBands
+            rubric={rubric}
+            mark={mark}
+            error={fieldError}
+            onChange={(next, score) => {
+              lastScore.current = score;
+              onBand(next);
+            }}
+            onActive={setActiveCriterion}
+          />
         ) : (
           <fieldset disabled={busy} className="space-y-2">
             <legend className="text-muted-foreground mb-2 text-xs leading-[18px] font-medium">
@@ -370,9 +370,8 @@ export function GradingAnswerCard({
           <Button
             size="md"
             className="px-4"
-            disabled={
-              (busy && !numericNext) || (essay && !markComplete && !finishReady)
-            }
+            disabled={busy && !numericNext}
+            aria-disabled={essay && !markComplete && !finishReady}
             onPointerDown={(event) => {
               if (
                 event.button === 0 &&

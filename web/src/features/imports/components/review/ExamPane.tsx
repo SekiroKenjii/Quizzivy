@@ -110,7 +110,11 @@ export function ExamPane({
         badge={question.label}
         headline={headlineOf(question)}
         strike={excluded}
-        meta={t(`imports.type.${question.type}`)}
+        meta={
+          question.type === "tfng"
+            ? t("imports.review.tfngShort")
+            : t(`imports.type.${question.type}`)
+        }
         findings={findings}
         onToggle={() => toggle(question.id)}
       >

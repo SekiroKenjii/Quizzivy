@@ -59,7 +59,7 @@ func imports(ctx context.Context, cfg config.Config, logger *slog.Logger, dbx db
 	committer := adapters.ImportCommitter{
 		DB: dbx,
 		Tests: func(scoped db.Context) *testsapp.Application {
-			questionsRepo, mediaRepo := questionsrepo.NewPostgres(scoped), mediarepo.NewPostgres(scoped)
+			questionsRepo, mediaRepo := questionsrepo.NewPostgres(scoped).WithMedia(adapters.QuestionMedia{}), mediarepo.NewPostgres(scoped)
 			return tests(scoped, questionsRepo, mediaRepo, mediaApp)
 		},
 		Questions: func(scoped db.Context) *questionsapp.Application {

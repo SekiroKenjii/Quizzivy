@@ -462,7 +462,14 @@ export function addOption(question: ImportDraftQuestion): ImportDraftQuestion {
   };
 }
 
-/** removeOption drops one option and any key that pointed at it. */
+/** withinChoices drops a "Choose N" count that the question's options can no longer hold. */
+function withinChoices(question: ImportDraftQuestion): ImportDraftQuestion {
+  if (typeof question.selectCount !== "number" || !selectCountOutOfRange(question))
+    return question;
+  return setSelectCount(question, null);
+}
+
+/** removeOption drops one option and any key that pointed at it, and a "Choose N" count the options left cannot hold. */
 export function removeOption(
   question: ImportDraftQuestion,
   optionId: string,
@@ -470,14 +477,18 @@ export function removeOption(
   const options = question.options.filter((option) => option.id !== optionId);
   const optionIds = question.answer.optionIds.filter((id) => id !== optionId);
   if (optionIds.length === question.answer.optionIds.length)
-    return { ...question, options, origins: entered(question, "options") };
+    return withinChoices({
+      ...question,
+      options,
+      origins: entered(question, "options"),
+    });
   const state = optionIds.length > 0 ? "known" : "unknown";
-  return {
+  return withinChoices({
     ...question,
     options,
     answer: answer(state, optionIds, question.answer.evidence),
     origins: entered(question, "options", "answer"),
-  };
+  });
 }
 
 function fixedOption(label: string, text: string): ImportDraftOption {
@@ -509,6 +520,30 @@ function isTFNGShaped(question: ImportDraftQuestion): boolean {
     question.options.length === TFNG_LABELS.length &&
     question.options.every((option, i) => option.label === TFNG_LABELS[i])
   );
+}
+
+/** truthLabel reads a true/false or tfng option as T, F or NG, or undefined when it is neither. */
+function truthLabel(option: ImportDraftOption): string | undefined {
+  if ((TFNG_LABELS as readonly string[]).includes(option.label)) return option.label;
+  const truth = TRUTH[optionText(option)];
+  if (truth === undefined) return undefined;
+  return truth === "true" ? "T" : "F";
+}
+
+/** carriedKey maps a true/false or tfng key onto the fixed options of the other type, when they hold the same value. */
+function carriedKey(
+  question: ImportDraftQuestion,
+  fixed: ImportDraftOption[],
+): string[] {
+  if (question.answer.state !== "known") return [];
+  if (question.type !== "true_false" && question.type !== "tfng") return [];
+  const ids = question.answer.optionIds.flatMap((id) => {
+    const option = question.options.find((candidate) => candidate.id === id);
+    const label = option === undefined ? undefined : truthLabel(option);
+    const target = fixed.find((candidate) => candidate.label === label);
+    return target === undefined ? [] : [target.id];
+  });
+  return ids.length === 1 ? ids : [];
 }
 
 /** fixedOptions are the canonical options a conversion to true/false or tfng needs, or null when the question already has them. */
@@ -571,11 +606,12 @@ export function changeType(
   }
   const fixed = fixedOptions(question, type);
   if (fixed !== null) {
+    const carried = carriedKey(question, fixed);
     return {
       ...base,
       options: fixed,
       blanks: [],
-      answer: answer("unknown", [], evidence),
+      answer: answer(carried.length > 0 ? "known" : "unknown", carried, evidence),
       origins: entered(question, "type", "options"),
     };
   }
@@ -593,11 +629,38 @@ export function changeType(
   };
 }
 
-/** dropsAnswerData reports whether moving from one version of a question to the next discards options or key data. */
+/** dropsTypeFields reports whether a "Choose N" count or a word limit is lost between two versions of a question. */
+function dropsTypeFields(
+  before: ImportDraftQuestion,
+  after: ImportDraftQuestion,
+): boolean {
+  return (
+    (typeof before.selectCount === "number" && after.selectCount === undefined) ||
+    (typeof before.maxWords === "number" && after.maxWords === undefined)
+  );
+}
+
+function isFixedType(type: QuestionType): boolean {
+  return type === "true_false" || type === "tfng";
+}
+
+/** hasStandardOptions reports whether every option reads as True, False or Not given, so rebuilding them loses no text the teacher wrote. */
+function hasStandardOptions(question: ImportDraftQuestion): boolean {
+  return question.options.every((option) => TFNG[optionText(option)] !== undefined);
+}
+
+/** dropsAnswerData reports whether moving from one version of a question to the next discards options, key data, a "Choose N" count or a word limit. Between true/false and tfng with standard option texts, only a key or a conflict that does not carry is lost. */
 export function dropsAnswerData(
   before: ImportDraftQuestion,
   after: ImportDraftQuestion,
 ): boolean {
+  if (
+    isFixedType(before.type) &&
+    isFixedType(after.type) &&
+    before.type !== after.type &&
+    hasStandardOptions(before)
+  )
+    return before.answer.state !== "unknown" && after.answer.state !== "known";
   const kept = new Set(after.options.map((option) => option.id));
   if (before.options.some((option) => !kept.has(option.id))) return true;
   const keys = new Set(after.answer.optionIds);
@@ -613,6 +676,7 @@ export function dropsAnswerData(
     return true;
   if ((before.answer.candidates?.length ?? 0) > (after.answer.candidates?.length ?? 0))
     return true;
+  if (dropsTypeFields(before, after)) return true;
   return (before.answer.text ?? "").trim() !== "" && after.answer.text === undefined;
 }
 
@@ -636,6 +700,14 @@ export function setSelectCount(
   if (count === null) delete next.selectCount;
   else next.selectCount = count;
   return next;
+}
+
+/** selectCountOutOfRange reports a "Choose N" count the question's options cannot hold: N must stay below the number of options. */
+export function selectCountOutOfRange(question: ImportDraftQuestion): boolean {
+  return (
+    typeof question.selectCount === "number" &&
+    !selectCountChoices(question).includes(question.selectCount)
+  );
 }
 
 /** selectCountMismatch reports a "Choose N" question whose key marks a different number of options than N. */

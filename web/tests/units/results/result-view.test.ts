@@ -13,20 +13,25 @@ import {
 import {
   ASSIGNMENT_ID,
   CLOSED,
+  CRITERIA,
   OPEN,
   PART_ONE,
   PART_TWO,
   SCORE_ONLY,
   assignmentCard,
+  banded,
   blank,
   choice,
   essay,
   grading,
   grammarCheck,
   justSubmitted,
+  matchKey,
+  matching,
   paper,
   scored,
   uuid,
+  writingTask,
 } from "./fixtures";
 
 const AB = ["was wrote", "was written"];
@@ -608,5 +613,229 @@ describe("a result released after the close", () => {
     );
     expect(resultView(paper({ review: OPEN, classAverage: 0 })).classAverage).toBe(0);
     expect(resultView(paper({ review: OPEN })).classAverage).toBeNull();
+  });
+});
+
+describe("resultView: a paper of banded essays (T-R6.12)", () => {
+  it("draws the band on its 9 and a tile per criterion of a single essay", () => {
+    const view = resultView(writingTask());
+    expect(view.ring).toEqual({ kind: "band", band: 6, share: 0.6667, tone: "accent" });
+    expect(view.summary).toEqual({ kind: "band", strongest: "Task achievement" });
+    expect(view.tiles).toEqual(
+      CRITERIA.map((criterion) => ({
+        kind: "criterion",
+        id: criterion.id,
+        label: criterion.label,
+        band: criterion.band,
+        share: Math.round((criterion.band / 9) * 10_000) / 10_000,
+        tone: criterion.band >= 6.5 ? "success" : "warning",
+      })),
+    );
+  });
+
+  it("names no strongest area when two criteria share the top band", () => {
+    const tied = writingTask({
+      criteria: CRITERIA.map((criterion) => ({ ...criterion, band: 6 })),
+    });
+    expect(resultView(tied).summary).toEqual({ kind: "band", strongest: null });
+  });
+
+  it("has no criterion tiles for an essay without a rubric", () => {
+    const view = resultView(writingTask({ criteria: [] }));
+    expect(view.ring.kind).toBe("band");
+    expect(view.tiles).toEqual([]);
+    expect(view.summary).toEqual({ kind: "band", strongest: null });
+  });
+
+  it("does not draw a band the server did not send, as before every essay is banded", () => {
+    const body = writingTask();
+    const view = resultView({
+      ...body,
+      attempt: {
+        ...body.attempt,
+        score: { earned: 6, total: 9, pendingManual: 0 },
+      },
+    });
+    expect(view.ring.kind).toBe("score");
+  });
+
+  it("gives two essays in parts part tiles, and no criteria", () => {
+    const body = scored(
+      [
+        banded(1, 6, { criteria: CRITERIA }),
+        banded(2, 7, { sectionId: PART_TWO, criteria: CRITERIA }),
+      ],
+      {
+        sections: [
+          { id: PART_ONE, title: "Task 1", instructions: null },
+          { id: PART_TWO, title: "Task 2", instructions: null },
+        ],
+      },
+    );
+    const view = resultView({
+      ...body,
+      attempt: { ...body.attempt, score: { ...body.attempt.score!, band: 6.5 } },
+    });
+    expect(view.ring).toMatchObject({ kind: "band", band: 6.5 });
+    expect(view.tiles.map((tile) => tile.kind)).toEqual(["part", "part"]);
+    expect(view.summary).toEqual({ kind: "band", strongest: null });
+  });
+
+  it("keeps a criteria-less score for a mixed paper whose essay has a rubric", () => {
+    const view = resultView(
+      scored([banded(1, 6, { criteria: CRITERIA }), choice(2, AB, [1], { earned: 1 })]),
+    );
+    expect(view.ring.kind).toBe("score");
+    expect(view.tiles).toEqual([]);
+  });
+
+  it("keeps R3's tiles while an essay waits", () => {
+    const view = resultView(
+      scored([
+        choice(1, AB, [1], { earned: 1 }),
+        essay(2, "Write about the chart.", "The chart shows…", {
+          type: "essay",
+          points: 9,
+        }),
+      ]),
+    );
+    expect(view.tiles.map((tile) => tile.kind)).toEqual(["auto", "waiting", "time"]);
+  });
+
+  it("draws no band and no tiles when the policy hides the score", () => {
+    const body = writingTask();
+    const view = resultView({ ...body, review: CLOSED });
+    expect(view.ring).toEqual({ kind: "withheld" });
+    expect(view.tiles).toEqual([]);
+  });
+});
+
+describe("resultView: skill tiles (T-R6.12)", () => {
+  const skilled = () =>
+    scored([
+      choice(1, AB, [1], { skill: "grammar", earned: 1 }),
+      choice(2, AB, [0], { skill: "grammar", earned: 0 }),
+      choice(3, AB, [1], { skill: "vocabulary", earned: 1 }),
+      choice(4, AB, [1], { earned: 1 }),
+    ]);
+
+  it("sums a tile per skill, in the paper's order, from the questions that name it", () => {
+    expect(resultView(skilled()).tiles).toEqual([
+      {
+        kind: "skill",
+        skill: "grammar",
+        earned: 1,
+        total: 2,
+        share: 0.5,
+        tone: "warning",
+      },
+      {
+        kind: "skill",
+        skill: "vocabulary",
+        earned: 1,
+        total: 1,
+        share: 1,
+        tone: "success",
+      },
+    ]);
+  });
+
+  it("gives way to part tiles on a paper of two parts", () => {
+    const body = skilled();
+    const view = resultView({
+      ...body,
+      questions: body.questions.map((question, index) =>
+        index > 1 ? { ...question, sectionId: PART_TWO } : question,
+      ),
+      sections: [
+        { id: PART_ONE, title: "A", instructions: null },
+        { id: PART_TWO, title: "B", instructions: null },
+      ],
+    });
+    expect(view.tiles.map((tile) => tile.kind)).toEqual(["part", "part"]);
+  });
+
+  it("draws no tile for a one-part, one-skill paper (DG-85)", () => {
+    const view = resultView(
+      scored([
+        choice(1, AB, [1], { skill: "grammar", earned: 1 }),
+        choice(2, AB, [1], { skill: "grammar", earned: 1 }),
+      ]),
+    );
+    expect(view.tiles).toEqual([]);
+  });
+});
+
+describe("resultView: the comment callout (DG-84)", () => {
+  it("holds the comment of the paper's only hand-graded answer", () => {
+    expect(resultView(writingTask()).callout).toEqual({
+      questionId: uuid("a", 1),
+      comment:
+        "Good overview sentence. Next time compare the two highest values directly.",
+    });
+  });
+
+  it("is null with two hand-graded answers, or when the only one has no comment", () => {
+    const two = scored([
+      essay(1, "One", "a", { pendingManual: false, earned: 1, graderComment: "Tốt." }),
+      essay(2, "Two", "b", { pendingManual: false, earned: 1 }),
+    ]);
+    expect(resultView(two).callout).toBeNull();
+    expect(resultView(writingTask({ graderComment: "  " })).callout).toBeNull();
+    expect(resultView(writingTask({ graderComment: null })).callout).toBeNull();
+  });
+
+  it("counts a short answer as hand-graded, beside automatically marked questions", () => {
+    const body = scored([
+      choice(1, AB, [1], { earned: 1 }),
+      essay(2, "Why?", "Because.", {
+        pendingManual: false,
+        earned: 1,
+        graderComment: "Rõ ràng.",
+      }),
+    ]);
+    expect(resultView(body).callout).toEqual({
+      questionId: uuid("a", 2),
+      comment: "Rõ ràng.",
+    });
+  });
+});
+
+describe("given and correctKey: matching (T-R6.12)", () => {
+  it("lists every item with its choice, and marks pairs only with the key", () => {
+    const blind = given(matching(1));
+    expect(blind.kind).toBe("pairs");
+    if (blind.kind !== "pairs") return;
+    expect(
+      blind.pairs.map((pair) => [pair.item.key, pair.option?.key ?? null, pair.right]),
+    ).toEqual([
+      ["1", "A", null],
+      ["2", "C", null],
+      ["3", null, null],
+    ]);
+    const keyed = given(matching(1, { correctMatches: matchKey(1) }));
+    if (keyed.kind !== "pairs") throw new Error("pairs");
+    expect(keyed.pairs.map((pair) => pair.right)).toEqual([true, false, false]);
+  });
+
+  it("reads a matching with no pair as no answer", () => {
+    expect(given(matching(1, { answer: { type: "matching", pairs: {} } }))).toEqual({
+      kind: "none",
+    });
+    expect(given(matching(1, { answer: null }))).toEqual({ kind: "none" });
+  });
+
+  it("keys the items the student missed, only under showCorrectAnswers", () => {
+    const key = correctKey(matching(1, { correctMatches: matchKey(1) }), OPEN);
+    expect(key?.kind).toBe("pairs");
+    if (key?.kind !== "pairs") return;
+    expect(key.pairs.map((pair) => [pair.item.key, pair.option?.key])).toEqual([
+      ["2", "B"],
+      ["3", "C"],
+    ]);
+    expect(
+      correctKey(matching(1, { correctMatches: matchKey(1) }), SCORE_ONLY),
+    ).toBeNull();
+    expect(correctKey(matching(1), OPEN)).toBeNull();
   });
 });
