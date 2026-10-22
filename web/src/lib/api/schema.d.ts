@@ -5939,6 +5939,13 @@ export interface components {
             explanation?: string | null;
             explanationContent?: components["schemas"]["QuestionExplanationContent"] | null;
             sampleAnswer?: string | null;
+            /**
+             * @description The media the frozen `promptContent` and `explanationContent` show
+             *     (DG-109), signed for the grader as `AdminQuestion.contentAssets`
+             *     is (D-077), once each, prompt first. Absent when they show none; a
+             *     file that cannot be loaded is left out.
+             */
+            contentAssets?: components["schemas"]["MediaAsset"][];
             sharedContext?: components["schemas"]["SharedReviewContext"];
         };
         /** @description One paper's answer to the question G-04 is grading. */
@@ -7639,6 +7646,9 @@ export interface components {
              * @description The media `promptContent` and `explanationContent` show (DG-109),
              *     signed for the editor, once each, prompt first. Absent when they
              *     show none; a file that cannot be loaded is left out, as `media` is.
+             *     The attempt review and grade-by-question readers sign the frozen
+             *     version's media here too, so a grader sees what the student saw
+             *     (D-077).
              */
             contentAssets?: components["schemas"]["MediaAsset"][];
             /** @description The alt text a teacher wrote for the question's image; absent or null when there is none, and always when `media` is not an image. */
