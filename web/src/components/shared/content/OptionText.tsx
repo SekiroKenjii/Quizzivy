@@ -3,13 +3,14 @@ import { nfc } from "@/lib/nfc";
 import { ContentInlineView } from "./ContentInlineView";
 import { isOptionContent } from "./optionContent";
 import { contentPlainText } from "./plainText";
-import { trueFalseLabelKey } from "./trueFalse";
+import { tfngTextLabelKey, trueFalseLabelKey } from "./trueFalse";
 import "./content.css";
 
 /**
  * OptionText renders legacy options literally and validates versioned inline
  * content before rendering. Given the question's `type`, a true/false option
- * stored as exactly "True" or "False" reads in the reader's language.
+ * stored as exactly "True" or "False" reads in the reader's language, as do a
+ * true / false / not given question's three options.
  */
 export function OptionText({
   text,
@@ -17,7 +18,8 @@ export function OptionText({
   type,
 }: Readonly<{ text: string; content?: unknown; type?: string }>) {
   const { t } = useTranslation();
-  const canonical = trueFalseLabelKey(type, text, content);
+  const canonical =
+    trueFalseLabelKey(type, text, content) ?? tfngTextLabelKey(type, text);
   if (canonical !== null)
     return <span className="break-words whitespace-pre-wrap">{t(canonical)}</span>;
   if (content == null)

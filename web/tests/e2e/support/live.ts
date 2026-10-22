@@ -15,6 +15,12 @@ export const ASSIGNMENT = {
   takeover: "01935000-0000-7000-8000-00000000ee03",
   persistence: "01935000-0000-7000-8000-00000000ee05",
   payload: "01935000-0000-7000-8000-00000000ee09",
+  /** seed/10-dev-question-types.sql: the paper with a question of every type. */
+  everyType: {
+    run: "01935000-0000-7000-8000-000000001007",
+    payload: "01935000-0000-7000-8000-000000001008",
+    hidden: "01935000-0000-7000-8000-000000001009",
+  },
 };
 
 export async function signIn(page: Page, who: typeof ADMIN, landing: RegExp) {
@@ -241,4 +247,69 @@ export async function publishInBuilder(page: Page) {
     timeout: 30_000,
   });
   await page.goto(`/teacher/tests/${id}`);
+}
+
+/**
+ * goToQuestion opens question `n` of the open attempt from the navigator,
+ * whose buttons read "Câu n, <part>".
+ */
+export async function goToQuestion(page: Page, n: number) {
+  await page.getByRole("button", { name: new RegExp(`^Câu ${n}, `) }).click();
+  await expect(
+    page.getByRole("group", { name: `Câu ${n}`, exact: true }),
+  ).toBeVisible();
+}
+
+/**
+ * gradeAttempt marks a submitted attempt of the every-type paper from the
+ * teacher's attempt page, as a teacher grades one student's paper: the short
+ * answer (question 7) in points, then the essay (question 8) one band per
+ * rubric criterion, with a comment, and presses Finish grading. `bands` are
+ * the four criteria's bands as the buttons write them ("6,5").
+ */
+export async function gradeAttempt(
+  page: Page,
+  attemptId: string,
+  {
+    shortAnswer,
+    bands,
+    comment,
+  }: { shortAnswer: string; bands: string[]; comment: string },
+) {
+  await page.goto(`/teacher/attempts/${attemptId}`);
+  const save = page.getByRole("button", { name: "Lưu & câu tiếp theo" });
+  await page.getByRole("button", { name: /^Câu 7, / }).click();
+  await page.getByRole("button", { name: shortAnswer, exact: true }).click();
+  // Save & next lands on the essay once the mark is written; moving by hand
+  // before then would ask whether to drop an unsaved mark.
+  await save.click();
+  await expect(page.getByText("Band theo tiêu chí", { exact: true })).toBeVisible();
+  const criteria = [
+    "Task response",
+    "Coherence and cohesion",
+    "Lexical resource",
+    "Grammatical range and accuracy",
+  ];
+  for (const [index, label] of criteria.entries()) {
+    await page
+      .getByRole("group", { name: label, exact: true })
+      .getByRole("button", { name: `Cho band ${bands[index]}`, exact: true })
+      .click();
+  }
+  await page
+    .getByRole("textbox", { name: "Nhận xét — học viên đọc được" })
+    .fill(comment);
+  await save.click();
+
+  const finish = page.getByRole("button", { name: "Hoàn tất chấm", exact: true });
+  // Paused (aria-disabled) until the last mark is saved.
+  await expect(finish).not.toHaveAttribute("aria-disabled", "true", {
+    timeout: 15_000,
+  });
+  await finish.click();
+  await expect(
+    page.getByRole("main").getByText("Đã chấm", { exact: true }),
+  ).toBeVisible({
+    timeout: 15_000,
+  });
 }
