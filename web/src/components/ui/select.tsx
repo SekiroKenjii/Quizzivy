@@ -52,11 +52,18 @@ function SelectTrigger({
   );
 }
 
+/**
+ * SelectContent is the open list. The item has already taken the Enter that
+ * picks it, so the list cancels the key's default: otherwise the browser also
+ * activates whatever the pick moved focus to, such as a confirm dialog's first
+ * button.
+ */
 function SelectContent({
   className,
   children,
   position = "popper",
   align = "center",
+  onKeyDown,
   ...props
 }: React.ComponentProps<typeof SelectPrimitive.Content>) {
   return (
@@ -73,6 +80,10 @@ function SelectContent({
         position={position}
         align={align}
         {...props}
+        onKeyDown={(event) => {
+          onKeyDown?.(event);
+          if (event.key === "Enter") event.preventDefault();
+        }}
       >
         <SelectScrollUpButton />
         <SelectPrimitive.Viewport

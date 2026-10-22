@@ -5390,6 +5390,7 @@
       "selectCountAny": "Không cố định, đúng hết mới có điểm",
       "selectCountValue": "Chọn {{count}}",
       "selectCountMismatch": "Cần đánh dấu đúng {{count}} phương án, bằng số đáp án cần chọn.",
+      "selectCountReset": "Đã đặt lại Chọn {{count}} thành \"Không cố định\" vì chỉ còn {{options}} phương án.",
       "selectCountTooFew": "Chọn {{count}} cần ít nhất {{options}} phương án. Hãy thêm phương án hoặc chọn \"Không cố định\".",
       "maxWordsHint": "Để trống nếu không giới hạn. Học sinh thấy giới hạn này; câu trả lời dài hơn chỉ bị đánh dấu, không bị cắt.",
       "maxWordsInvalid": "Nhập số nguyên từ 1 đến 100, hoặc để trống.",
