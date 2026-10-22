@@ -115,6 +115,23 @@ const expected = {
     finishedNext: "Đã hoàn tất chấm bài của {{name}}. Tiếp theo: {{next}}.",
     reviewFailed: "Không tải được bài này.",
     ready: "Hoàn tất sẽ báo cho {{name}} rằng kết quả đã sẵn sàng.",
+    bandLegend: "Band",
+    criteriaLegend: "Band theo tiêu chí",
+    band: "Cho band {{band}}",
+    derivedBand: "Band chung: {{band}}",
+    derivedPending: "Band chung: hãy cho band ở mọi tiêu chí",
+    bandKeys: "Phím 3–9 chọn band, Shift + phím cộng thêm nửa band",
+    shiftKey: "Shift",
+    pickBandFirst: "Chọn band trước (phím 3–9).",
+    pickCriteriaFirst: "Hãy cho band ở mọi tiêu chí trước.",
+    gradeError: {
+      GRADE_NEEDS_BAND: "Chọn band cho bài luận này.",
+      GRADE_CRITERIA_INCOMPLETE:
+        "Hãy cho band ở mọi tiêu chí. Nếu bộ tiêu chí trông khác, hãy tải lại trang.",
+      GRADE_NEEDS_POINTS: "Chọn điểm cho câu trả lời này.",
+      GRADE_BAND_NOT_ALLOWED:
+        "Câu này chấm theo điểm, không theo band. Hãy tải lại trang rồi chấm lại.",
+    },
     snippets: {
       short: {
         "0": "Kiểm tra chính tả",
@@ -239,6 +256,23 @@ const expected = {
     finishedNext: "Grading finished for {{name}}. Next: {{next}}.",
     reviewFailed: "Couldn’t load this paper.",
     ready: "Finishing tells {{name}} their result is ready.",
+    bandLegend: "Band",
+    criteriaLegend: "Band for each criterion",
+    band: "Give band {{band}}",
+    derivedBand: "Overall band: {{band}}",
+    derivedPending: "Overall band: give every criterion a band",
+    bandKeys: "3–9 sets a band, Shift + digit the half above",
+    shiftKey: "Shift",
+    pickBandFirst: "Pick a band first (keys 3–9).",
+    pickCriteriaFirst: "Give every criterion a band first.",
+    gradeError: {
+      GRADE_NEEDS_BAND: "Choose a band for this essay.",
+      GRADE_CRITERIA_INCOMPLETE:
+        "Give every criterion a band. If the rubric looks different, reload the page.",
+      GRADE_NEEDS_POINTS: "Choose a score for this answer.",
+      GRADE_BAND_NOT_ALLOWED:
+        "This question is scored in points, not a band. Reload the page and score it again.",
+    },
     snippets: {
       short: {
         "0": "Check spelling",

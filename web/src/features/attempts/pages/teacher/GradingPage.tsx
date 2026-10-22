@@ -15,7 +15,12 @@ import { ListSkeleton, LoadError, EmptyState } from "@/components/shared/ListSta
 import { useCan, useWorkspace } from "@/features/auth/permissions";
 import { useAuthStore } from "@/stores/auth";
 import type { AttemptListRow, GradingQueueParams } from "../../api";
-import { gradingGroupKey, gradingItemKey, scoreOptions } from "./gradingRecovery";
+import {
+  gradingGroupKey,
+  gradingItemKey,
+  pageKey,
+  scoreOptions,
+} from "./gradingRecovery";
 import { useGradingQueue, type GradingQueueModel } from "./useGradingQueue";
 import { GradingQueueAside } from "./GradingQueueAside";
 import { GradingAnswerCard } from "./GradingAnswerCard";
@@ -197,18 +202,11 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
     if (
       model.busy ||
       !selected ||
-      event.isComposing ||
       event.altKey ||
       event.ctrlKey ||
       event.metaKey ||
-      event.shiftKey
-    )
-      return;
-    if (
-      event.target instanceof Element &&
-      event.target.closest(
-        "input, textarea, select, [contenteditable]:not([contenteditable=false]), [role=textbox], [role=dialog], [role=menu], [role=listbox], [data-grading-ready]",
-      )
+      event.shiftKey ||
+      !pageKey(event)
     )
       return;
     const letter = event.key.toLowerCase();
@@ -217,6 +215,8 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
       model.move(letter === "j" ? 1 : -1);
       return;
     }
+    // An essay's band keys are its card's: a digit is a band there, not a position.
+    if (selected.type === "essay") return;
     const choices = scoreOptions(selected.points);
     const index = /^[1-9]$/.test(event.key) ? Number(event.key) - 1 : -1;
     const points = choices[index];
@@ -388,6 +388,8 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
                     position={position}
                     total={groupItems.length}
                     onScore={(points) => void model.pickScore(selected, points)}
+                    onBand={(mark) => void model.pickBand(selected, mark)}
+                    fieldError={fieldErrorOf(model, selected)}
                     onComment={(comment) => model.comment(selected, comment)}
                     onPrevious={() => model.move(-1)}
                     onNext={(numericIntent = false) =>
@@ -477,6 +479,15 @@ function QueuePage({ params }: Readonly<{ params: GradingQueueParams }>) {
       />
     </section>
   );
+}
+
+/** fieldErrorOf is the refused save's message for the open answer's marks, if it is that answer's. */
+function fieldErrorOf(
+  model: GradingQueueModel,
+  item: NonNullable<GradingQueueModel["selected"]>,
+) {
+  const error = model.fieldError;
+  return error?.key === gradingItemKey(item) ? error.message : null;
 }
 
 function FilterChips({

@@ -4303,7 +4303,9 @@
     "voided": "Lượt làm này đã bị huỷ nên không chấm.",
     "keyTo": "–",
     "keySep": "·",
-    "keyEnter": "Enter"
+    "keyEnter": "Enter",
+    "wordCount_one": "{{count}} từ",
+    "wordCount_other": "{{count}} từ"
   },
   "timeline": {
     "loadFailed": "Không tải được diễn biến của lượt làm này.",
