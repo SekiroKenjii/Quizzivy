@@ -421,14 +421,26 @@ function validateMatching(
   if (problems.taken.size) issue("matchItems", "matchOptionTaken");
 }
 
+/**
+ * criterionKey is how the server tells two rubric labels apart: after NFC (so
+ * "ý" typed decomposed matches it composed), trimmed, and lower-cased one
+ * character at a time as Go's strings.ToLower does. A whole-string
+ * toLowerCase differs in two places: it turns "İ" into "i" plus a combining
+ * dot, and a word-final "Σ" into "ς" (QC-R6AC-4).
+ */
+export function criterionKey(label: string): string {
+  return Array.from(label.normalize("NFC").trim(), (char) =>
+    char === "\u0130" ? "i" : char.toLowerCase(),
+  ).join("");
+}
+
 function validateRubric(
   rubric: NonNullable<QuestionValues["rubric"]>,
   issue: (path: string, key: string) => void,
 ) {
   if (rubric.length > MAX_RUBRIC_CRITERIA) issue("rubric", "maxCriteria");
-  // The server compares labels after NFC, so "ý" typed decomposed matches it composed.
   const labels = rubric
-    .map((criterion) => criterion.label.normalize("NFC").trim().toLowerCase())
+    .map((criterion) => criterionKey(criterion.label))
     .filter((label) => label !== "");
   if (new Set(labels).size !== labels.length) issue("rubric", "duplicateCriterion");
 }
