@@ -6,6 +6,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "@/components/ui/sonner";
 import { cn } from "@/lib/utils";
 import {
+  criterionKey,
   MAX_RUBRIC_CRITERIA,
   MAX_RUBRIC_LABEL,
   type QuestionValues,
@@ -19,13 +20,21 @@ const IELTS_WRITING = ["taskResponse", "coherence", "lexical", "grammar"] as con
 const ADD = "text-muted-fg h-7.5 rounded-[7px] px-2.5 text-[12.5px] font-normal";
 
 /**
+ * ROW_ICON is a row's Move and Remove buttons. A paused one fades further
+ * than the primitive's paused tone, which sits too close to the live
+ * muted icons beside it (QC-R6AC-12).
+ */
+const ROW_ICON =
+  "text-muted-fg size-7 flex-none rounded-[6px] aria-disabled:text-muted-fg/40 aria-disabled:hover:text-muted-fg/40 dark:aria-disabled:hover:text-muted-fg/40";
+
+/**
  * RubricEditor is an essay's rubric criteria (DG-61, interim; undrawn, listed
  * for sign-off): add, rename, reorder and remove, up to six, each row named
  * by its number. With none, the hint says the grader sets the band directly,
  * and "Use IELTS Writing criteria" fills in that preset's four labels in the
- * reader's language. Two criteria with the same label, compared after NFC and
- * ignoring case and the space around them, have the danger border, as the
- * server refuses them.
+ * reader's language. Two criteria with the same label, compared as the server
+ * does (`criterionKey`: NFC, ignoring case and the space around them), have
+ * the danger border, as the server refuses them.
  */
 export function RubricEditor({
   rubric,
@@ -108,7 +117,7 @@ export function RubricEditor({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="text-muted-fg size-7 flex-none rounded-[6px]"
+                  className={ROW_ICON}
                   aria-label={t("questionEditor.rubric.moveUp", { n })}
                   aria-disabled={index === 0 || undefined}
                   onClick={() => move(index, -1)}
@@ -119,7 +128,7 @@ export function RubricEditor({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="text-muted-fg size-7 flex-none rounded-[6px]"
+                  className={ROW_ICON}
                   aria-label={t("questionEditor.rubric.moveDown", { n })}
                   aria-disabled={index === rubric.length - 1 || undefined}
                   onClick={() => move(index, 1)}
@@ -130,7 +139,7 @@ export function RubricEditor({
                   type="button"
                   variant="ghost"
                   size="icon-sm"
-                  className="text-muted-fg size-7 flex-none rounded-[6px]"
+                  className={ROW_ICON}
                   aria-label={t("questionEditor.rubric.remove", { n })}
                   onClick={() => {
                     onChange(rubric.filter((_, i) => i !== index));
@@ -190,7 +199,7 @@ function duplicateIndexes(rubric: readonly Criterion[]): ReadonlySet<number> {
   const first = new Map<string, number>();
   const out = new Set<number>();
   rubric.forEach((criterion, index) => {
-    const label = criterion.label.normalize("NFC").trim().toLowerCase();
+    const label = criterionKey(criterion.label);
     if (label === "") return;
     const earlier = first.get(label);
     if (earlier === undefined) first.set(label, index);

@@ -23,7 +23,9 @@ import type { QuestionValues } from "../questionSchema";
  * canonical options "True" and "False" (DG-139), each keeping the id of the
  * option it replaces, so editing a legacy question whose teacher renamed them
  * normalises their texts. A tfng answer is read by position, the server's
- * fixed order. The ticked card is the correct answer.
+ * fixed order. The ticked card is the correct answer. The cards share a row,
+ * each at least 140px, and a card that wraps takes the row's width rather than
+ * one column of it (QC-R6AC-7).
  */
 export function TrueFalseField({
   value,
@@ -69,7 +71,7 @@ export function TrueFalseField({
       <div
         role="radiogroup"
         aria-labelledby={heading}
-        className="grid grid-cols-[repeat(auto-fit,minmax(140px,1fr))] gap-2"
+        className="flex flex-wrap gap-2 [&>label]:flex-[1_1_140px]"
       >
         {choices.map((choice) => {
           const on = choice.value === current;

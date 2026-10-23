@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "@/components/ui/sonner";
 import { Switch } from "@/components/ui/switch";
+import { useContentWidthAtLeast } from "@/layouts/shell/contentWidth";
 import { cn } from "@/lib/utils";
 import { matchItemKey, matchOptionKey } from "../matchKeys";
 import {
@@ -37,6 +38,11 @@ const ROW =
 const BARE =
   "h-8 min-w-0 flex-1 rounded-[6px] border-transparent bg-transparent px-px shadow-none lg:text-[14px] dark:bg-transparent";
 const KEY = "text-muted-fg flex-none text-[12.5px] font-semibold";
+/** A paused Remove fades further than the primitive's tone (QC-R6AC-12). */
+const ROW_ICON =
+  "text-muted-fg size-7 flex-none rounded-[6px] aria-disabled:text-muted-fg/40 aria-disabled:hover:text-muted-fg/40 dark:aria-disabled:hover:text-muted-fg/40";
+/** TWO_COLUMNS_FROM is the content width at which items and options sit side by side. */
+const TWO_COLUMNS_FROM = 1100;
 const ADD =
   "text-muted-fg h-7.5 self-start rounded-[7px] px-2.5 text-[12.5px] font-normal";
 
@@ -45,7 +51,8 @@ const ADD =
  * (2026-10-04): the items, lettered A, B, C…, each with the option it matches
  * from a select ("Choose…", then i, ii, iii…), beside the options students
  * choose from, numbered i to xii, an option no item uses tagged "Extra". Two
- * columns from 1100px of page width, one below. Items run 2 to 20 and options
+ * columns from 1100px of the content area's width (`useContentWidthAtLeast`,
+ * not the viewport, QC-R6AC-5), one below. Items run 2 to 20 and options
  * 2 to 12, and the toasts name those bounds, not the deck's ten (DG-113).
  * Removing an option unsets the items that used it. An item with no option
  * chosen has the danger border. "Each choice can be used more than once" is
@@ -65,6 +72,7 @@ export function MatchingEditor({
   const items = value.matchItems ?? [];
   const options = value.options;
   const reuse = value.matchAllowReuse === true;
+  const twoColumns = useContentWidthAtLeast(TWO_COLUMNS_FROM);
   const problems = matchingProblems(value);
   const used = new Set(items.map((item) => item.correctOption));
 
@@ -131,7 +139,14 @@ export function MatchingEditor({
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="grid grid-cols-[minmax(0,1fr)] gap-x-4 gap-y-3.5 min-[1100px]:grid-cols-[repeat(2,minmax(0,1fr))]">
+      <div
+        className={cn(
+          "grid gap-x-4 gap-y-3.5",
+          twoColumns
+            ? "grid-cols-[repeat(2,minmax(0,1fr))]"
+            : "grid-cols-[minmax(0,1fr)]",
+        )}
+      >
         <div className="flex min-w-0 flex-col gap-2">
           <p id={itemsHeading} className="text-[12.5px] font-medium">
             {t("questionEditor.matching.items")}{" "}
@@ -220,7 +235,7 @@ export function MatchingEditor({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    className="text-muted-fg size-7 flex-none rounded-[6px]"
+                    className={ROW_ICON}
                     aria-label={t("questionEditor.matching.removeItem", { key })}
                     aria-disabled={items.length <= MIN_MATCH_ITEMS || undefined}
                     onClick={() => removeItem(index)}
@@ -294,7 +309,7 @@ export function MatchingEditor({
                     type="button"
                     variant="ghost"
                     size="icon-sm"
-                    className="text-muted-fg size-7 flex-none rounded-[6px]"
+                    className={ROW_ICON}
                     aria-label={t("questionEditor.matching.removeOption", { key })}
                     aria-disabled={options.length <= MIN_MATCH_OPTIONS || undefined}
                     onClick={() => removeOption(index)}
