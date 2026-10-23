@@ -604,6 +604,19 @@ DROP INDEX CONCURRENTLY IF EXISTS app.users_created_by_idx;            -- 00076
 DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ```
 
+## Rolling out v0.13.1 (hotfix)
+
+v0.13.1 ships R6-21, the authoring follow-ups found in R6-05's QC (#811; spec 0.120, "Changes since
+v0.119"): the question editor's rubric labels and save errors, matching's columns, the builder's autosave
+ids, Add question while a draft is refused, and a group member's unkeyed warning. It is web only: no
+migration, no contract, no server and no configuration change. Merging still runs the whole deploy, so the
+API redeploys with the same code and its release command finds nothing to migrate (version 154).
+
+- **Smoke.** As a teacher, open a matching question and an essay with criteria in the bank editor and save
+  each; in the builder, add a question, edit it, wait for the autosave, edit again and reload: the question
+  is still there once, not duplicated.
+- **Rolling back to v0.13.0** is safe at any time: the web alone changed.
+
 ## Rolling out v0.13.0 (R6)
 
 v0.13.0 adds the question types True / False / Not given, matching and the essay, "Choose N",
