@@ -612,9 +612,11 @@ ids, Add question while a draft is refused, and a group member's unkeyed warning
 migration, no contract, no server and no configuration change. Merging still runs the whole deploy, so the
 API redeploys with the same code and its release command finds nothing to migrate (version 154).
 
-- **Smoke.** As a teacher, open a matching question and an essay with criteria in the bank editor and save
-  each; in the builder, add a question, edit it, wait for the autosave, edit again and reload: the question
-  is still there once, not duplicated.
+- **Smoke.** First `/version.json` (and the splash) read 0.13.1, so a stale web deploy cannot pass. As a
+  teacher, open an essay with criteria in the bank editor and name two criteria "İdea" and "idea": they clash
+  and Save is disabled (v0.13.0 let it through to the server). Open a matching question, change a field and
+  save it. In the builder, open a test with a section (or add one to a new test), add a question, edit it,
+  wait for the autosave, edit again and reload: the question is still there once, not duplicated.
 - **Rolling back to v0.13.0** is safe at any time: the web alone changed.
 
 ## Rolling out v0.13.0 (R6)
