@@ -48,10 +48,14 @@ start at [README.md](README.md) "Resuming".
   since v0.118"), `docs/setup/deploy.md`'s "Rolling out v0.13.0 (R6)" with its Neon rehearsal and
   rollback, `76-r6.md`'s checklist, and this checkpoint. Its release notes, vi first, say "Tự
   luận" is now "Trả lời ngắn" (D-066).
+- **v0.13.0** shipped on 2026-10-22 23:41 UTC: `main` at `91524661` (#815), back-merged to
+  `develop` by #818 (`84c495c8`). R6-21 (#811) merged into `work/redesign-r6` at `60aed86c`
+  afterwards; #819 merges it into `develop`, and v0.13.1 (web only, spec 0.120) ships it.
 - **The tags** are the owner's to push, because the session's proxy refuses tag pushes. The remote
   has tags up to `v0.12.0` (on `3db49c36`); still owed:
   - `v0.12.1` on `5f1b0dcb`, `v0.12.2` on `f1ef076f`;
-  - `v0.13.0` on `main`'s merge of `release/0.13.0`, after the deploy.
+  - `v0.13.0` on `91524661`;
+  - `v0.13.1` on `main`'s merge of the v0.13.1 release PR, after the deploy.
 - **Waiting on the user, for v0.13.0:**
   - The Neon-branch rehearsal of 00145 to 00154 with its timings, 00153's above all
     (`deploy.md`, "Rehearsing v0.13.0 on a Neon branch"); deferred to release time on
@@ -551,7 +555,7 @@ and any reversal of the defaults above.
 
 ## Next action
 
-- Release v0.13.0: the owner's rehearsal, checks and go, then `release/0.13.0` → `main`, the
-  deploy and smoke (`deploy.md`, "Rolling out v0.13.0 (R6)"), the back-merge and the tags.
+- Release v0.13.1 (web only): the owner's merge to `main`, the smoke (`deploy.md`, "Rolling out
+  v0.13.1 (hotfix)"), the back-merge and the tags `v0.12.1` to `v0.13.1`.
 - Then R7 (v0.14.0, collaboration, `docs/plan/77-r7.md`), on `work/redesign-r7` cut from
   `develop` after the back-merge; its first migration is 00155.
