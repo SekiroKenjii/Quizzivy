@@ -2,10 +2,7 @@ import { gapBindingsMatch } from "@/components/shared/content/gaps";
 import { isQuestionPromptContent } from "@/components/shared/content/questionContent";
 import type { TFunction } from "i18next";
 import type { AdminQuestion } from "@/features/question-bank/api";
-import {
-  matchingProblems,
-  type QuestionValues,
-} from "@/features/question-bank/questionSchema";
+import type { QuestionValues } from "@/features/question-bank/questionSchema";
 import {
   comparePlaceholders,
   hasMismatch,
@@ -70,24 +67,37 @@ function unkeyed(question: AdminQuestion): boolean {
   }
 }
 
+/** KeyedDraft is what draftUnkeyed reads of a form value or a group member's input. */
+type KeyedDraft = {
+  type: QuestionValues["type"];
+  selectCount?: number | null | undefined;
+  matchAllowReuse?: boolean | null | undefined;
+  matchItems?: readonly { correctOption: number }[] | undefined;
+  options?: readonly { isCorrect: boolean }[] | undefined;
+};
+
 /**
  * draftUnkeyed reads the same rule on the editor's live draft, which the
  * schema keeps from saving: the selected question's outline row warns while
- * its draft is unkeyed, not only once a stored question is (QC-R6B-2).
+ * its draft is unkeyed, not only once a stored question is (QC-R6B-2), and so
+ * does a group member's row, from the open group's live bundle (QC-R6B-11).
  */
-export function draftUnkeyed(values: QuestionValues): boolean {
-  const ticked = values.options.filter((option) => option.isCorrect).length;
+export function draftUnkeyed(values: KeyedDraft): boolean {
+  const options = values.options ?? [];
+  const ticked = options.filter((option) => option.isCorrect).length;
   switch (values.type) {
     case "tfng":
       return ticked !== 1;
     case "multiple_choice":
       return values.selectCount != null && ticked !== values.selectCount;
     case "matching": {
-      const problems = matchingProblems(values);
+      const keys = (values.matchItems ?? []).map((item) => item.correctOption);
       return (
-        (values.matchItems ?? []).length === 0 ||
-        problems.unset.size > 0 ||
-        problems.taken.size > 0
+        keys.length === 0 ||
+        keys.some(
+          (key) => !Number.isInteger(key) || key < 0 || key >= options.length,
+        ) ||
+        (values.matchAllowReuse !== true && new Set(keys).size < keys.length)
       );
     }
     default:
