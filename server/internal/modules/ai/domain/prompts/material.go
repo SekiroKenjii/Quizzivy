@@ -54,11 +54,24 @@ func writeQuestion(b *strings.Builder, q domain.PaperQuestion, passages map[stri
 		}
 		b.WriteString("\n")
 	}
+	if q.SelectCount > 0 {
+		fmt.Fprintf(b, "Choose exactly %d options\n", q.SelectCount)
+	}
+	for i, item := range q.MatchItems {
+		fmt.Fprintf(b, "Item %d. %s -> %s\n", i+1, clip(oneLine(item.Text), 300), matchKey(item, len(q.Options)))
+	}
 	for i, bl := range q.Blanks {
 		fmt.Fprintf(b, "Blank %d accepts: %s\n", i+1, strings.Join(bl.Accepted, " | "))
 	}
 	if q.Sample != "" {
 		fmt.Fprintf(b, "Sample answer: %s\n", clip(q.Sample, 300))
+	}
+	if len(q.Criteria) > 0 {
+		labels := make([]string, len(q.Criteria))
+		for i, c := range q.Criteria {
+			labels[i] = clip(oneLine(c.Label), 80)
+		}
+		fmt.Fprintf(b, "Rubric criteria: %s\n", strings.Join(labels, " | "))
 	}
 	switch {
 	case q.MaxWords > 0:
@@ -69,6 +82,14 @@ func writeQuestion(b *strings.Builder, q domain.PaperQuestion, passages map[stri
 	if q.Explanation != "" {
 		fmt.Fprintf(b, "Explanation: %s\n", clip(oneLine(q.Explanation), 600))
 	}
+}
+
+// matchKey names the option a matching item is keyed to by its letter, or says it has none.
+func matchKey(item domain.MatchItem, options int) string {
+	if item.Option < 0 || item.Option >= options {
+		return "(no answer)"
+	}
+	return letter(item.Option)
 }
 
 func questionByNumber(questions []domain.PaperQuestion, number int) (domain.PaperQuestion, bool) {

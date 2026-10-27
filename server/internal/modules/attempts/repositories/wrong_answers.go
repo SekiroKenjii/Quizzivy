@@ -42,6 +42,14 @@ var wrongAnswersSQL = `
 	             (SELECT string_agg(l.letter, ', ' ORDER BY l.letter) FROM lettered l WHERE l.question_id = n.id AND l.is_correct)
 	           WHEN 'multiple_choice' THEN
 	             (SELECT string_agg(l.letter, ', ' ORDER BY l.letter) FROM lettered l WHERE l.question_id = n.id AND l.is_correct)
+	           WHEN 'tfng' THEN
+	             (SELECT string_agg(CASE l.ordinal WHEN 0 THEN 'True' WHEN 1 THEN 'False' ELSE 'Not given' END, ', ' ORDER BY l.ordinal)
+	                FROM lettered l WHERE l.question_id = n.id AND l.is_correct)
+	           WHEN 'matching' THEN
+	             (SELECT string_agg((mi.ordinal + 1)::text || ': ' || l.letter, '; ' ORDER BY mi.ordinal)
+	                FROM app.test_version_match_items mi
+	                JOIN lettered l ON l.question_id = n.id AND l.id = mi.correct_option_id
+	               WHERE mi.test_version_question_id = n.id)
 	           WHEN 'fill_blank' THEN
 	             (SELECT string_agg(b.ordinal::text || ': ' ||
 	                      (SELECT string_agg(ba.answer, ' / ' ORDER BY ba.answer) FROM app.test_version_blank_answers ba WHERE ba.test_version_blank_id = b.id),
@@ -59,10 +67,19 @@ var wrongAnswersSQL = `
 	                  THEN CASE WHEN (ans.payload->>'value')::boolean THEN 'True' ELSE 'False' END END
 	           WHEN 'choice' THEN
 	             CASE WHEN jsonb_typeof(ans.payload->'optionIds') = 'array' THEN
-	               (SELECT string_agg(l.letter, '+' ORDER BY l.letter)
+	               (SELECT string_agg(CASE WHEN n.type = 'tfng'
+	                                       THEN CASE l.ordinal WHEN 0 THEN 'True' WHEN 1 THEN 'False' ELSE 'Not given' END
+	                                       ELSE l.letter END, '+' ORDER BY l.letter)
 	                  FROM lettered l
 	                 WHERE l.question_id = n.id
 	                   AND l.id::text IN (SELECT jsonb_array_elements_text(ans.payload->'optionIds')))
+	             END
+	           WHEN 'matching' THEN
+	             CASE WHEN jsonb_typeof(ans.payload->'pairs') = 'object' THEN
+	               (SELECT string_agg((mi.ordinal + 1)::text || ': ' || coalesce(l.letter, '-'), '; ' ORDER BY mi.ordinal)
+	                  FROM app.test_version_match_items mi
+	                  LEFT JOIN lettered l ON l.question_id = n.id AND l.id::text = lower(ans.payload->'pairs'->>mi.id::text)
+	                 WHERE mi.test_version_question_id = n.id)
 	             END
 	           WHEN 'fill_blank' THEN
 	             (SELECT string_agg(lower(btrim(regexp_replace(coalesce(ans.payload->'values'->>b.id::text, ''), '\s+', ' ', 'g'))), ' | ' ORDER BY b.ordinal)

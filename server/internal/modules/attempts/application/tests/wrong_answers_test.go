@@ -10,6 +10,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/access"
@@ -187,5 +188,50 @@ func TestAnotherTeachersAssignmentHasNoWrongAnswersToRead(t *testing.T) {
 	}
 	if _, err := wrongOf(t, pool, access.Scope{UserID: w.admin}, w.assignment); err != nil {
 		t.Errorf("the owner's read: %v", err)
+	}
+}
+
+func TestTheWrongAnswersOfATfngAndAMatchingQuestionReadInTheirOwnWords(t *testing.T) {
+	pool := newPool(t)
+	w := seedTypedWorld(t, pool)
+	session := startTyped(t, pool, w)
+	svc := newService(t, pool)
+	ctx := context.Background()
+	tfng := questionOf(t, session, w.tfng).Options
+	if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: domain.SaveInput{
+		AttemptID: session.Attempt.ID, StudentID: w.student, SessionID: session.SessionID,
+		Answers: []domain.Answer{
+			{QuestionID: w.tfng, Payload: []byte(fmt.Sprintf(`{"type":"choice","optionIds":[%q]}`, tfng[0].ID))},
+			{QuestionID: w.matching, Payload: []byte(fmt.Sprintf(`{"type":"matching","pairs":{%q:%q,%q:%q}}`, w.items[0], w.choices[2], w.items[1], w.choices[1]))},
+		},
+	}}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: w.student, Reason: domain.Manual}); err != nil {
+		t.Fatal(err)
+	}
+	got, err := wrongOf(t, pool, everyone, w.assignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]struct{ key, wrong string }{
+		w.tfng:     {"Not given", "True"},
+		w.matching: {"1: C; 2: A", "1: C; 2: B"},
+	}
+	for _, q := range got.Questions {
+		expected, ok := want[q.QuestionID]
+		if !ok {
+			continue
+		}
+		delete(want, q.QuestionID)
+		if q.Key != expected.key {
+			t.Errorf("%s: key %q, want %q", q.Type, q.Key, expected.key)
+		}
+		if len(q.Wrong) != 1 || q.Wrong[0].Text != expected.wrong || q.Wrong[0].Count != 1 {
+			t.Errorf("%s: wrong answers %+v, want one %q", q.Type, q.Wrong, expected.wrong)
+		}
+	}
+	if len(want) > 0 {
+		t.Errorf("questions not read: %v", want)
 	}
 }

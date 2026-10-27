@@ -73,7 +73,7 @@ const checkSystem = "You review English test questions for a teacher and report 
 const checkSchema = `{"type":"object","additionalProperties":false,"required":["findings"],"properties":{"findings":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["question","severity","issue","fix"],"properties":{"question":{"type":"integer"},"severity":{"type":"string","enum":["likely_error","worth_a_look","minor"]},"issue":{"type":"string"},"fix":{"type":"object","additionalProperties":false,"required":["kind","description","label","option","blank","words","text"],"properties":{"kind":{"type":"string","enum":["option_text","accepted_answer","explanation","tfng_answer","word_limit","none"]},"description":{"type":"string"},"label":{"type":"string"},"option":{"type":"string"},"blank":{"type":"integer"},"words":{"type":"integer"},"text":{"type":"string"}}}}}}}}`
 
 var checkWhat = map[string]string{
-	CheckKey:      "answer keys that do not match the material or the question, or that two readings could defend, such as a tfng key of False where the material never says, which is Not given",
+	CheckKey:      "answer keys that do not match the material or the question, or that two readings could defend, such as a tfng key of False where the material never says, which is Not given, a matching item keyed to an option that does not fit it, or a \"Choose exactly N\" question with other than N correct options",
 	CheckClarity:  "unclear or ambiguous wording, and a short_answer with no word limit, whose answers will vary in length",
 	CheckGiveaway: "questions that give their answer away, such as one option repeating a word from the passage that the others lack",
 	CheckLanguage: "spelling and grammar mistakes",

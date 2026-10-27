@@ -24,6 +24,17 @@ function hasKey(values: QuestionValues): boolean {
       return values.blanks.some((blank) => blank.acceptedAnswers.length > 0);
     case "short_answer":
       return true;
+    case "essay":
+      return (values.sampleAnswer ?? "").trim() !== "";
+    case "matching": {
+      const items = values.matchItems ?? [];
+      return (
+        items.length > 0 &&
+        items.every(
+          (item) => item.correctOption >= 0 && item.correctOption < values.options.length,
+        )
+      );
+    }
     default:
       return values.options.some(
         (option) => option.isCorrect && option.text.trim() !== "",
@@ -33,17 +44,19 @@ function hasKey(values: QuestionValues): boolean {
 
 /**
  * aiGuardOf names the deck's reason not to ask the assistant about a question
- * yet, as an i18n key: no prompt, or no correct answer. It is null when the
- * question can be asked about.
+ * yet, as an i18n key: no prompt, or no correct answer (an essay's is its
+ * sample answer). It is null when the question can be asked about.
  */
 export function aiGuardOf(values: QuestionValues): string | null {
   if (values.prompt.trim() === "") return "ai.guard.prompt";
-  return hasKey(values) ? null : "ai.guard.key";
+  if (hasKey(values)) return null;
+  return values.type === "essay" ? "ai.guard.sample" : "ai.guard.key";
 }
 
 /**
  * aiReadsOf is the part of a question the assistant reads (its type, prompt,
- * written options, blanks' accepted answers and sample answer) as one string,
+ * written options, blanks' accepted answers, sample answer and a matching
+ * question's items with their key) as one string,
  * so two values compare equal exactly when the assistant would read them
  * alike. An empty option is left out: it cannot be stored, and the assistant
  * fills it.
@@ -57,5 +70,6 @@ export function aiReadsOf(values: QuestionValues): string {
       .map((option) => [option.text, option.isCorrect]),
     values.blanks.map((blank) => blank.acceptedAnswers),
     values.sampleAnswer,
+    (values.matchItems ?? []).map((item) => [item.text, item.correctOption]),
   ]);
 }

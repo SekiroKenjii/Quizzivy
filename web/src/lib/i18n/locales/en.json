@@ -383,7 +383,8 @@
     "guard": {
       "prompt": "Write the question first",
       "key": "Mark the correct answer first",
-      "save": "Save the question first"
+      "save": "Save the question first",
+      "sample": "Write a sample answer first"
     }
   },
   "api": {
