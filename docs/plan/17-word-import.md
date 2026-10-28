@@ -938,9 +938,9 @@ papers: element locators repeat the namespace URI in every segment, so the locat
 budget runs out near 80k elements rather than at the node limit; one group save
 parses each material about seven times; and a student's group context mints and
 reads each asset separately. The publish response's zero `manualCount` and
-`audioCount` predate this stack and are tracked in SekiroKenjii/Quizzivy#136.
+`audioCount` predate this stack and are tracked in Quizzivy/Quizzivy#136.
 
-### 1.35 Availability (SekiroKenjii/Quizzivy#138)
+### 1.35 Availability (Quizzivy/Quizzivy#138)
 
 Whether import works depends on the deployment, and the product now says which
 case applies.
@@ -978,7 +978,7 @@ turns it on. The steps are in `docs/setup/word-import-worker.md` § Production. 
 runbook. Its converter needs a Docker daemon, the production image has none, and
 hosting one means a separate privileged Machine.
 
-### 1.36 A worker that lets the database sleep (SekiroKenjii/Quizzivy#143)
+### 1.36 A worker that lets the database sleep (Quizzivy/Quizzivy#143)
 
 The worker used to poll every two seconds, which would have kept Neon's compute
 awake around the clock once deployed. It now claims until the queue is empty,

@@ -1,4 +1,4 @@
-repo: SekiroKenjii/Quizzivy
+repo: Quizzivy/Quizzivy
 branch: main
 path: web/src
 

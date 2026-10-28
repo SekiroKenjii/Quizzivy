@@ -125,7 +125,7 @@ build_minio_image() {
     cat >Dockerfile <<'EOF'
 FROM golang:1.27-alpine AS certs
 FROM alpine:3.22
-LABEL org.opencontainers.image.source="https://github.com/SekiroKenjii/Quizzivy" \
+LABEL org.opencontainers.image.source="https://github.com/Quizzivy/Quizzivy" \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/
 COPY out/minio out/mc /usr/bin/

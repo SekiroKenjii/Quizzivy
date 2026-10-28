@@ -21,7 +21,7 @@ RUN --mount=type=cache,target=/go/pkg/mod,sharing=locked \
     cd mc && go build -trimpath -ldflags="$(go run buildscripts/gen-ldflags.go)" -o /out/mc .
 
 FROM alpine:3.22
-LABEL org.opencontainers.image.source="https://github.com/SekiroKenjii/Quizzivy" \
+LABEL org.opencontainers.image.source="https://github.com/Quizzivy/Quizzivy" \
       org.opencontainers.image.description="MinIO and mc built unmodified from the upstream source commits named in docker/minio/README.md, for local development and CI. Not a supported storage deployment." \
       org.opencontainers.image.licenses="AGPL-3.0-or-later"
 COPY --from=build /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/

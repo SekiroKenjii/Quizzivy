@@ -5,7 +5,7 @@
 | Version | 1.1 |
 | Date | 2026-09-25 |
 | Status | Proposed production product specification; not implemented |
-| Repository | https://github.com/SekiroKenjii/Quizzivy |
+| Repository | https://github.com/Quizzivy/Quizzivy |
 | Reviewed baseline | `main` at `4b84de3bf468fcb4b0f477caacbf47071b18f2d3` |
 | Audience | Product, engineering, design, QA, and operations |
 | Documentation language | English, matching the repository convention; product UI remains Vietnamese-first |
@@ -452,19 +452,19 @@ Mammoth is one candidate for DOCX conversion, not a selected production solution
 
 Repository links are pinned to the reviewed baseline:
 
-- [Repository stack and purpose](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/README.md)
-- [Agent and architecture conventions](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/AGENTS.md)
-- [Product specification](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/docs/quizzivy-spec-v0.3.md)
-- [Architecture overview](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/docs/plan/00-overview.md)
-- [Question model](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/questions/domain/question.go)
-- [Question validation](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/questions/domain/input.go)
-- [Draft model](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/tests/domain/draft.go)
-- [Publish rules](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/tests/domain/publish.go)
-- [Published content schema](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/migrations/00017_create_test_version_content.sql)
-- [Markdown renderer](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/web/src/components/shared/Markdown.tsx)
-- [Section instructions renderer](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/web/src/features/take-test/components/SectionInstructions.tsx)
-- [Media model](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/media/domain/asset.go)
-- [Draft update transaction](https://github.com/SekiroKenjii/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/tests/repositories/autosave.go)
+- [Repository stack and purpose](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/README.md)
+- [Agent and architecture conventions](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/AGENTS.md)
+- [Product specification](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/docs/quizzivy-spec-v0.3.md)
+- [Architecture overview](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/docs/plan/00-overview.md)
+- [Question model](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/questions/domain/question.go)
+- [Question validation](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/questions/domain/input.go)
+- [Draft model](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/tests/domain/draft.go)
+- [Publish rules](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/tests/domain/publish.go)
+- [Published content schema](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/migrations/00017_create_test_version_content.sql)
+- [Markdown renderer](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/web/src/components/shared/Markdown.tsx)
+- [Section instructions renderer](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/web/src/features/take-test/components/SectionInstructions.tsx)
+- [Media model](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/media/domain/asset.go)
+- [Draft update transaction](https://github.com/Quizzivy/Quizzivy/blob/4b84de3bf468fcb4b0f477caacbf47071b18f2d3/server/internal/modules/tests/repositories/autosave.go)
 - [Mammoth documentation](https://github.com/mwilliamson/mammoth.js#readme); reverify the selected version before implementation.
 
 ## 20. Definition of done

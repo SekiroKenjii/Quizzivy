@@ -5,7 +5,7 @@ info:
   version: 0.1.0
   contact:
     name: Thuong
-    url: https://github.com/SekiroKenjii/Quizzivy
+    url: https://github.com/Quizzivy/Quizzivy
   description: |
     The contract both the React SPA and the Go backend implement.
 
