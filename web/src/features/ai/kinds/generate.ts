@@ -689,7 +689,7 @@ function answerOf(question: AiGeneratedQuestion): string | undefined {
   if (question.type === "matching") {
     const options = question.options ?? [];
     return (question.matchItems ?? [])
-      .map((item) => `${item.text} → ${matchOptionKey(options.indexOf(item.answer))}`)
+      .map((item) => `${item.text}: ${matchOptionKey(options.indexOf(item.answer))}`)
       .join(" · ");
   }
   return undefined;
