@@ -392,6 +392,24 @@ jobs:
           echo "$body" | grep -q '"database":"ok"' || {
             echo "::error::/healthz did not report database:ok"; exit 1; }
 
+  # ------------------------------------------------------------------- sdk
+  # @quizzivy/sdk at this release's version, once the API that serves its
+  # contract is live and never before, so no client adopts a contract
+  # production lacks (D-081), and only from main: a dispatch from another ref
+  # deploys it but does not publish it. The workflow skips a version already published
+  # or a contract unchanged since the last one, and runs only in the Quizzivy
+  # org, which owns the package scope.
+  sdk:
+    name: SDK → GitHub Packages
+    needs: [resolve, api, api-vps]
+    if: ${{ !cancelled() && github.repository_owner == 'Quizzivy' && (github.event_name == 'workflow_run' || github.ref == 'refs/heads/main') && needs.resolve.outputs.api == 'true' && contains(fromJSON('["success","skipped"]'), needs.api.result) && contains(fromJSON('["success","skipped"]'), needs.api-vps.result) && (needs.api.result == 'success' || needs.api-vps.result == 'success') }}
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/sdk-publish.yml
+    with:
+      ref: ${{ needs.resolve.outputs.sha }}
+
   # ------------------------------------------------------------------- web
   # After the API, deliberately. The SPA is the half that calls the other, so
   # the window between the two deploys is old-SPA-against-new-API rather than

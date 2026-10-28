@@ -83,8 +83,10 @@ jobs:
 
   # --------------------------------------------------------------- contract
   # api/openapi.yaml is the single source of truth. This job lints it, asserts
-  # its invariants, regenerates both sides and fails if the committed output
-  # differs. `make gen-check` runs `make contract` first.
+  # its invariants, regenerates both sides (server/gen and the SDK in sdk/) and
+  # fails if the committed output differs. `make gen-check` runs `make
+  # contract` first. On a pull request it then runs the SDK gate (D-080)
+  # against the merge-base, which needs the history, but not its blobs.
   contract:
     name: Contract
     needs: plan
@@ -98,6 +100,8 @@ jobs:
         with:
           sparse-checkout: ${{ fromJSON(env.JOB).sparse }}
           sparse-checkout-cone-mode: false
+          fetch-depth: 0
+          filter: blob:none
 
       - uses: actions/setup-go@v7
         with:
@@ -111,6 +115,16 @@ jobs:
 
       - name: Lint the contract, regenerate and fail on drift
         run: make gen-check
+
+      # Report-only until the gate has been run over the contract's history
+      # (D-080): findings show as warnings and in the job summary.
+      - name: SDK gate (breaking changes since the merge-base)
+        if: github.event_name == 'pull_request'
+        env:
+          SDK_BASE: origin/${{ github.base_ref }}
+          SDK_RELEASE: ${{ github.base_ref == 'main' }}
+          CONTRACT_BREAKING: ${{ contains(github.event.pull_request.labels.*.name, 'contract-breaking') }}
+        run: make sdk-check
 
       - uses: ./.github/actions/record
         if: always()

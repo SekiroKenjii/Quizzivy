@@ -69,6 +69,13 @@ test('the longest rule decides, and the base decides where none matches', () => 
   assert.equal(inSet(SETS.web, 'server/internal/modules/classes/domain/joincode.go'), true);
   assert.equal(inSet(SETS.web, 'server/internal/modules/classes/domain/joincode.go.bak'), false);
   assert.equal(inSet(SETS.web, 'migrations/00001_init.sql'), false);
+  assert.equal(inSet(SETS.web, 'sdk/schema.d.ts'), true);
+  assert.equal(inSet(SETS.web, 'sdk/package.json'), true);
+  assert.equal(inSet(SETS.code, 'sdk/openapi.json'), true);
+  assert.equal(inSet(SETS.code, 'scripts/sdk/check.mjs'), true);
+  assert.equal(inSet(SETS.server, 'sdk/schema.d.ts'), false);
+  assert.equal(inSet(SETS.server, 'scripts/sdk/gen.mjs'), false);
+  assert.equal(inSet(SETS.code, '.github/workflows/sdk-publish.yml'), false);
   assert.equal(inSet(SETS.server, 'web/src/main.tsx'), false);
   assert.equal(inSet(SETS.server, 'web/tests/e2e/fixtures/unit5-listening.mp3'), true);
   assert.equal(inSet(SETS.server, 'web/src/lib/i18n/locales/vi.json'), true);

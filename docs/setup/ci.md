@@ -10,7 +10,7 @@ rules require; it passes only when every job did what the plan asked of it.
 |---|---|---|
 | Plan | everything | Tests `scripts/ci/`, then decides which jobs run |
 | Deck | `deck` | `scripts/check-design-deck.mjs` |
-| Contract | `code` | `make gen-check`: lint the contract, regenerate, fail on drift |
+| Contract | `code` | `make gen-check`: lint the contract, regenerate (`server/gen`, `sdk/`), fail on drift; on a PR, `make sdk-check`, the report-only SDK gate (D-080). Like every job it is skipped when its files already passed, whatever the base or labels (#832) |
 | Server lint | `server` | vet, staticcheck, golangci-lint, gofmt |
 | Server tests | `server` | unit, integration and end-to-end tiers, the Word converter tests; migrations up, down, up |
 | Production image | `image` | Builds the root `Dockerfile`; starts `/app/api` and `/app/import-worker` from it as `nonroot` |

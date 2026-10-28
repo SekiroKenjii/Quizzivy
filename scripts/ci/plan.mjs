@@ -17,6 +17,7 @@ const NOT_CODE = [
   '.github/pull_request_template.md',
   '.github/workflows/production-monitor.yml',
   '.github/workflows/retention-sweep.yml',
+  '.github/workflows/sdk-publish.yml',
   '.github/workflows/slow-tail.yml',
   '.github/workflows/wiki.yml',
   'scripts/wiki/',
@@ -44,7 +45,8 @@ export const SETS = {
       'api/testdata/pasted-text-counts.json',
       'docs/setup/operations.md',
     ],
-    exclude: [...NOT_CODE, 'web/'],
+    // The server reads api/openapi.yaml itself; the SDK package is the web's.
+    exclude: [...NOT_CODE, 'web/', 'sdk/', 'scripts/sdk/'],
   },
   web: {
     base: 'all',
