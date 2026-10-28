@@ -69,8 +69,14 @@ conflict to know: the skill teaches the pre-18
 - No new dependency without a stated reason in the PR description.
 - Never commit secrets. `.env.example` stays current; `.env` stays ignored.
 - **Never hand-edit generated code.** `server/gen/openapi/`, `server/gen/contract/` and
-  `web/src/lib/api/schema.d.ts` come from `api/openapi.yaml`. Change the
-  contract and run `make gen`. CI fails on drift.
+  the SDK in `sdk/` (all but `index.*`, `README.md` and `package.json`'s
+  fields other than `version`) come from
+  `api/openapi.yaml`. Change the contract and run `make gen`. CI fails on drift.
+- **The contract is the SDK** (`@quizzivy/sdk`, D-080). Keep a change additive:
+  a breaking one (`make sdk-check` says) needs the `contract-breaking` label,
+  a D-entry or the owner's approval in the PR body, and a release-notes line
+  for tabs loaded before the deploy. Never touch `info.version` outside the
+  release PR.
 - **`attempt_events` and `audit_log` are append-only.** The app role has no
   `UPDATE` or `DELETE` on them. Do not grant it.
 - **The AI assistant never writes a grade, a question or a comment.** A
@@ -180,6 +186,7 @@ by `core/tests/architecture_test.go`.
 
 ```
 api/openapi.yaml   the contract — edit this first, then `make gen`
+sdk/               @quizzivy/sdk, generated from the contract; the web links it (sdk/README.md)
 web/               quizzivy-web
   src/             spec §3 layout -- source only, no tests; a feature's teacher
                    pages are in features/<name>/pages/teacher/ and an Admin's in
@@ -497,6 +504,10 @@ Gitflow. `main` is released only and tagged; `develop` is integration.
   rules refuse it: a change reaches them by pull request, merged with a merge
   commit, and `develop` and `work/**` also need **CI result** to pass
   (`docs/setup/ci.md`, "Branch rules").
+
+Tasks are issues on the org's GitHub Project (`docs/setup/ci.md`, "The project
+board"). A pull request names its issue in a line `Task: #N` (or `Part of: #N`),
+and progress is reported with `status:` and `next:` labels on the issue.
 
 **A behavioural change never rides along in a formatting sweep.** A commit that
 reformats or restrips comments across many files must contain nothing else — the

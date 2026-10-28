@@ -15,13 +15,7 @@ import sonarjs from "eslint-plugin-sonarjs";
 
 export default [
   {
-    ignores: [
-      "dist/**",
-      "node_modules/**",
-      // Generated from api/openapi.yaml by `make gen`. CI fails on drift, so
-      // linting it would only ever produce noise nobody may act on.
-      "src/lib/api/schema.d.ts",
-    ],
+    ignores: ["dist/**", "node_modules/**"],
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

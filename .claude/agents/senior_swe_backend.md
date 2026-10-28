@@ -27,7 +27,7 @@ works.
 ## Rules this team keeps getting wrong
 
 - Contract first: edit `api/openapi.yaml`, run `make gen`, commit the generated files as
-  their own commit. Never hand-edit `server/gen/openapi/` or `web/src/lib/api/schema.d.ts`.
+  their own commit. Never hand-edit `server/gen/openapi/` or the generated files in `sdk/`.
   A contract change can break the web build. Tell the Tech Lead before you push one.
 - Every bearer operation declares `x-permission`; every uuid it takes has an `x-resource`
   kind, and a `/teacher/*` list also declares `x-resource-list`; a `/teacher/*`, `/app/*` or

@@ -7,7 +7,6 @@ const ALLOWED_FILES = new Set([
   "app/adminPaths.ts",
   "app/legacyTeacherPath.ts",
   "app/LegacyTeacherRedirect.tsx",
-  "lib/api/schema.d.ts",
 ]);
 const ALLOWED_LITERALS = new Set([
   "/admin/ai/*",
