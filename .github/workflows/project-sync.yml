@@ -3,7 +3,9 @@ name: Project sync
 # (scripts/ci/project-sync.mjs says how). Issue and pull_request_target events
 # run the workflow from the default branch, so it acts once it is on main.
 # pull_request_target is safe here: the job checks out the base branch only and
-# reads the event payload, never the pull request's code.
+# reads the event payload, never the pull request's code. There is no
+# concurrency group: it would keep one pending run and drop the rest, and each
+# event carries its own change; the writes are idempotent.
 on:
   issues:
     types: [opened, edited, reopened, closed, labeled]
@@ -11,9 +13,6 @@ on:
     types: [opened, edited, reopened, ready_for_review, closed]
 permissions:
   contents: read
-concurrency:
-  group: project-sync
-  cancel-in-progress: false
 jobs:
   sync:
     runs-on: ubuntu-latest

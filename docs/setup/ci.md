@@ -451,10 +451,17 @@ are in `scripts/ci/tests/` and run in the plan job.
 
 | On | Writes |
 |---|---|
-| An issue opened, edited, reopened or labelled | Adds it to the board. A label `status:`, `next:`, `priority:`, `release:` or `workstream:` sets that field: `status:in-progress`, `next:owner`, `priority:p1`, `release:v0.14.0`, `workstream:product`. A line `Thread: <title>` or `Plan ID: <id>` in the body sets that text field. A new issue with no status label is Todo |
+| An issue opened or reopened | Adds it to the board. Each label `status:`, `next:`, `priority:`, `release:` or `workstream:` sets that field: `status:in-progress`, `next:owner`, `priority:p1`, `release:v0.14.0`, `workstream:product`. A line `Thread: <title>` or `Plan ID: <id>` in the body sets that text field. With no status label it is Todo |
+| A label added to an issue | That label's field only, so a stale `status:` label never undoes a move |
+| An issue edited | The body's `Thread:` and `Plan ID:` only |
 | An issue closed | Status Done |
 | A pull request opened or edited | Each issue its body names in a line `Task: #N` (or `Closes #N`, `Fixes #N`) or `Part of: #N` goes to In Progress |
 | A pull request merged | Its `Task:` issues go to Done; `Part of:` issues stay where they are |
+
+A pull request moves issues only when it comes from a branch of this
+repository or its author is an owner, member or collaborator, so a fork
+cannot move someone else's task. A pull request closed without merging, or a
+`Task:` line removed from one, leaves its issues where they are.
 
 A label value names an option by its first words, so `p1` is "P1 high"; a
 value two options start with names neither, and the run logs a warning. A

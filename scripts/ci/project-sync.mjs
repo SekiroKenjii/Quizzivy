@@ -79,22 +79,35 @@ export function taskRefs(body) {
   return { finishes: [...finishes], links: [...links] };
 }
 
+/** Pull requests from these authors, or from a branch of this repository, may move issues. */
+export const TRUSTED = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+
 /**
  * plan turns one webhook event into the field values to write, one entry per
- * issue. Fields not named are left as they are; a removed label clears nothing.
+ * issue. Each event writes only what it changed: a new label sets its own
+ * field, an edit only the body's text fields, so a stale label never undoes
+ * what a pull request moved. Fields not named are left as they are; a removed
+ * label clears nothing.
  */
 export function plan(eventName, event) {
   if (eventName === 'issues') {
     const issue = event.issue;
     if (!issue || issue.pull_request) return [];
-    const fields = { ...fieldsFromBody(issue.body), ...fieldsFromLabels(issue.labels) };
-    if (event.action === 'closed') fields.Status = 'Done';
-    else if (!fields.Status && (event.action === 'opened' || event.action === 'reopened')) fields.Status = 'Todo';
-    return [{ issue: issue.number, fields }];
+    let fields;
+    if (event.action === 'labeled') fields = fieldsFromLabels(event.label ? [event.label] : []);
+    else if (event.action === 'edited') fields = fieldsFromBody(issue.body);
+    else if (event.action === 'closed') fields = { Status: 'Done' };
+    else if (event.action === 'opened' || event.action === 'reopened') {
+      fields = { ...fieldsFromBody(issue.body), ...fieldsFromLabels(issue.labels) };
+      fields.Status ??= 'Todo';
+    } else return [];
+    return Object.keys(fields).length ? [{ issue: issue.number, fields }] : [];
   }
   if (eventName === 'pull_request' || eventName === 'pull_request_target') {
     const pr = event.pull_request;
     if (!pr) return [];
+    const sameRepo = pr.head?.repo?.full_name && pr.head.repo.full_name === pr.base?.repo?.full_name;
+    if (!sameRepo && !TRUSTED.has(pr.author_association)) return [];
     const { finishes, links } = taskRefs(pr.body);
     const text = fieldsFromBody(pr.body);
     const out = [];
@@ -152,33 +165,41 @@ async function main() {
   const project = (await graphql(token, PROJECT, { owner, number })).organization.projectV2;
   const fields = new Map(project.fields.nodes.filter((f) => f.name).map((f) => [f.name, f]));
 
+  let failed = 0;
   for (const write of writes) {
-    const issue = (await graphql(token, ISSUE, { owner: repoOwner, repo, number: write.issue })).repository.issue;
-    if (!issue) {
-      console.log(`::warning::#${write.issue} is not an issue in ${repoOwner}/${repo}`);
+    try {
+      await apply(token, project, fields, repoOwner, repo, write);
+    } catch (error) {
+      failed++;
+      console.log(`::error::#${write.issue}: ${error.message}`);
+    }
+  }
+  if (failed) process.exitCode = 1;
+}
+
+async function apply(token, project, fields, repoOwner, repo, write) {
+  const issue = (await graphql(token, ISSUE, { owner: repoOwner, repo, number: write.issue })).repository.issue;
+  if (!issue) throw new Error(`not an issue in ${repoOwner}/${repo}`);
+  const item = (await graphql(token, ADD, { project: project.id, content: issue.id })).addProjectV2ItemById.item;
+  for (const [name, value] of Object.entries(write.fields)) {
+    const field = fields.get(name);
+    if (!field) {
+      console.log(`::warning::the project has no field "${name}"`);
       continue;
     }
-    const item = (await graphql(token, ADD, { project: project.id, content: issue.id })).addProjectV2ItemById.item;
-    for (const [name, value] of Object.entries(write.fields)) {
-      const field = fields.get(name);
-      if (!field) {
-        console.log(`::warning::the project has no field "${name}"`);
+    let input;
+    if (field.options) {
+      const chosen = option(field.options, value);
+      if (!chosen) {
+        console.log(`::warning::"${value}" is not an option of ${name}`);
         continue;
       }
-      let input;
-      if (field.options) {
-        const chosen = option(field.options, value);
-        if (!chosen) {
-          console.log(`::warning::"${value}" is not an option of ${name}`);
-          continue;
-        }
-        input = { singleSelectOptionId: chosen.id };
-      } else {
-        input = { text: value };
-      }
-      await graphql(token, SET, { project: project.id, item: item.id, field: field.id, value: input });
-      console.log(`#${write.issue}: ${name} = ${value}`);
+      input = { singleSelectOptionId: chosen.id };
+    } else {
+      input = { text: value };
     }
+    await graphql(token, SET, { project: project.id, item: item.id, field: field.id, value: input });
+    console.log(`#${write.issue}: ${name} = ${value}`);
   }
 }
 
