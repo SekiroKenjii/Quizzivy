@@ -9,7 +9,7 @@ import (
 	"quizzivy/internal/shared/actor"
 )
 
-// Explanation writes an explanation of the answer to a stored question in the language asked, in one sentence when Short. It writes nothing. It answers domain.ErrNotFound for a question the caller does not reach and domain.ErrNoKey for one with no answer key.
+// Explanation writes an explanation of the answer to a stored question in the language asked, in one sentence when Short. It writes nothing. It answers domain.ErrNotFound for a question the caller does not reach domain.ErrNoSample for an essay with no sample answer and domain.ErrNoKey for any other question with no answer key.
 type Explanation struct {
 	Actor      actor.Actor
 	QuestionID string

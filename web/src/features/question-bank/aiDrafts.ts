@@ -6,7 +6,12 @@ import {
 import type { AiFinding, AiVariantChange } from "@/features/ai/api";
 import type { GeneratedDraft } from "@/features/ai/kinds/generate";
 import { MAX_OPTIONS, type QuestionValues } from "./questionSchema";
-import { tfngOptions, trueFalseOptions, type TfngAnswer } from "./questionType";
+import {
+  defaultPoints,
+  tfngOptions,
+  trueFalseOptions,
+  type TfngAnswer,
+} from "./questionType";
 
 const GAP = /_{3,}/;
 
@@ -30,7 +35,10 @@ function tfngAnswer(text: string | undefined): TfngAnswer {
  * `tag` when it is not null. A choice question's options are ticked where the
  * key names them; a true/false question takes the two canonical options, and
  * a tfng question its three in their fixed order; a blank's first `___` becomes its one gap, and a short answer's key its
- * sample answer.
+ * sample answer. An essay takes its brief as its sample answer, an empty
+ * rubric and the essay's points; a matching question takes its choices
+ * unmarked and each item keyed to the choice it names, and lets a choice
+ * answer more than one item only when the draft does.
  */
 export function draftQuestion(
   draft: GeneratedDraft,
@@ -50,7 +58,7 @@ export function draftQuestion(
     transcript: null,
     options: [],
     blanks: [],
-    points: 1,
+    points: defaultPoints(question.type),
     explanation: question.explanation.trim() === "" ? null : question.explanation,
     sampleAnswer: null,
     tags: tag === null ? [] : [tag],
@@ -85,6 +93,23 @@ export function draftQuestion(
       };
     case "short_answer":
       return { ...base, sampleAnswer: question.answerKey[0] ?? null };
+    case "essay":
+      return { ...base, sampleAnswer: question.answerKey[0] ?? null, rubric: [] };
+    case "matching": {
+      const options = question.options ?? [];
+      const items = (question.matchItems ?? []).map((item) => ({
+        id: null,
+        text: item.text,
+        correctOption: options.indexOf(item.answer),
+      }));
+      const used = items.map((item) => item.correctOption);
+      return {
+        ...base,
+        options: options.map((text) => ({ id: null, text, isCorrect: false })),
+        matchItems: items,
+        matchAllowReuse: new Set(used).size !== used.length,
+      };
+    }
   }
 }
 

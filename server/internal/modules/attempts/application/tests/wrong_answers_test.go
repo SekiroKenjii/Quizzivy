@@ -6,10 +6,13 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
+	"strings"
 	"testing"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
+	"quizzivy/internal/modules/attempts/application/command"
 	"quizzivy/internal/modules/attempts/application/query"
 	"quizzivy/internal/modules/attempts/domain"
 	"quizzivy/internal/shared/access"
@@ -187,5 +190,79 @@ func TestAnotherTeachersAssignmentHasNoWrongAnswersToRead(t *testing.T) {
 	}
 	if _, err := wrongOf(t, pool, access.Scope{UserID: w.admin}, w.assignment); err != nil {
 		t.Errorf("the owner's read: %v", err)
+	}
+}
+
+func TestTheWrongAnswersOfATfngAndAMatchingQuestionReadInTheirOwnWords(t *testing.T) {
+	pool := newPool(t)
+	w := seedTypedWorld(t, pool)
+	svc := newService(t, pool)
+	ctx := context.Background()
+	paper := func(student string, answers func(session domain.Session) []domain.Answer) {
+		t.Helper()
+		as := w
+		as.student = student
+		session := startTyped(t, pool, as)
+		if _, err := svc.Commands.Save.Handle(ctx, command.Save{Input: domain.SaveInput{
+			AttemptID: session.Attempt.ID, StudentID: student, SessionID: session.SessionID, Answers: answers(session),
+		}}); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := svc.Commands.Submit.Handle(ctx, command.Submit{AttemptID: session.Attempt.ID, StudentID: student, Reason: domain.Manual}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	matched := func(pairs ...string) []byte {
+		var parts []string
+		for i := 0; i+1 < len(pairs); i += 2 {
+			parts = append(parts, fmt.Sprintf("%q:%q", pairs[i], pairs[i+1]))
+		}
+		return []byte(`{"type":"matching","pairs":{` + strings.Join(parts, ",") + `}}`)
+	}
+	// The key is A: iii, B: i.
+	paper(w.student, func(session domain.Session) []domain.Answer {
+		return []domain.Answer{
+			{QuestionID: w.tfng, Payload: []byte(fmt.Sprintf(`{"type":"choice","optionIds":[%q]}`, questionOf(t, session, w.tfng).Options[0].ID))},
+			{QuestionID: w.matching, Payload: matched(w.items[0], w.choices[2], w.items[1], w.choices[1])},
+		}
+	})
+	others := enrol(t, pool, w.world, 2)
+	paper(others[0], func(session domain.Session) []domain.Answer {
+		return []domain.Answer{
+			{QuestionID: w.tfng, Payload: []byte(fmt.Sprintf(`{"type":"choice","optionIds":[%q]}`, questionOf(t, session, w.tfng).Options[1].ID))},
+			{QuestionID: w.matching, Payload: matched(w.items[0], w.choices[1])},
+		}
+	})
+	paper(others[1], func(domain.Session) []domain.Answer {
+		return []domain.Answer{{QuestionID: w.matching, Payload: matched(w.items[0], w.choices[2], w.items[1], w.choices[0])}}
+	})
+	got, err := wrongOf(t, pool, everyone, w.assignment)
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := map[string]struct {
+		key   string
+		wrong []string
+	}{
+		w.tfng:     {"Not given", []string{"False", "True"}},
+		w.matching: {"A: iii; B: i", []string{"A: ii; B: –", "A: iii; B: ii"}},
+	}
+	for _, q := range got.Questions {
+		expected, ok := want[q.QuestionID]
+		if !ok {
+			continue
+		}
+		delete(want, q.QuestionID)
+		var texts []string
+		for _, wrong := range q.Wrong {
+			texts = append(texts, wrong.Text)
+		}
+		slices.Sort(texts)
+		if q.Key != expected.key || !slices.Equal(texts, expected.wrong) {
+			t.Errorf("%s: key %q, wrong %v; want %q and %v (a fully right paper is not wrong)", q.Type, q.Key, texts, expected.key, expected.wrong)
+		}
+	}
+	if len(want) > 0 {
+		t.Errorf("questions not read: %v", want)
 	}
 }

@@ -73,7 +73,7 @@ const checkSystem = "You review English test questions for a teacher and report 
 const checkSchema = `{"type":"object","additionalProperties":false,"required":["findings"],"properties":{"findings":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["question","severity","issue","fix"],"properties":{"question":{"type":"integer"},"severity":{"type":"string","enum":["likely_error","worth_a_look","minor"]},"issue":{"type":"string"},"fix":{"type":"object","additionalProperties":false,"required":["kind","description","label","option","blank","words","text"],"properties":{"kind":{"type":"string","enum":["option_text","accepted_answer","explanation","tfng_answer","word_limit","none"]},"description":{"type":"string"},"label":{"type":"string"},"option":{"type":"string"},"blank":{"type":"integer"},"words":{"type":"integer"},"text":{"type":"string"}}}}}}}}`
 
 var checkWhat = map[string]string{
-	CheckKey:      "answer keys that do not match the material or the question, or that two readings could defend, such as a tfng key of False where the material never says, which is Not given",
+	CheckKey:      "answer keys that do not match the material or the question, or that two readings could defend, such as a tfng key of False where the material never says, which is Not given, a matching item keyed to an option that does not fit it, or a \"Choose exactly N\" question with other than N correct options",
 	CheckClarity:  "unclear or ambiguous wording, and a short_answer with no word limit, whose answers will vary in length",
 	CheckGiveaway: "questions that give their answer away, such as one option repeating a word from the passage that the others lack",
 	CheckLanguage: "spelling and grammar mistakes",
@@ -95,7 +95,7 @@ func Check(in CheckInput) (Prompt, error) {
 	user := fmt.Sprintf("%s\nLook for: %s.\nReport only real problems; a question with none is not mentioned.\n"+
 		"question = the question's number. severity: likely_error = an answer that is wrong, worth_a_look = doubtful or ambiguous, minor = polish.\n"+
 		"Write issue, description and label in %s; text keeps the language of the question.\n"+
-		"fix.kind: option_text = replace one option's text (option = its letter, text = the new text); accepted_answer = add an accepted answer to a fill_blank blank (blank = its number, text = the answer); explanation = rewrite the explanation (text); tfng_answer = make another option of a tfng question its answer (option = the letter of the new answer, such as C for Not given); word_limit = give a short_answer with no word limit one (words = the most words an answer may have, 1-%d); none = advice only. For kinds that do not use them, option is \"\", blank is 0, words is 0 and text is \"\". label is a button of at most five words, such as \"Change to Not given\" or \"Add word limit\".",
+		"fix.kind: option_text = replace one option's text (option = its letter, or a matching choice's key such as iii, text = the new text); accepted_answer = add an accepted answer to a fill_blank blank (blank = its number, text = the answer); explanation = rewrite the explanation (text); tfng_answer = make another option of a tfng question its answer (option = the letter of the new answer, such as C for Not given); word_limit = give a short_answer with no word limit one (words = the most words an answer may have, 1-%d); none = advice only. For kinds that do not use them, option is \"\", blank is 0, words is 0 and text is \"\". label is a button of at most five words, such as \"Change to Not given\" or \"Add word limit\".",
 		body, strings.Join(what, "; "), in.Language.Name(), MaxWordLimit)
 	return Prompt{Feature: domain.FeatureCheck, Tier: domain.TierCapable, System: checkSystem, User: user, Schema: json.RawMessage(checkSchema), MaxTokens: 5000}, nil
 }
@@ -215,8 +215,8 @@ func WordLimitRule(limit int) string {
 	return "Write NO MORE THAN " + words + " WORDS."
 }
 
-func replaceableOption(letter, text string, q domain.PaperQuestion) (string, bool) {
-	i := letterIndex(letter)
+func replaceableOption(label, text string, q domain.PaperQuestion) (string, bool) {
+	i := optionAt(label, q)
 	if q.Rich || q.Type == Tfng || text == "" || i < 0 || i >= len(q.Options) || q.Options[i].ID == "" || sameText(q.Options[i].Text, text) {
 		return "", false
 	}

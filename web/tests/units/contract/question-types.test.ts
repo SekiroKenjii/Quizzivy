@@ -92,7 +92,8 @@ describe("R6 question types on the wire", () => {
   it("takes the three new types everywhere a type goes", () => {
     for (const type of ["tfng", "matching", "essay"])
       expect(schema("QuestionType")(type), type).toBe(true);
-    expect(schema("AiQuestionType")("essay")).toBe(false);
+    for (const type of ["tfng", "matching", "essay"])
+      expect(schema("AiQuestionType")(type), `AI ${type}`).toBe(true);
   });
 
   it("gives a student a matching paper without its key", () => {

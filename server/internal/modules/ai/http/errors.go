@@ -72,6 +72,7 @@ func translations(ctx context.Context) []translation {
 		{domain.ErrNothingToRead, http.StatusUnprocessableEntity, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Chưa có nội dung nào để AI đọc.", "There is nothing for the assistant to read yet.")},
 		{domain.ErrTooLarge, http.StatusUnprocessableEntity, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Nội dung quá dài để AI đọc trong một lần.", "There is too much to read in one go.")},
 		{domain.ErrNotChoice, http.StatusUnprocessableEntity, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Chỉ gợi ý đáp án sai cho câu hỏi một hoặc nhiều lựa chọn.", "Wrong options can be suggested for single and multiple choice questions only.")},
+		{domain.ErrNoSample, http.StatusUnprocessableEntity, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Câu tự luận chưa có đáp án mẫu.", "The essay has no sample answer yet.")},
 		{domain.ErrNoKey, http.StatusUnprocessableEntity, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Câu hỏi chưa có đáp án đúng.", "The question has no correct answer yet.")},
 		{domain.ErrNotManual, http.StatusUnprocessableEntity, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Chỉ gợi ý điểm cho câu trả lời ngắn chấm tay.", "Scores are suggested for short answers marked by hand only.")},
 		{domain.ErrUnanswered, http.StatusUnprocessableEntity, openapi.VALIDATIONFAILED, httpx.Text(ctx, "Học viên chưa trả lời câu này.", "The student left this question unanswered.")},

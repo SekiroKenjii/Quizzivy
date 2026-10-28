@@ -127,6 +127,54 @@ describe("a drafted question", () => {
     ]);
   });
 
+  it("writes an essay with its brief as the sample answer, an empty rubric and the essay's points", () => {
+    const values = draft({
+      type: "essay",
+      prompt: "Write 150-200 words about a job you would like.",
+      answerKey: ["Names the job and gives two reasons."],
+      explanation: "",
+    });
+    expect(questionSchema.safeParse(values).success).toBe(true);
+    expect(values).toMatchObject({
+      sampleAnswer: "Names the job and gives two reasons.",
+      rubric: [],
+      points: 9,
+      options: [],
+    });
+  });
+
+  it("writes a matching question with unmarked choices and each item keyed to the choice it names", () => {
+    const question: AiGeneratedQuestion = {
+      type: "matching",
+      prompt: "Match each word with its meaning.",
+      options: ["a place to learn", "a person who cures", "a vehicle"],
+      matchItems: [
+        { text: "school", answer: "a place to learn" },
+        { text: "doctor", answer: "a person who cures" },
+      ],
+      answerKey: ["a place to learn", "a person who cures"],
+      explanation: "",
+    };
+    const values = draft(question);
+    expect(questionSchema.safeParse(values).success).toBe(true);
+    expect(values.options.every((option) => !option.isCorrect)).toBe(true);
+    expect(values.matchItems).toEqual([
+      { id: null, text: "school", correctOption: 0 },
+      { id: null, text: "doctor", correctOption: 1 },
+    ]);
+    expect(values.matchAllowReuse).toBe(false);
+    expect(values.points).toBe(1);
+    const reused = draft({
+      ...question,
+      matchItems: [
+        { text: "school", answer: "a place to learn" },
+        { text: "college", answer: "a place to learn" },
+      ],
+    });
+    expect(reused.matchAllowReuse).toBe(true);
+    expect(questionSchema.safeParse(reused).success).toBe(true);
+  });
+
   it("makes a blank's first gap its one blank, or adds one at the end", () => {
     const gap = draft({
       type: "fill_blank",

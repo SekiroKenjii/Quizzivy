@@ -533,3 +533,48 @@ func TestAnAnswerTheGraderMarkedItselfIsNotReportedAsWaitingForAMark(t *testing.
 		t.Errorf("answer %+v, %v, want the text read and Manual false", got, err)
 	}
 }
+
+func TestTheNewTypesAreReadWithTheirKeysChooseNAndRubric(t *testing.T) {
+	two := 2
+	stored := map[string]questionsdomain.Question{
+		"q-match": {ID: "q-match", Type: questionsdomain.Matching, Prompt: "Match the jobs.",
+			Options: []questionsdomain.Option{{ID: "o3", Ordinal: 2, Text: "driver"}, {ID: "o1", Ordinal: 0, Text: "teacher"}, {ID: "o2", Ordinal: 1, Text: "nurse"}},
+			MatchItems: []questionsdomain.MatchItem{
+				{ID: "i2", Ordinal: 1, Text: "Minh works at a school.", CorrectOptionID: "O1"},
+				{ID: "i1", Ordinal: 0, Text: "Lan works at a hospital.", CorrectOptionID: "o2"},
+			}},
+		"q-two":   {ID: "q-two", Type: questionsdomain.MultipleChoice, Prompt: "Choose TWO.", SelectCount: &two},
+		"q-essay": {ID: "q-essay", Type: questionsdomain.Essay, Prompt: "Write.", Rubric: []questionsdomain.RubricCriterion{{ID: "c2", Ordinal: 1, Label: "Coherence"}, {ID: "c1", Ordinal: 0, Label: "Task response"}}},
+	}
+	read := cqrs.HandlerFunc[questionsquery.Get, questionsdomain.Question](func(_ context.Context, q questionsquery.Get) (questionsdomain.Question, error) {
+		return stored[q.ID], nil
+	})
+	r := adapters.AITests{
+		Test: cqrs.HandlerFunc[testsquery.Get, testsdomain.Test](func(context.Context, testsquery.Get) (testsdomain.Test, error) {
+			return testsdomain.Test{ID: "t-1", Sections: []testsdomain.Section{{Units: unitsOf("question", "q-match", "q-two", "q-essay")}}}, nil
+		}),
+		Question: read,
+	}
+	paper, err := r.Draft(context.Background(), access.Scope{UserID: "t"}, "t-1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	match, two2, essay := paper.Questions[0], paper.Questions[1], paper.Questions[2]
+	wantItems := []aidomain.MatchItem{{Text: "Lan works at a hospital.", Option: 1}, {Text: "Minh works at a school.", Option: 0}}
+	if fmt.Sprint(match.MatchItems) != fmt.Sprint(wantItems) {
+		t.Errorf("match items %v, want %v: in order, keyed to the option's place by its id", match.MatchItems, wantItems)
+	}
+	if two2.SelectCount != 2 {
+		t.Errorf("select count %d, want 2", two2.SelectCount)
+	}
+	if len(essay.Criteria) != 2 || essay.Criteria[0].Label != "Task response" {
+		t.Errorf("criteria %v, want the rubric's order", essay.Criteria)
+	}
+	bank, err := adapters.AIQuestions{Question: read}.Get(context.Background(), access.Scope{UserID: "t"}, "q-match")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if fmt.Sprint(bank.MatchItems) != fmt.Sprint(wantItems) {
+		t.Errorf("a stored matching question reads items %v, want %v", bank.MatchItems, wantItems)
+	}
+}

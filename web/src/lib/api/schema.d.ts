@@ -8926,13 +8926,13 @@ export interface components {
             left: number;
         };
         /**
-         * @description The question types the assistant writes, a subset of `QuestionType`.
+         * @description The question types the assistant writes, every `QuestionType`.
          *     `tfng` is written only from a passage, since "Not given" means the
          *     text does not say: a standalone request that names it is refused
          *     with `VALIDATION_FAILED` on `types`.
          * @enum {string}
          */
-        AiQuestionType: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer" | "tfng";
+        AiQuestionType: "single_choice" | "multiple_choice" | "true_false" | "fill_blank" | "short_answer" | "tfng" | "matching" | "essay";
         /**
          * @description One of four shapes. From a passage: `source` (text the teacher pasted,
          *     40 characters or more), or `testId` with `stimulusId` (a shared-content
@@ -8967,15 +8967,27 @@ export interface components {
          *     `options`; a true/false question has the options `True` and `False`,
          *     and a `tfng` question `True`, `False` and `Not given` in that order. For
          *     `fill_blank` the prompt holds `___` for the gap and `answerKey` the
-         *     accepted answers; for `short_answer` it holds the sample answer.
+         *     accepted answers; for `short_answer` it holds the sample answer, and
+         *     for `essay` (the prompt is the writing task) one line on what a
+         *     strong answer covers, kept as its sample answer. For `matching`
+         *     `options` holds the choices (up to 12), `matchItems` the items in
+         *     order, each with `answer` exactly one of `options`, and `answerKey`
+         *     the choices the items use; `matchItems` is present only on a
+         *     matching question.
          */
         AiGeneratedQuestion: {
             type: components["schemas"]["AiQuestionType"];
             prompt: string;
             options?: string[];
+            matchItems?: components["schemas"]["AiGeneratedMatchItem"][];
             answerKey: string[];
             /** @description Empty when the request did not ask for explanations. */
             explanation: string;
+        };
+        /** @description One item of a drafted matching question and the choice that answers it, as written in the question's `options`. */
+        AiGeneratedMatchItem: {
+            text: string;
+            answer: string;
         };
         AiGenerateResult: {
             items: components["schemas"]["AiGeneratedQuestion"][];

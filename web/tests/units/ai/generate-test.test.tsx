@@ -463,6 +463,12 @@ describe("Generate for the whole test", () => {
   });
 });
 
+function typeChips(scope: HTMLElement) {
+  return within(within(scope).getByRole("group", { name: ai.generate.types }))
+    .getAllByRole("button")
+    .map((button) => button.textContent);
+}
+
 describe("True / False / Not given", () => {
   const tfngQuestion: AiGeneratedQuestion = {
     type: "tfng",
@@ -472,12 +478,6 @@ describe("True / False / Not given", () => {
     explanation: "",
   };
   const tfngChip = vi_.questionEditor.type.tfng;
-
-  function chips(scope: HTMLElement) {
-    return within(within(scope).getByRole("group", { name: ai.generate.types }))
-      .getAllByRole("button")
-      .map((button) => button.textContent);
-  }
 
   it("is offered from a passage, names its options in the reader's language, and is never sent standalone", async () => {
     const bodies: Record<string, unknown>[] = [];
@@ -491,10 +491,10 @@ describe("True / False / Not given", () => {
       }),
     );
     const { dialog, user } = await openPanel(context({ section: reading }));
-    expect(chips(dialog)).toContain(tfngChip);
+    expect(typeChips(dialog)).toContain(tfngChip);
     await user.click(within(dialog).getByRole("button", { name: tfngChip }));
     await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
-    expect(chips(dialog)).not.toContain(tfngChip);
+    expect(typeChips(dialog)).not.toContain(tfngChip);
     await user.click(within(dialog).getByRole("radio", { name: /^Theo bài đọc/ }));
     expect(
       within(dialog).getByRole("button", { name: tfngChip, pressed: true }),
@@ -545,7 +545,7 @@ describe("True / False / Not given", () => {
       context({ section: tfngOnly, sections: [tfngOnly, reading, blank] }),
     );
     expect(within(dialog).getByRole("radio", { name: /^Câu độc lập/ })).toBeChecked();
-    expect(chips(dialog)).not.toContain(tfngChip);
+    expect(typeChips(dialog)).not.toContain(tfngChip);
     expect(within(dialog).getByText(ai.generate.needType)).toBeVisible();
   });
 
@@ -559,8 +559,8 @@ describe("True / False / Not given", () => {
     );
     await planTwoSections(dialog, user);
     const rows = within(dialog).getAllByRole("listitem");
-    expect(chips(rows[0]!)).not.toContain(tfngChip);
-    expect(chips(rows[1]!)).toContain(tfngChip);
+    expect(typeChips(rows[0]!)).not.toContain(tfngChip);
+    expect(typeChips(rows[1]!)).toContain(tfngChip);
     await user.click(within(dialog).getByRole("button", { name: "Tạo 2 câu" }));
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(bodies).toEqual(
@@ -569,5 +569,64 @@ describe("True / False / Not given", () => {
         expect.objectContaining({ stimulusId: STIMULUS_ID, types: ["tfng"] }),
       ]),
     );
+  });
+});
+
+describe("matching and essay", () => {
+  const matchingQuestion: AiGeneratedQuestion = {
+    type: "matching",
+    prompt: "Match each word with its meaning.",
+    options: ["a place to learn", "a person who cures", "a vehicle"],
+    matchItems: [
+      { text: "school", answer: "a place to learn" },
+      { text: "doctor", answer: "a person who cures" },
+    ],
+    answerKey: ["a place to learn", "a person who cures"],
+    explanation: "",
+  };
+  const essayQuestion: AiGeneratedQuestion = {
+    type: "essay",
+    prompt: "Write 150-200 words about a job you would like.",
+    answerKey: ["Names the job and gives two reasons."],
+    explanation: "",
+  };
+  const matchingChip = vi_.questionEditor.type.matching;
+  const essayChip = vi_.questionEditor.type.essay;
+
+  it("are offered standalone and from a passage, sent, and drawn with their key", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: [matchingQuestion, essayQuestion],
+          usage: { credits: 150, left: 18650 },
+        });
+      }),
+    );
+    const { dialog, user } = await openPanel(context({ section: reading }));
+    expect(typeChips(dialog)).toEqual(
+      expect.arrayContaining([matchingChip, essayChip]),
+    );
+    await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
+    expect(typeChips(dialog)).toEqual(
+      expect.arrayContaining([matchingChip, essayChip]),
+    );
+    await user.click(within(dialog).getByRole("button", { name: matchingChip }));
+    await user.click(within(dialog).getByRole("button", { name: essayChip }));
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    expect(
+      await within(dialog).findByText("Match each word with its meaning."),
+    ).toBeVisible();
+    expect(within(dialog).getByText("school: i · doctor: ii")).toBeVisible();
+    expect(
+      within(dialog).getByText(
+        "i. a place to learn · ii. a person who cures · iii. a vehicle",
+      ),
+    ).toBeVisible();
+    expect(
+      within(dialog).getByText("Names the job and gives two reasons."),
+    ).toBeVisible();
+    expect(bodies[0]!["types"]).toEqual(expect.arrayContaining(["matching", "essay"]));
   });
 });
