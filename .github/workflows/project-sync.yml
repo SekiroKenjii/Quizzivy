@@ -1,0 +1,30 @@
+name: Project sync
+# Mirrors issue labels and pull request task lines onto the org GitHub Project
+# (scripts/ci/project-sync.mjs says how). Issue and pull_request_target events
+# run the workflow from the default branch, so it acts once it is on main.
+# pull_request_target is safe here: the job checks out the base branch only and
+# reads the event payload, never the pull request's code. There is no
+# concurrency group: it would keep one pending run and drop the rest, and each
+# event carries its own change; the writes are idempotent.
+on:
+  issues:
+    types: [opened, edited, reopened, closed, labeled]
+  pull_request_target:
+    types: [opened, edited, reopened, ready_for_review, closed]
+permissions:
+  contents: read
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
+      - name: Update the project
+        env:
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          PROJECT_OWNER: ${{ vars.PROJECT_OWNER }}
+          PROJECT_NUMBER: ${{ vars.PROJECT_NUMBER }}
+        run: node scripts/ci/project-sync.mjs
