@@ -383,7 +383,8 @@
     "guard": {
       "prompt": "Hãy viết câu hỏi trước",
       "key": "Hãy đánh dấu đáp án đúng trước",
-      "save": "Hãy lưu câu hỏi trước"
+      "save": "Hãy lưu câu hỏi trước",
+      "sample": "Hãy viết đáp án mẫu trước"
     }
   },
   "api": {

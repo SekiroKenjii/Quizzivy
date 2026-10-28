@@ -26,13 +26,19 @@ type Option struct {
 	Correct bool
 }
 
+// MatchItem is one item of a matching question and the option that answers it: Option is that option's index in the question's Options, -1 when it names none.
+type MatchItem struct {
+	Text   string
+	Option int
+}
+
 // Blank is one blank of a fill-in question and the answers it accepts.
 type Blank struct {
 	ID       string
 	Accepted []string
 }
 
-// PaperQuestion is one question of a test's draft with everything the assistant may read of it and nothing about a student. Number is its place in the draft, from 1, counting a group's members one by one in the order the builder shows them. GroupID names the group the question is a member of, and is empty for a standalone question. Passage is the plain text of the shared material of its group, empty for a question with none. OrderFixed says its options may not be reordered because a group's labels depend on them. Gapped says it answers a gap in its group's material, so its prompt belongs to the gap and is not reworded. Rich says the prompt, an option or the explanation holds more than plain paragraphs, so a rewrite of its text would lose what the text carries and is not proposed. MaxWords is a short answer's word limit, zero when it has none.
+// PaperQuestion is one question of a test's draft with everything the assistant may read of it and nothing about a student. Number is its place in the draft, from 1, counting a group's members one by one in the order the builder shows them. GroupID names the group the question is a member of, and is empty for a standalone question. Passage is the plain text of the shared material of its group, empty for a question with none. OrderFixed says its options may not be reordered because a group's labels depend on them. Gapped says it answers a gap in its group's material, so its prompt belongs to the gap and is not reworded. Rich says the prompt, an option or the explanation holds more than plain paragraphs, so a rewrite of its text would lose what the text carries and is not proposed. MaxWords is a short answer's word limit, zero when it has none; SelectCount is how many options a "Choose N" multiple choice question takes, zero for "choose all that apply". MatchItems are a matching question's items with their key, and Criteria an essay's rubric criteria in the rubric's order.
 type PaperQuestion struct {
 	ID          string
 	Number      int
@@ -46,8 +52,11 @@ type PaperQuestion struct {
 	Gapped      bool
 	Rich        bool
 	MaxWords    int
+	SelectCount int
 	Options     []Option
 	Blanks      []Blank
+	MatchItems  []MatchItem
+	Criteria    []Criterion
 }
 
 // Paper is a test's draft read for the assistant.
@@ -55,7 +64,7 @@ type Paper struct {
 	Questions []PaperQuestion
 }
 
-// Question is one stored bank question, read for an explanation or for wrong options.
+// Question is one stored bank question, read for an explanation or for wrong options. MatchItems are a matching question's items with their key.
 type Question struct {
 	ID          string
 	Type        string
@@ -64,6 +73,7 @@ type Question struct {
 	Sample      string
 	Options     []Option
 	Blanks      []Blank
+	MatchItems  []MatchItem
 }
 
 // BankQuestion is one of the caller's own bank questions, read for the clean-up. UsedInTests counts the draft outlines that use it.

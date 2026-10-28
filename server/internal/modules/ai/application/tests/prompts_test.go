@@ -218,7 +218,7 @@ func TestTheGenerationSchemaCarriesTheDecksQuestionsAndTheStoredTypesDecideWhich
 	answer := map[string]any{}
 	var rows []map[string]any
 	for _, q := range deckGenerated {
-		row := map[string]any{"type": deckTypes[q.Type], "prompt": q.Prompt, "options": []string{}, "answers": []string{q.Answer}, "explanation": q.Explanation}
+		row := map[string]any{"type": deckTypes[q.Type], "prompt": q.Prompt, "options": []string{}, "answers": []string{q.Answer}, "items": []any{}, "explanation": q.Explanation}
 		if q.Options != nil {
 			row["options"] = q.Options
 		}

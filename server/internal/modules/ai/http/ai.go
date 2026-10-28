@@ -104,12 +104,24 @@ func (h AI) GenerateAiQuestions(ctx context.Context, request openapi.GenerateAiQ
 	}
 	out := openapi.GenerateAiQuestions200JSONResponse{Items: make([]openapi.AiGeneratedQuestion, len(got.Items)), Usage: usageOf(got.Usage)}
 	for i, item := range got.Items {
-		out.Items[i] = openapi.AiGeneratedQuestion{Type: openapi.AiQuestionType(item.Type), Prompt: item.Prompt, AnswerKey: item.AnswerKey, Explanation: item.Explanation}
-		if len(item.Options) > 0 {
-			out.Items[i].Options = &item.Options
-		}
+		out.Items[i] = generatedOf(item)
 	}
 	return out, nil
+}
+
+func generatedOf(item prompts.Question) openapi.AiGeneratedQuestion {
+	out := openapi.AiGeneratedQuestion{Type: openapi.AiQuestionType(item.Type), Prompt: item.Prompt, AnswerKey: item.AnswerKey, Explanation: item.Explanation}
+	if len(item.Options) > 0 {
+		out.Options = &item.Options
+	}
+	if len(item.MatchItems) > 0 {
+		pairs := make([]openapi.AiGeneratedMatchItem, len(item.MatchItems))
+		for k, pair := range item.MatchItems {
+			pairs[k] = openapi.AiGeneratedMatchItem{Text: pair.Text, Answer: pair.Answer}
+		}
+		out.MatchItems = &pairs
+	}
+	return out
 }
 
 // CheckTestWithAi implements POST /teacher/ai/tests/{id}/check.

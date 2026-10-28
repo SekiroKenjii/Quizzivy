@@ -188,12 +188,19 @@ func questionOf(member testsdomain.GroupQuestion) questionsdomain.Question {
 	question := questionsdomain.Question{
 		ID: member.ID, Type: in.Type, Prompt: in.Prompt, PromptContent: in.PromptContent,
 		Explanation: in.Explanation, ExplanationContent: in.ExplanationContent, SampleAnswer: in.SampleAnswer, MaxWords: in.MaxWords,
+		SelectCount: in.SelectCount,
 	}
 	for i, o := range in.Options {
 		question.Options = append(question.Options, questionsdomain.Option{ID: deref(o.ID), Ordinal: i, Text: o.Text, IsCorrect: o.IsCorrect, Content: o.Content})
 	}
 	for _, b := range in.Blanks {
 		question.Blanks = append(question.Blanks, questionsdomain.Blank{ID: deref(b.ID), GapID: b.GapID, Ordinal: b.Ordinal, AcceptedAnswers: b.AcceptedAnswers, CaseSensitive: b.CaseSensitive})
+	}
+	for i, item := range in.MatchItems {
+		question.MatchItems = append(question.MatchItems, questionsdomain.MatchItem{ID: deref(item.ID), Ordinal: i, Text: item.Text, CorrectOption: item.CorrectOption})
+	}
+	for i, criterion := range in.Rubric {
+		question.Rubric = append(question.Rubric, questionsdomain.RubricCriterion{ID: deref(criterion.ID), Ordinal: i, Label: criterion.Label})
 	}
 	return question
 }
@@ -269,6 +276,35 @@ func readOptions(options []questionsdomain.Option) ([]aidomain.Option, bool) {
 	return out, plain
 }
 
+// readMatchItems reads a matching question's items in their order, each keyed to its option's place in the options as readOptions orders them: by the option's id when the item names one, else by its stored index.
+func readMatchItems(items []questionsdomain.MatchItem, options []questionsdomain.Option) []aidomain.MatchItem {
+	sortedOptions := slices.Clone(options)
+	slices.SortFunc(sortedOptions, func(a, b questionsdomain.Option) int { return a.Ordinal - b.Ordinal })
+	sorted := slices.Clone(items)
+	slices.SortFunc(sorted, func(a, b questionsdomain.MatchItem) int { return a.Ordinal - b.Ordinal })
+	out := make([]aidomain.MatchItem, len(sorted))
+	for i, item := range sorted {
+		option := -1
+		if item.CorrectOptionID != "" {
+			option = slices.IndexFunc(sortedOptions, func(o questionsdomain.Option) bool { return strings.EqualFold(o.ID, item.CorrectOptionID) })
+		} else if item.CorrectOption >= 0 && item.CorrectOption < len(sortedOptions) {
+			option = item.CorrectOption
+		}
+		out[i] = aidomain.MatchItem{Text: item.Text, Option: option}
+	}
+	return out
+}
+
+func readCriteria(rubric []questionsdomain.RubricCriterion) []aidomain.Criterion {
+	sorted := slices.Clone(rubric)
+	slices.SortFunc(sorted, func(a, b questionsdomain.RubricCriterion) int { return a.Ordinal - b.Ordinal })
+	var out []aidomain.Criterion
+	for _, c := range sorted {
+		out = append(out, aidomain.Criterion{ID: c.ID, Label: c.Label})
+	}
+	return out
+}
+
 func readBlanks(blanks []questionsdomain.Blank) []aidomain.Blank {
 	sorted := slices.Clone(blanks)
 	slices.SortFunc(sorted, func(a, b questionsdomain.Blank) int { return a.Ordinal - b.Ordinal })
@@ -284,7 +320,8 @@ func paperQuestion(q questionsdomain.Question, number int) aidomain.PaperQuestio
 	return aidomain.PaperQuestion{
 		ID: q.ID, Number: number, Type: string(q.Type), Prompt: q.Prompt, Explanation: deref(q.Explanation), Sample: deref(q.SampleAnswer),
 		Rich:    !plainOptions || !plainDocument(q.PromptContent) || !plainDocument(q.ExplanationContent),
-		Options: options, Blanks: readBlanks(q.Blanks), MaxWords: derefInt(q.MaxWords),
+		Options: options, Blanks: readBlanks(q.Blanks), MaxWords: derefInt(q.MaxWords), SelectCount: derefInt(q.SelectCount),
+		MatchItems: readMatchItems(q.MatchItems, q.Options), Criteria: readCriteria(q.Rubric),
 	}
 }
 
@@ -313,7 +350,7 @@ func (r AIQuestions) Get(ctx context.Context, scope access.Scope, id string) (ai
 	options, _ := readOptions(q.Options)
 	return aidomain.Question{
 		ID: q.ID, Type: string(q.Type), Prompt: q.Prompt, Explanation: deref(q.Explanation), Sample: deref(q.SampleAnswer),
-		Options: options, Blanks: readBlanks(q.Blanks),
+		Options: options, Blanks: readBlanks(q.Blanks), MatchItems: readMatchItems(q.MatchItems, q.Options),
 	}, nil
 }
 

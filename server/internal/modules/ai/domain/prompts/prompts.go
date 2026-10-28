@@ -24,10 +24,11 @@ const (
 	ShortAnswer    = "short_answer"
 )
 
-// The R6 types the assistant reads or writes: tfng is generated from a passage and its key can be fixed, and an essay is given a band.
+// The R6 types the assistant reads or writes: tfng is generated from a passage and its key can be fixed, an essay is given a band, and a matching question's items are read with their key.
 const (
-	Tfng  = "tfng"
-	Essay = "essay"
+	Tfng     = "tfng"
+	Essay    = "essay"
+	Matching = "matching"
 )
 
 // TfngOptions are a tfng question's three options, in their fixed order.
@@ -35,9 +36,9 @@ func TfngOptions() []string {
 	return []string{"True", "False", "Not given"}
 }
 
-// QuestionTypes lists the five stored types in the order the contract names them.
+// QuestionTypes lists the stored types in the order the contract names them.
 func QuestionTypes() []string {
-	return []string{SingleChoice, MultipleChoice, TrueFalse, FillBlank, ShortAnswer}
+	return []string{SingleChoice, MultipleChoice, TrueFalse, FillBlank, ShortAnswer, Tfng, Matching, Essay}
 }
 
 // Prompt is one request to the provider: the feature it meters as, the tier that answers, the system prompt, the user's turn as text, the schema of the answer and the most tokens it may use.

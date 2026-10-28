@@ -15,7 +15,7 @@ func TestTheDecksTrueFalseNotGivenQuestionsAreKeptAsTfng(t *testing.T) {
 	in := prompts.GenerateInput{Source: sourceText, Types: []string{prompts.SingleChoice, prompts.Tfng, prompts.FillBlank, prompts.ShortAnswer}, Count: 8, Level: "b2", Explanations: true, Language: domain.English}
 	var rows []map[string]any
 	for _, q := range deckGenerated {
-		row := map[string]any{"type": types[q.Type], "prompt": q.Prompt, "options": []string{}, "answers": []string{q.Answer}, "explanation": q.Explanation}
+		row := map[string]any{"type": types[q.Type], "prompt": q.Prompt, "options": []string{}, "answers": []string{q.Answer}, "items": []any{}, "explanation": q.Explanation}
 		if q.Options != nil {
 			row["options"] = q.Options
 		}

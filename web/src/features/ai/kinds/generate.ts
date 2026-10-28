@@ -9,6 +9,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { tfngLabelKey, trueFalseLabelKey } from "@/components/shared/content/trueFalse";
+import { matchOptionKey } from "@/features/question-bank/matchKeys";
 import { failureMessage } from "@/lib/api/errors";
 import type { components } from "@/lib/api/schema";
 import {
@@ -163,6 +164,8 @@ const TYPES: readonly QuestionType[] = [
   "fill_blank",
   "short_answer",
   "tfng",
+  "matching",
+  "essay",
 ];
 const DEFAULT_TYPES: readonly QuestionType[] = ["single_choice", "true_false"];
 const LEVELS = ["b1", "b2", "c1"] as const;
@@ -681,13 +684,39 @@ function optionText(
 
 function answerOf(question: AiGeneratedQuestion): string | undefined {
   if (question.type === "fill_blank") return question.answerKey.join(" / ");
-  if (question.type === "short_answer") return question.answerKey[0];
+  if (question.type === "short_answer" || question.type === "essay")
+    return question.answerKey[0];
+  if (question.type === "matching") {
+    const options = question.options ?? [];
+    return (question.matchItems ?? [])
+      .map((item) => `${item.text}: ${matchOptionKey(options.indexOf(item.answer))}`)
+      .join(" · ");
+  }
   return undefined;
+}
+
+/** matchChoices lists a matching draft's choices by their D-063 keys, as the editor will name them. */
+function matchChoices(question: AiGeneratedQuestion): string {
+  return (question.options ?? [])
+    .map((text, index) => `${matchOptionKey(index)}. ${text}`)
+    .join(" · ");
+}
+
+/** choicesOf is a draft's options as its card draws them: a matching draft's as one line by their keys, any other's as rows with the key marked. */
+function choicesOf(question: AiGeneratedQuestion, t: TFunction): Partial<AiCard> {
+  if (question.type === "matching") return { body: matchChoices(question) };
+  if (!question.options) return {};
+  const keys = new Set(question.answerKey);
+  return {
+    options: question.options.map((text, index) => ({
+      text: optionText(question, text, index, t),
+      correct: keys.has(text),
+    })),
+  };
 }
 
 function card(item: GenerateItem, t: TFunction, tagDrafts: boolean): AiCard {
   const { question } = item;
-  const keys = new Set(question.answerKey);
   const answer = answerOf(question);
   return {
     selectable: true,
@@ -697,14 +726,7 @@ function card(item: GenerateItem, t: TFunction, tagDrafts: boolean): AiCard {
       ...(tagDrafts ? [{ label: t("ai.draftTag"), tone: "accent" as const }] : []),
     ],
     title: question.prompt,
-    ...(question.options
-      ? {
-          options: question.options.map((text, index) => ({
-            text: optionText(question, text, index, t),
-            correct: keys.has(text),
-          })),
-        }
-      : {}),
+    ...choicesOf(question, t),
     ...(answer === undefined ? {} : { answer }),
     ...(item.explanations && question.explanation.trim() !== ""
       ? { note: { label: t("ai.generate.explanation"), text: question.explanation } }

@@ -6414,11 +6414,11 @@ components:
     AiQuestionType:
       type: string
       description: |
-        The question types the assistant writes, a subset of `QuestionType`.
+        The question types the assistant writes, every `QuestionType`.
         `tfng` is written only from a passage, since "Not given" means the
         text does not say: a standalone request that names it is refused
         with `VALIDATION_FAILED` on `types`.
-      enum: [single_choice, multiple_choice, true_false, fill_blank, short_answer, tfng]
+      enum: [single_choice, multiple_choice, true_false, fill_blank, short_answer, tfng, matching, essay]
 
     AiGenerateRequest:
       type: object
@@ -6444,7 +6444,7 @@ components:
         types:
           type: array
           minItems: 1
-          maxItems: 6
+          maxItems: 8
           uniqueItems: true
           items: { $ref: '#/components/schemas/AiQuestionType' }
         count: { type: integer, minimum: 1, maximum: 8, description: "How many questions to write, 1 to 8." }
@@ -6460,7 +6460,13 @@ components:
         `options`; a true/false question has the options `True` and `False`,
         and a `tfng` question `True`, `False` and `Not given` in that order. For
         `fill_blank` the prompt holds `___` for the gap and `answerKey` the
-        accepted answers; for `short_answer` it holds the sample answer.
+        accepted answers; for `short_answer` it holds the sample answer, and
+        for `essay` (the prompt is the writing task) one line on what a
+        strong answer covers, kept as its sample answer. For `matching`
+        `options` holds the choices (up to 12), `matchItems` the items in
+        order, each with `answer` exactly one of `options`, and `answerKey`
+        the choices the items use; `matchItems` is present only on a
+        matching question.
       required: [type, prompt, answerKey, explanation]
       additionalProperties: false
       properties:
@@ -6469,14 +6475,28 @@ components:
         options:
           type: array
           minItems: 2
-          maxItems: 8
+          maxItems: 12
           items: { type: string, minLength: 1, maxLength: 500 }
+        matchItems:
+          type: array
+          minItems: 2
+          maxItems: 8
+          items: { $ref: '#/components/schemas/AiGeneratedMatchItem' }
         answerKey:
           type: array
           minItems: 1
           maxItems: 8
           items: { type: string, minLength: 1, maxLength: 500 }
         explanation: { type: string, maxLength: 2000, description: Empty when the request did not ask for explanations. }
+
+    AiGeneratedMatchItem:
+      type: object
+      description: One item of a drafted matching question and the choice that answers it, as written in the question's `options`.
+      required: [text, answer]
+      additionalProperties: false
+      properties:
+        text: { type: string, minLength: 1, maxLength: 500 }
+        answer: { type: string, minLength: 1, maxLength: 500 }
 
     AiGenerateResult:
       type: object
@@ -6710,7 +6730,7 @@ components:
           items: { type: integer, minimum: 1 }
         types:
           type: array
-          maxItems: 5
+          maxItems: 8
           items: { $ref: '#/components/schemas/QuestionType' }
 
     AiInsightsResult:

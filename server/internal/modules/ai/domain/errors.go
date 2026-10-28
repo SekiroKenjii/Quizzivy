@@ -73,6 +73,8 @@ var (
 	ErrNotChoice = errors.New("ai: the question is not a choice question")
 	// ErrNoKey is a question with no answer key to explain.
 	ErrNoKey = errors.New("ai: the question has no answer key")
+	// ErrNoSample is an essay with no sample answer to explain from.
+	ErrNoSample = errors.New("ai: the essay has no sample answer")
 	// ErrNotManual is a score suggestion for a question that is not marked by hand.
 	ErrNotManual = errors.New("ai: the question is not marked by hand")
 	// ErrUnanswered is a score suggestion for an answer the student left empty.
