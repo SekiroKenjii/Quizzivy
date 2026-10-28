@@ -146,6 +146,26 @@ so strict verification passes.
 Leaving them grey is a defensible alternative: one less hop, and Fly terminates
 TLS itself. It changes one setting, below.
 
+### `api` on the VPS (from the cutover)
+
+The API is moving from Fly to one VPS in Singapore (owner, 2026-10-28; the
+database stays on Neon). The box is set up from `github.com/Quizzivy/infra`,
+`docs/vps.md`. Its DNS differs from Fly's in three ways:
+
+- The record is **proxied** (orange) and points at the box's IPv4 (and IPv6, if
+  it has one). The box serves a **Cloudflare Origin CA** certificate for
+  `api.quizzivy.com`, so there is no ACME step and the zone stays on Full
+  (strict).
+- **Authenticated Origin Pulls** is on for the zone, and Caddy refuses any TLS
+  client without Cloudflare's certificate; `ufw` opens 443 to Cloudflare's
+  ranges only. A request sent to the box's IP directly is refused.
+- `CLIENT_IP_HEADER` is `CF-Connecting-IP` (infra `vps/app.env`). It is safe
+  there only because of the two points above: nobody but Cloudflare can reach
+  the API to set it.
+
+Change the record only as part of the cutover (`deploy.md`, "Moving the API
+from Fly to the VPS"), together with `API_HOST`.
+
 ### The setting that depends on the proxy decision
 
 `CLIENT_IP_HEADER` must name the header set by whatever sits directly in front
@@ -155,6 +175,7 @@ of the app:
 |---|---|
 | proxied (orange) | `CF-Connecting-IP` |
 | DNS only (grey) | `Fly-Client-IP` |
+| proxied, on the VPS | `CF-Connecting-IP`, with origin pulls and the `ufw` allowlist |
 
 The record was left grey, and `fly.toml` sets `Fly-Client-IP` (since
 2026-10-09). Until then it set `CF-Connecting-IP`, which on a grey record any
@@ -203,6 +224,10 @@ edge `524` responses separately from API read or write deadline failures.
 ## Secrets on Fly
 
 Set these with `fly secrets set`, never in `fly.toml` — that file is committed.
+On the VPS the same names go in `/opt/quizzivy/app.secrets.env` (mode 0600; the
+template is infra `vps/secrets/app.secrets.env.example`), with the values Fly
+holds: a new `JWT_SIGNING_KEY` or `JOIN_CODE_KEY` signs everyone out and kills
+every live join code.
 
 ```
 DATABASE_URL           postgres://quizzivy_app:...@<neon-host>/quizzivy?sslmode=require

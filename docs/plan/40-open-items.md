@@ -886,7 +886,7 @@ For the record, so a later session does not reopen them:
 | **O-01** real domain | **`quizzivy.com`**, bought. `app.` + `api.` subdomains | `00-overview.md` §4.1 |
 | **O-02** Google OAuth client | **Done and verified** — `make verify-google` passes | T-0.2 |
 | **O-03** R2 credentials | **Done and verified** — `make verify-r2` passes | T-0.3 |
-| **O-16** API hosting | **Fly.io, region `sin`**, always-warm. Database: Neon Singapore PG 18.6. SPA: Cloudflare Pages | `docs/setup/dns.md` |
+| **O-16** API hosting | **Fly.io, region `sin`**, always-warm. Database: Neon Singapore PG 18.6. SPA: Cloudflare Pages. **Moving (owner, 2026-10-28):** API and import worker to one 2 vCPU / 4 GB VPS in Singapore (`github.com/Quizzivy/infra`); the database stays on Neon; Fly stays as the rollback until two weeks after the cutover | `docs/setup/dns.md`, `docs/setup/deploy.md` |
 
 ### O-23 — Retention and requested anonymization · resolved 2026-09-22 · **superseded 2026-09-26**
 

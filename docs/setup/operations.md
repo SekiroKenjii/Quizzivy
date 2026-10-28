@@ -45,6 +45,13 @@ Fly health checks remove unhealthy Machines from routing; they do not themselves
 restart a failing Machine. During an incident, inspect `fly checks list` and
 request-ID logs, then explicitly choose rollback or restart.
 
+On the VPS (infra `docs/vps.md`), Docker restarts a container that exits
+(`restart: unless-stopped`), but nothing restarts one that hangs. As `deploy`:
+`vps/scripts/compose ps`, `vps/scripts/compose logs --tail 200 api` (the same
+request-ID logs), `vps/scripts/deploy.sh status`; roll back with
+`vps/scripts/deploy.sh deploy <previous sha>` (`/opt/quizzivy/deploys/previous`
+names it), or restart with `vps/scripts/compose restart api worker`.
+
 References: [GitHub scheduled-workflow limitations](https://docs.github.com/en/actions/how-tos/troubleshoot-workflows),
 [notification recipients](https://docs.github.com/en/actions/concepts/workflows-and-actions/notifications-for-workflow-runs),
 [Fly health checks](https://fly.io/docs/reference/health-checks/).
@@ -538,6 +545,12 @@ for the retention workflow and no join-code key.
    restarts the machines, and a half-changed pair either stops the API from
    starting (the two keys equal) or makes every code under the old key
    unredeemable until the second command lands.
+
+   On the VPS, edit both lines of `/opt/quizzivy/app.secrets.env` in one go
+   and restart nothing yet; the file is read only when a container starts, so
+   it is staged by itself. Step 2's deploy (or `vps/scripts/compose up -d
+   --force-recreate api worker`) applies them together. Step 6 is the same:
+   delete the line, then step 7.
 2. Deploy. The API now issues codes under the new key and still finds and
    reads codes under the old one. Its startup log line `join code keys`
    names `current_key_id` and `previous_key_id`.

@@ -104,6 +104,47 @@ reads `CF-Connecting-IP`, which only Cloudflare can set.
 The preflight below is Fly-only. The box checks its own `app.secrets.env` when
 the API starts, and the log says which name is wrong.
 
+### Moving the API from Fly to the VPS
+
+Decided by the owner on 2026-10-28: the API and the import worker move to one
+2 vCPU / 4 GB VPS in Singapore; **the database stays on Neon**, so the cutover
+moves no data and needs no maintenance window. It follows the 2026-10-09 plan
+otherwise (infra `docs/vps.md` for the box, `docs/rehearsal.md` for the dry
+run). Singapore matters: every query crosses to Neon's `ap-southeast-1`, about
+1 ms from there and 20 to 50 ms from anywhere else.
+
+1. **Box.** Bootstrap it (infra `docs/vps.md`, "New box"). In
+   `/opt/quizzivy/app.secrets.env` put the connection strings, keys and
+   secrets Fly holds today, byte for byte; leave `COMPOSE_PROFILES` unset in
+   `compose.env`, so PostgreSQL never starts there. Install the Origin CA
+   certificate and turn on Authenticated Origin Pulls. Gate: `chronyc
+   tracking` is synchronised, and `curl -k https://<box IP>/healthz` is
+   refused.
+2. **First deploy, still off the record.** Set the three `VPS_*` secrets,
+   then run Deploy by hand with `API_HOST=vps` once (target `api`). The image
+   goes to GHCR and the box runs it against Neon; migrations are already
+   applied, so `migrate` has nothing to do. Check
+   `curl -fsS http://127.0.0.1:8080/healthz` on the box (the workflow's own
+   last check still reaches Fly through the public name at this point). Set `API_HOST` back
+   to `fly` until step 3. Stop the box's `worker` (`vps/scripts/compose stop
+   worker`): two workers would take jobs from the same queue.
+3. **Cutover,** outside any assignment window:
+   - Scale Fly's worker to zero (`fly scale count worker=0 -a quizzivy-api`)
+     and start the box's (`vps/scripts/compose up -d worker`).
+   - Point `api.quizzivy.com` at the box, **proxied** (`dns.md`, "`api` on
+     the VPS"), and set `gh variable set API_HOST --body vps`.
+   - Check `/healthz` through `api.quizzivy.com`, a sign-in, a `/join/...`
+     deep link, `make verify-google` and one import. Turn on the production
+     monitor against the new origin.
+4. **Rollback,** at any point in the next two weeks: point the record back at
+   Fly's IPs as DNS only, scale Fly's worker back to one, stop the box's
+   worker, `API_HOST=fly`. No data moves either way, because both run against
+   the same Neon database.
+5. **Decommission** after two quiet weeks: destroy the Fly app, then one PR
+   deletes `fly.toml`, the `api` job in `deploy.yml`, the `fly.toml` checks in
+   `deployment_test.go` and the Fly sections of these docs; delete the
+   `FLY_API_TOKEN` secret.
+
 ## The preflight
 
 Before anything is built, the API job unions `fly.toml`'s `[env]` with

@@ -203,6 +203,14 @@ carries both processes, and `fly.toml` declares them:
 
 The import store reuses the `S3_*` secrets; no new secret is needed.
 
+On the VPS (infra `vps/compose.yaml` and `vps/app.env`) the worker is the
+`worker` service of the same image: `IMPORT_WORKER_WAKE_ADDR=0.0.0.0:8091` and
+`IMPORT_WORKER_WAKE_URL=http://worker:8091/wake`. The port is published to no
+one; only containers on the stack's private Docker network reach it, which is
+what Fly's private network did. Each of the API and the worker has its own
+volume at `/home/nonroot/imports`, owned by 65532 with mode 0700 from the image.
+The worker's limit is 1.5 GB there, above the 1 GB below.
+
 `platform/config/tests/deployment_test.go` boots both processes on these
 values. It fails when:
 
