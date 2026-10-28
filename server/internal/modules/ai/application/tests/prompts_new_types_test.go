@@ -50,7 +50,7 @@ func TestAnExplanationRefusesAMatchingQuestionWithAnItemLeftUnkeyedAndAnEssayWit
 	unkeyed := matchingQuestion()
 	unkeyed.MatchItems[1].Option = -1
 	for name, q := range map[string]domain.Question{
-		"unkeyed matching": unkeyed,
+		"unkeyed matching":       unkeyed,
 		"matching with no items": {Type: prompts.Matching, Prompt: "Match.", Options: unkeyed.Options},
 		"essay with no sample":   {Type: prompts.Essay, Prompt: "Write about your city."},
 	} {
@@ -107,5 +107,63 @@ func TestAnInsightNamesTheNewTypesForAPracticeSet(t *testing.T) {
 	want := []string{prompts.SingleChoice, prompts.Tfng, prompts.Matching, prompts.Essay}
 	if len(got) != 1 || !slices.Equal(got[0].Types, want) {
 		t.Errorf("the insight's types read %v, want %v", got, want)
+	}
+}
+
+func TestGenerateKeepsAMatchingDraftWhoseItemsNameItsChoicesAndAnEssayWithItsBrief(t *testing.T) {
+	in := prompts.GenerateInput{Source: "jobs", Types: []string{prompts.Matching, prompts.Essay}, Count: 8, Level: "b1", Language: domain.English, Standalone: true}
+	none := []any{}
+	answer := map[string]any{"questions": []map[string]any{
+		{"type": "matching", "prompt": "Match each word with its meaning.", "options": []string{"a place to learn", "a person who cures", "a vehicle", "a place to learn"}, "answers": []string{},
+			"items": []map[string]any{
+				{"text": "school", "answer": "A place to learn"},
+				{"text": "doctor", "answer": "a person who cures"},
+				{"text": "School", "answer": "a vehicle"},
+				{"text": "bus", "answer": "a train"},
+			}, "explanation": ""},
+		{"type": "matching", "prompt": "One item only.", "options": []string{"x", "y"}, "answers": []string{}, "items": []map[string]any{{"text": "a", "answer": "x"}}, "explanation": ""},
+		{"type": "essay", "prompt": "Write 150-200 words about a job you would like.", "options": []string{}, "answers": []string{"Names the job, gives two reasons and an example."}, "items": none, "explanation": ""},
+		{"type": "essay", "prompt": "An essay with no brief.", "options": []string{}, "answers": []string{}, "items": none, "explanation": ""},
+	}}
+	p := prompts.Generate(in)
+	conforms(t, p.Schema, answer)
+	for _, want := range []string{"matching = the prompt says what to match", "essay = the prompt is a writing task", "For matching, items holds each thing to match"} {
+		if !strings.Contains(p.User, want) {
+			t.Errorf("the prompt lacks %q:\n%s", want, p.User)
+		}
+	}
+	got, err := prompts.DecodeGenerate(marshal(t, answer), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got) != 2 {
+		t.Fatalf("kept %+v, want the first matching draft and the essay with a brief", got)
+	}
+	match, essay := got[0], got[1]
+	wantPairs := []prompts.MatchPair{{Text: "school", Answer: "a place to learn"}, {Text: "doctor", Answer: "a person who cures"}}
+	if !slices.Equal(match.Options, []string{"a place to learn", "a person who cures", "a vehicle"}) || !slices.Equal(match.MatchItems, wantPairs) ||
+		!slices.Equal(match.AnswerKey, []string{"a place to learn", "a person who cures"}) {
+		t.Errorf("matching draft %+v: distinct choices, the repeated and unknown items dropped, the key the choices used", match)
+	}
+	if essay.Type != prompts.Essay || !slices.Equal(essay.AnswerKey, []string{"Names the job, gives two reasons and an example."}) || len(essay.Options) != 0 {
+		t.Errorf("essay draft %+v", essay)
+	}
+}
+
+func TestAMatchingDraftKeepsAtMostEightItemsAndTwelveChoices(t *testing.T) {
+	in := prompts.GenerateInput{Source: sourceText, Types: []string{prompts.Matching}, Count: 1, Level: "b1", Language: domain.English}
+	var options []string
+	var items []map[string]any
+	for i := range 14 {
+		options = append(options, strings.Repeat("c", i+1))
+		items = append(items, map[string]any{"text": strings.Repeat("i", i+1), "answer": strings.Repeat("c", i+1)})
+	}
+	answer := map[string]any{"questions": []map[string]any{{"type": "matching", "prompt": "Match.", "options": options, "answers": []string{}, "items": items, "explanation": ""}}}
+	got, err := prompts.DecodeGenerate(marshal(t, answer), in)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(got[0].Options) != prompts.MaxDraftMatchChoices || len(got[0].MatchItems) != prompts.MaxDraftMatchItems {
+		t.Errorf("kept %d choices and %d items, want %d and %d", len(got[0].Options), len(got[0].MatchItems), prompts.MaxDraftMatchChoices, prompts.MaxDraftMatchItems)
 	}
 }

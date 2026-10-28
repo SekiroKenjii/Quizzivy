@@ -31,7 +31,8 @@ function hasKey(values: QuestionValues): boolean {
       return (
         items.length > 0 &&
         items.every(
-          (item) => item.correctOption >= 0 && item.correctOption < values.options.length,
+          (item) =>
+            item.correctOption >= 0 && item.correctOption < values.options.length,
         )
       );
     }

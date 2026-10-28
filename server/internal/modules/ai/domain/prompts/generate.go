@@ -25,20 +25,33 @@ type GenerateInput struct {
 	Section      *domain.Section
 }
 
-// Question is a draft question the assistant wrote. For a choice type Options are in order and AnswerKey holds the text of each correct one exactly as written in Options; a true/false question has the options True and False, and a tfng question True, False and Not given; for fill_blank Prompt holds one ___ and AnswerKey the accepted answers; for short_answer AnswerKey holds the sample answers.
+// Question is a draft question the assistant wrote. For a choice type Options are in order and AnswerKey holds the text of each correct one exactly as written in Options; a true/false question has the options True and False, and a tfng question True, False and Not given; for fill_blank Prompt holds one ___ and AnswerKey the accepted answers; for short_answer AnswerKey holds the sample answers, and for an essay, whose Prompt is the writing task, one line on what a strong answer covers. For matching Options are the choices, MatchItems the items in order, each answered by one of Options exactly as written, and AnswerKey the choices the items use.
 type Question struct {
 	Type        string
 	Prompt      string
 	Options     []string
 	AnswerKey   []string
+	MatchItems  []MatchPair
 	Explanation string
 }
+
+// MatchPair is one item of a drafted matching question and the choice that answers it.
+type MatchPair struct {
+	Text   string
+	Answer string
+}
+
+// The most items and choices a drafted matching question keeps, within what the bank takes.
+const (
+	MaxDraftMatchItems   = 8
+	MaxDraftMatchChoices = 12
+)
 
 const generateSystem = "You write English test questions for Vietnamese learners. Every answer must be supported by the source. " + untrusted + "Reply with JSON only."
 
 const standaloneSystem = "You write English test questions for Vietnamese learners. Each question stands alone: it holds everything needed to answer it and never refers to a passage, a text, a recording, a conversation, a picture or another question. Each key is the one answer a careful teacher would accept. " + untrusted + "Reply with JSON only."
 
-const generateSchema = `{"type":"object","additionalProperties":false,"required":["questions"],"properties":{"questions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["type","prompt","options","answers","explanation"],"properties":{"type":{"type":"string","enum":["single_choice","multiple_choice","true_false","fill_blank","short_answer","tfng"]},"prompt":{"type":"string"},"options":{"type":"array","items":{"type":"string"}},"answers":{"type":"array","items":{"type":"string"}},"explanation":{"type":"string"}}}}}}`
+const generateSchema = `{"type":"object","additionalProperties":false,"required":["questions"],"properties":{"questions":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["type","prompt","options","answers","items","explanation"],"properties":{"type":{"type":"string","enum":["single_choice","multiple_choice","true_false","fill_blank","short_answer","tfng","matching","essay"]},"prompt":{"type":"string"},"options":{"type":"array","items":{"type":"string"}},"answers":{"type":"array","items":{"type":"string"}},"items":{"type":"array","items":{"type":"object","additionalProperties":false,"required":["text","answer"],"properties":{"text":{"type":"string"},"answer":{"type":"string"}}}},"explanation":{"type":"string"}}}}}}`
 
 var typeRules = map[string]string{
 	SingleChoice:   "single_choice = 4 options, one correct.",
@@ -47,6 +60,8 @@ var typeRules = map[string]string{
 	FillBlank:      "fill_blank = a sentence with ___ for one gap; the answer is 1-3 words from the source.",
 	ShortAnswer:    "short_answer = a question answered in 1-3 words from the source.",
 	Tfng:           "tfng = a statement about the source; the options are exactly True, False and Not given. True when the source says it, False when the source says the opposite, Not given when the source does not say either way.",
+	Matching:       "matching = the prompt says what to match (such as each statement with the person who says it); options are 3-8 choices, items are 2-6 things to match, each with answer = the text of the choice that matches it, from the source; one or two choices may match nothing.",
+	Essay:          "essay = the prompt is a writing task about the source with its purpose and length (such as 150-250 words); answers holds one line on what a strong answer covers.",
 }
 
 var standaloneRules = map[string]string{
@@ -55,7 +70,12 @@ var standaloneRules = map[string]string{
 	TrueFalse:      typeRules[TrueFalse],
 	FillBlank:      "fill_blank = a sentence with ___ for one gap that only one answer of 1-3 words fits; list the accepted spellings.",
 	ShortAnswer:    "short_answer = a question with one answer of 1-3 words.",
+	Matching:       "matching = the prompt says what to match (such as each word with its meaning); options are 3-8 choices, items are 2-6 things to match, each with answer = the text of the choice that matches it and only that one; one or two choices may match nothing.",
+	Essay:          "essay = the prompt is a writing task with its purpose and length (such as 150-250 words); answers holds one line on what a strong answer covers.",
 }
+
+// itemsRule says how a matching question writes its items, and that every other type writes none.
+const itemsRule = "For matching, items holds each thing to match with its answer, and answers lists the choices the items use; for every other type, items is an empty array."
 
 // Generate builds the request for "Generate questions". The source is cut to MaxSource characters, and so is a section's text.
 func Generate(in GenerateInput) Prompt {
@@ -71,9 +91,9 @@ func Generate(in GenerateInput) Prompt {
 		explain = fmt.Sprintf("Write each explanation in %s: 1-2 sentences saying where the source supports the answer.", in.Language.Name())
 	}
 	user := fmt.Sprintf("Source:\n\"\"\"\n%s\n\"\"\"\n\nWrite %d questions at CEFR %s. Use only these types: %s.\n%s\n"+
-		"For single_choice, multiple_choice, true_false and tfng, answers must equal option texts exactly. For fill_blank and short_answer, options is an empty array.\n%s\n"+
+		"For single_choice, multiple_choice, true_false and tfng, answers must equal option texts exactly. For fill_blank, short_answer and essay, options is an empty array. %s\n%s\n"+
 		"Put all %d questions in \"questions\", each with its type, prompt, options, answers and explanation written from the source.",
-		clip(in.Source, MaxSource), in.Count, strings.ToUpper(in.Level), strings.Join(in.Types, ", "), strings.Join(rules, "\n"), explain, in.Count)
+		clip(in.Source, MaxSource), in.Count, strings.ToUpper(in.Level), strings.Join(in.Types, ", "), strings.Join(rules, "\n"), itemsRule, explain, in.Count)
 	return Prompt{Feature: domain.FeatureGenerate, Tier: domain.TierCapable, System: generateSystem, User: user, Schema: json.RawMessage(generateSchema), MaxTokens: 6000}
 }
 
@@ -94,9 +114,9 @@ func standalone(in GenerateInput) Prompt {
 		parts = append(parts, sectionBlock(*in.Section))
 	}
 	ask := fmt.Sprintf("Write %d new questions at CEFR %s. Use only these types: %s.\n%s\n"+
-		"For single_choice, multiple_choice and true_false, answers must equal option texts exactly. For fill_blank and short_answer, options is an empty array.\n%s\n"+
+		"For single_choice, multiple_choice and true_false, answers must equal option texts exactly. For fill_blank, short_answer and essay, options is an empty array. %s\n%s\n"+
 		"Put all %d questions in \"questions\", each with its type, prompt, options, answers and explanation.",
-		in.Count, strings.ToUpper(in.Level), strings.Join(in.Types, ", "), strings.Join(rules, "\n"), explain, in.Count)
+		in.Count, strings.ToUpper(in.Level), strings.Join(in.Types, ", "), strings.Join(rules, "\n"), itemsRule, explain, in.Count)
 	if in.Section != nil {
 		ask = "Match the section's skill, style and difficulty, and do not repeat or reword a question already in it.\n" + ask
 	}
@@ -123,11 +143,17 @@ func sectionBlock(section domain.Section) string {
 }
 
 type rawQuestion struct {
-	Type        string   `json:"type"`
-	Prompt      string   `json:"prompt"`
-	Options     []string `json:"options"`
-	Answers     []string `json:"answers"`
-	Explanation string   `json:"explanation"`
+	Type        string     `json:"type"`
+	Prompt      string     `json:"prompt"`
+	Options     []string   `json:"options"`
+	Answers     []string   `json:"answers"`
+	Items       []rawMatch `json:"items"`
+	Explanation string     `json:"explanation"`
+}
+
+type rawMatch struct {
+	Text   string `json:"text"`
+	Answer string `json:"answer"`
 }
 
 // DecodeGenerate reads the provider's answer. A question of a type that was not asked for, with an answer that is not one of its options, with a gap that is not exactly one, or whose prompt repeats word for word a question already in in.Section or an earlier one of the answer is dropped, and so is a standalone question that points at a passage, recording or other material it does not have; no more than in.Count are kept; if none is left the answer is ErrUnusable.
@@ -210,8 +236,33 @@ func withKey(out Question, q rawQuestion) (Question, bool) {
 	case ShortAnswer:
 		out.AnswerKey = distinct(q.Answers, 8, 200)
 		return out, len(out.AnswerKey) > 0
+	case Essay:
+		out.AnswerKey = distinct(q.Answers, 1, 500)
+		return out, len(out.AnswerKey) > 0
+	case Matching:
+		return withMatches(out, q)
 	}
 	return out, true
+}
+
+// withMatches keeps a matching draft whose items each name one of its choices: the choices are distinct, an item that names no choice or repeats an earlier item is dropped, and the draft needs at least two items and two choices. AnswerKey is the choices the items use, in the order of the choices.
+func withMatches(out Question, q rawQuestion) (Question, bool) {
+	out.Options = distinct(q.Options, MaxDraftMatchChoices, 500)
+	for _, item := range q.Items {
+		text := clip(oneLine(item.Text), 500)
+		at := slices.IndexFunc(out.Options, func(o string) bool { return sameText(o, item.Answer) })
+		if text == "" || at < 0 || len(out.MatchItems) == MaxDraftMatchItems ||
+			slices.ContainsFunc(out.MatchItems, func(p MatchPair) bool { return sameText(p.Text, text) }) {
+			continue
+		}
+		out.MatchItems = append(out.MatchItems, MatchPair{Text: text, Answer: out.Options[at]})
+	}
+	for _, option := range out.Options {
+		if slices.ContainsFunc(out.MatchItems, func(p MatchPair) bool { return p.Answer == option }) {
+			out.AnswerKey = append(out.AnswerKey, option)
+		}
+	}
+	return out, len(out.Options) >= 2 && len(out.MatchItems) >= 2
 }
 
 func choiceKeyHolds(q Question) bool {

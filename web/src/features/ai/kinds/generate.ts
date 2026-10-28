@@ -163,6 +163,8 @@ const TYPES: readonly QuestionType[] = [
   "fill_blank",
   "short_answer",
   "tfng",
+  "matching",
+  "essay",
 ];
 const DEFAULT_TYPES: readonly QuestionType[] = ["single_choice", "true_false"];
 const LEVELS = ["b1", "b2", "c1"] as const;
@@ -681,7 +683,17 @@ function optionText(
 
 function answerOf(question: AiGeneratedQuestion): string | undefined {
   if (question.type === "fill_blank") return question.answerKey.join(" / ");
-  if (question.type === "short_answer") return question.answerKey[0];
+  if (question.type === "short_answer" || question.type === "essay")
+    return question.answerKey[0];
+  if (question.type === "matching") {
+    const options = question.options ?? [];
+    return (question.matchItems ?? [])
+      .map(
+        (item) =>
+          `${item.text} → ${String.fromCharCode(65 + options.indexOf(item.answer))}`,
+      )
+      .join(" · ");
+  }
   return undefined;
 }
 
@@ -701,7 +713,7 @@ function card(item: GenerateItem, t: TFunction, tagDrafts: boolean): AiCard {
       ? {
           options: question.options.map((text, index) => ({
             text: optionText(question, text, index, t),
-            correct: keys.has(text),
+            correct: question.type !== "matching" && keys.has(text),
           })),
         }
       : {}),

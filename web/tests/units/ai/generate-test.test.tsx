@@ -571,3 +571,59 @@ describe("True / False / Not given", () => {
     );
   });
 });
+
+describe("matching and essay", () => {
+  const matchingQuestion: AiGeneratedQuestion = {
+    type: "matching",
+    prompt: "Match each word with its meaning.",
+    options: ["a place to learn", "a person who cures", "a vehicle"],
+    matchItems: [
+      { text: "school", answer: "a place to learn" },
+      { text: "doctor", answer: "a person who cures" },
+    ],
+    answerKey: ["a place to learn", "a person who cures"],
+    explanation: "",
+  };
+  const essayQuestion: AiGeneratedQuestion = {
+    type: "essay",
+    prompt: "Write 150-200 words about a job you would like.",
+    answerKey: ["Names the job and gives two reasons."],
+    explanation: "",
+  };
+  const matchingChip = vi_.questionEditor.type.matching;
+  const essayChip = vi_.questionEditor.type.essay;
+
+  function chips(scope: HTMLElement) {
+    return within(within(scope).getByRole("group", { name: ai.generate.types }))
+      .getAllByRole("button")
+      .map((button) => button.textContent);
+  }
+
+  it("are offered standalone and from a passage, sent, and drawn with their key", async () => {
+    const bodies: Record<string, unknown>[] = [];
+    server.use(
+      http.post(`${BASE}/teacher/ai/questions/generate`, async ({ request }) => {
+        bodies.push((await request.json()) as Record<string, unknown>);
+        return contractJson("/teacher/ai/questions/generate", "post", 200, {
+          items: [matchingQuestion, essayQuestion],
+          usage: { credits: 150, left: 18650 },
+        });
+      }),
+    );
+    const { dialog, user } = await openPanel(context({ section: reading }));
+    expect(chips(dialog)).toEqual(expect.arrayContaining([matchingChip, essayChip]));
+    await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
+    expect(chips(dialog)).toEqual(expect.arrayContaining([matchingChip, essayChip]));
+    await user.click(within(dialog).getByRole("button", { name: matchingChip }));
+    await user.click(within(dialog).getByRole("button", { name: essayChip }));
+    await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
+    expect(
+      await within(dialog).findByText("Match each word with its meaning."),
+    ).toBeVisible();
+    expect(within(dialog).getByText("school → A · doctor → B")).toBeVisible();
+    expect(
+      within(dialog).getByText("Names the job and gives two reasons."),
+    ).toBeVisible();
+    expect(bodies[0]!["types"]).toEqual(expect.arrayContaining(["matching", "essay"]));
+  });
+});

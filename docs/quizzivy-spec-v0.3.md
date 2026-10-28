@@ -3,6 +3,10 @@
 **Version:** 0.120 · **Owner:** Thuong · **Audience:** AI coding agent + future contributors
 **Scope:** web frontend (admin + student portals) and the PostgreSQL data model. Go backend implementation is a separate spec; the API surface in §15 is the contract both sides implement.
 
+**Changes pending (N-04, after v0.13.1)**
+
+- N-04 §8 §15 The AI assistant works on every question type (owner, 2026-10-27; lifts D-070 (iii)). "Generate" offers matching and essay beside the other six chips, from a passage and standalone: `AiQuestionType` gains `matching` and `essay`, a request names up to eight types, and `AiGeneratedQuestion` gains `matchItems` (`{text, answer}`, 2 to 8, each answer one of `options`, which takes up to 12 for matching). A matching draft keeps its choices unmarked and each item keyed to its choice, and lets a choice answer two items only when the draft does; an essay draft's one-line brief is its sample answer, with no rubric and 9 points. "Write with AI" reads a True / False / Not given key, a matching question's items with their choices, and an essay's sample answer; the editor's guard asks an essay for its sample answer ("Write a sample answer first") and a matching question for every item's choice. "AI check" and "Make a variant" read a matching question's items and key, a "Choose N" count and an essay's rubric criteria. Explain results reads a True / False / Not given key and answers in words and a matching key and answers as "1: C; 2: A", and an insight's practice-set `types` take every type (up to eight).
+
 **Changes since v0.119**
 
 Patch v0.13.1: R6-21, the authoring follow-ups from the R6-05 QC (#811). Web only; the contract, the server and the schema are unchanged.
@@ -2309,7 +2313,7 @@ Every entry point is drawn only while `GET /public/status` says `ai` and the cal
 | Test builder, title bar | "AI check" and "Generate" before Preview; both flush pending edits first, as Preview does | `checkTestWithAi`, `generateAiQuestions` |
 | Question bank, header | "Clean up" and "Generate" | `cleanUpQuestionBank`, `generateAiQuestions` |
 | Test detail | "Make a variant", disabled without a published version | `makeTestVariant`, then `duplicateTest`, `duplicateQuestion` and `updateQuestion` |
-| Question editor, in the bank and in the builder | "Write with AI" on the Explanation; "Suggest wrong options" on a single or multiple choice question | `writeAiExplanation`, `suggestAiDistractors` |
+| Question editor, in the bank and in the builder | "Write with AI" on the Explanation, on every type (an essay needs its sample answer, N-04); "Suggest wrong options" on a single or multiple choice question | `writeAiExplanation`, `suggestAiDistractors` |
 | Grading card | "Suggest a score" on a short answer while "Let AI read student answers" is on; with it off, one line that says so and links to Settings › AI assistant | `suggestAiScore` |
 | Assignment detail › Questions | "Explain results with AI", under the same switch (with it off, the same kind of line); "Make a practice set" opens Generate and saves a new draft test "{title} · Practice" | `explainAssignmentResults`, then `createQuestion`, `createTest` and `updateTest` |
 | Import workspace, Sources pane | the "Read with AI" card, which mirrors the preference "Read imports with AI" | `createWordImport` with `readWithAi` |
