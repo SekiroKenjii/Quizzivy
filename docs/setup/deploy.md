@@ -604,6 +604,24 @@ DROP INDEX CONCURRENTLY IF EXISTS app.users_created_by_idx;            -- 00076
 DROP INDEX CONCURRENTLY IF EXISTS app.assignments_creator_idx;         -- 00077
 ```
 
+## Rolling out v0.13.2 (hotfix)
+
+v0.13.2 ships N-04, the AI assistant on every question type (#822, D-079; spec 0.121, "Changes since
+v0.120"). Generate writes matching and essay questions; Write with AI, AI check, Make a variant and the
+result insights read True / False / Not given, matching, the essay and "Choose N". The server, the web and
+the contract change; the contract change is additive (`AiQuestionType` gains `matching` and `essay`,
+`AiGeneratedQuestion` gains `matchItems`). There is no migration and no configuration change: the release
+command finds nothing to migrate (version 154). Until the API is live, a v0.13.2 web asking Generate for
+matching or essay gets a validation error, so read the smoke only after both are deployed.
+
+- **Smoke.** First `/version.json` (and the splash) read 0.13.2. As a teacher, open Generate questions
+  (standalone): the chips include Matching and Essay; generate one of each and add them to the bank, and the
+  matching question opens with each item keyed to a choice. In the bank editor, an essay with no sample
+  answer offers Write with AI only after "Write a sample answer first"; a True / False / Not given question
+  and a matching question each get an explanation. Run AI check on a test with a matching question.
+- **Rolling back to v0.13.1** is safe at any time: nothing is stored in a new shape, and drafts already
+  added to the bank are ordinary questions.
+
 ## Rolling out v0.13.1 (hotfix)
 
 v0.13.1 ships R6-21, the authoring follow-ups found in R6-05's QC (#811; spec 0.120, "Changes since
