@@ -25,11 +25,12 @@ X or later**. A release that has to break the contract bumps the minor while
 
 | Branch | Published as | dist-tag |
 |---|---|---|
-| `main` | `0.13.2`, when the version and the contract are new | `latest` |
+| `main`, once production serves it | the release, when the version and the contract are new | `latest` |
 | `develop` | `0.13.3-dev.202610281200.gabc1234`, on pushes that change the contract | `next` |
 
 `.github/workflows/sdk-publish.yml` publishes to GitHub Packages, only from the
-Quizzivy org. A `-dev` version's `CONTRACT_VERSION` is still the release it
+Quizzivy org. A release publishes from `deploy.yml`, after the API is live, so no
+client adopts a contract production does not serve yet (D-081). A `-dev` version's `CONTRACT_VERSION` is still the release it
 builds on.
 
 ## In this repository

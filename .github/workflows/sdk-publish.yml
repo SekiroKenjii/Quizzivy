@@ -1,42 +1,50 @@
 name: SDK publish
 
-# Publishes sdk/ as @quizzivy/sdk to GitHub Packages (D-080). The package is
-# what `make gen` committed; the PR's Contract job proved it matches the
+# Publishes sdk/ as @quizzivy/sdk to GitHub Packages (D-080, D-081). The package
+# is what `make gen` committed; the PR's Contract job proved it matches the
 # contract, so nothing is regenerated here.
 #
-#   main     @quizzivy/sdk@<info.version> under `latest`, only when that version
-#            is not published yet and the contract differs from the last one
-#   develop  <major>.<minor>.<patch+1>-dev.<UTC yyyymmddHHMM>.g<sha> under
-#            `next`, on pushes that change the contract
+#   latest   @quizzivy/sdk@<info.version>, called by deploy.yml once the API
+#            from main is live (D-081), and only when that version is not
+#            published yet and the contract differs from the last one
+#   next     <major>.<minor>.<patch+1>-dev.<UTC yyyymmddHHMM>.g<sha>, on
+#            develop pushes that change the contract
 #
 # Nothing publishes from work/*, release/* or pull requests, and this workflow
 # makes no tags or releases: tags stay the owner's. The @quizzivy scope belongs
-# to the Quizzivy org, so the jobs are skipped anywhere else (a fork, or the
+# to the Quizzivy org, so the job is skipped anywhere else (a fork, or the
 # repository before its transfer).
 on:
   push:
-    branches: [main, develop]
+    branches: [develop]
     paths:
       - api/openapi.yaml
       - sdk/**
-  workflow_dispatch:
+  workflow_call:
+    inputs:
+      ref:
+        description: The commit production now serves
+        type: string
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: sdk-publish-${{ github.ref }}
+  group: sdk-publish-${{ inputs.ref && 'latest' || 'next' }}
   cancel-in-progress: false
 
 env:
   NODE_VERSION: "24"
   OASDIFF_VERSION: v1.33.0
   PACKAGE: "@quizzivy/sdk"
+  # A call from deploy.yml publishes the release; a develop push, a prerelease.
+  CHANNEL: ${{ inputs.ref && 'latest' || 'next' }}
 
 jobs:
   publish:
     name: Publish
-    if: github.repository_owner == 'Quizzivy' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    if: github.repository_owner == 'Quizzivy' && (inputs.ref != '' || github.ref == 'refs/heads/develop')
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
@@ -46,6 +54,8 @@ jobs:
       NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
+        with:
+          ref: ${{ inputs.ref || github.sha }}
 
       - uses: actions/setup-node@v7
         with:
@@ -59,7 +69,7 @@ jobs:
           release=$(node -p "require('./sdk/package.json').version")
           latest=$(npm view "$PACKAGE" dist-tags.latest 2>/dev/null || true)
           echo "latest=$latest" >> "$GITHUB_OUTPUT"
-          if [ "$GITHUB_REF" = refs/heads/main ]; then
+          if [ "$CHANNEL" = latest ]; then
             if npm view "$PACKAGE@$release" version >/dev/null 2>&1; then
               echo "$PACKAGE@$release is already published; nothing to do." | tee -a "$GITHUB_STEP_SUMMARY"
               exit 0

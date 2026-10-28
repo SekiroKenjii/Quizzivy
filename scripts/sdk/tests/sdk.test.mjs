@@ -102,3 +102,13 @@ test('a release PR: version equals the web, moves when the contract moved, minor
     [],
   );
 });
+
+test('the committed operation map has exactly one entry per operationId in the contract', async () => {
+  const contract = JSON.parse(readFileSync('sdk/openapi.json', 'utf8'));
+  const { OPERATIONS, CONTRACT_VERSION } = await import('../../../sdk/index.js');
+  const ids = operationsOf(contract).map(({ id }) => id);
+  assert.ok(ids.length > 0);
+  assert.deepEqual(Object.keys(OPERATIONS), ids);
+  for (const { id, method, path } of operationsOf(contract)) assert.deepEqual(OPERATIONS[id], { method, path });
+  assert.equal(CONTRACT_VERSION, contract.info.version);
+});
