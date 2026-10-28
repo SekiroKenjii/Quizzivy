@@ -559,8 +559,8 @@ describe("True / False / Not given", () => {
     );
     await planTwoSections(dialog, user);
     const rows = within(dialog).getAllByRole("listitem");
-    expect(chips(rows[0]!)).not.toContain(tfngChip);
-    expect(chips(rows[1]!)).toContain(tfngChip);
+    expect(typeChips(rows[0]!)).not.toContain(tfngChip);
+    expect(typeChips(rows[1]!)).toContain(tfngChip);
     await user.click(within(dialog).getByRole("button", { name: "Tạo 2 câu" }));
     await waitFor(() => expect(bodies).toHaveLength(2));
     expect(bodies).toEqual(
