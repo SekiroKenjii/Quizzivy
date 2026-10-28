@@ -395,13 +395,14 @@ jobs:
   # ------------------------------------------------------------------- sdk
   # @quizzivy/sdk at this release's version, once the API that serves its
   # contract is live and never before, so no client adopts a contract
-  # production lacks (D-081). The workflow skips a version already published
+  # production lacks (D-081), and only from main: a dispatch from another ref
+  # deploys it but does not publish it. The workflow skips a version already published
   # or a contract unchanged since the last one, and runs only in the Quizzivy
   # org, which owns the package scope.
   sdk:
     name: SDK → GitHub Packages
     needs: [resolve, api, api-vps]
-    if: ${{ !cancelled() && github.repository_owner == 'Quizzivy' && needs.resolve.outputs.api == 'true' && contains(fromJSON('["success","skipped"]'), needs.api.result) && contains(fromJSON('["success","skipped"]'), needs.api-vps.result) && (needs.api.result == 'success' || needs.api-vps.result == 'success') }}
+    if: ${{ !cancelled() && github.repository_owner == 'Quizzivy' && (github.event_name == 'workflow_run' || github.ref == 'refs/heads/main') && needs.resolve.outputs.api == 'true' && contains(fromJSON('["success","skipped"]'), needs.api.result) && contains(fromJSON('["success","skipped"]'), needs.api-vps.result) && (needs.api.result == 'success' || needs.api-vps.result == 'success') }}
     permissions:
       contents: read
       packages: write

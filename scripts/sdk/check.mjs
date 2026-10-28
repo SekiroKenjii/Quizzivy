@@ -103,8 +103,7 @@ function main() {
   try {
     mergeBase = git('merge-base', base, 'HEAD').trim();
   } catch {
-    console.error(`sdk-check: no merge-base with ${base}. Fetch it first (git fetch origin <branch>) or set SDK_BASE.`);
-    process.exit(2);
+    throw new Error(`no merge-base with ${base}. Fetch it first (git fetch origin <branch>) or set SDK_BASE.`);
   }
   const head = readFileSync(CONTRACT, 'utf8');
   const baseText = git('show', `${mergeBase}:${CONTRACT}`);
@@ -176,5 +175,6 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     // the branch red either; it shows as a warning on the run instead.
     if (process.env.SDK_GATE === 'block') throw error;
     console.log(`::warning title=SDK contract check::could not run: ${error.message}`);
+    console.error(`sdk-check: ${error.message}`);
   }
 }

@@ -19,7 +19,6 @@ on:
     branches: [develop]
     paths:
       - api/openapi.yaml
-      - sdk/**
   workflow_call:
     inputs:
       ref:
@@ -50,8 +49,6 @@ jobs:
     permissions:
       contents: read
       packages: write
-    env:
-      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -65,6 +62,8 @@ jobs:
 
       - name: Decide the version
         id: version
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           release=$(node -p "require('./sdk/package.json').version")
           latest=$(npm view "$PACKAGE" dist-tags.latest 2>/dev/null || true)
@@ -78,7 +77,11 @@ jobs:
               mkdir -p "$RUNNER_TEMP/latest"
               npm pack "$PACKAGE@$latest" --pack-destination "$RUNNER_TEMP/latest" >/dev/null
               tar -xzf "$RUNNER_TEMP"/latest/*.tgz -C "$RUNNER_TEMP/latest"
-              if cmp -s "$RUNNER_TEMP/latest/package/openapi.json" sdk/openapi.json; then
+              # info.version always differs between two releases, so compare the rest.
+              if node -e '
+                const read = (p) => { const d = JSON.parse(require("fs").readFileSync(p, "utf8")); delete d.info.version; return JSON.stringify(d); };
+                process.exit(read(process.argv[1]) === read(process.argv[2]) ? 0 : 1);
+              ' "$RUNNER_TEMP/latest/package/openapi.json" sdk/openapi.json; then
                 echo "The contract is the same as $PACKAGE@$latest; nothing to do." | tee -a "$GITHUB_STEP_SUMMARY"
                 exit 0
               fi
@@ -100,9 +103,10 @@ jobs:
           go-version: "1.27"
           cache: false
 
-      - name: Changelog since the last published SDK
+      - name: Fetch the last published SDK
         if: steps.version.outputs.version != '' && steps.version.outputs.latest != ''
         env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           LATEST: ${{ steps.version.outputs.latest }}
         run: |
           if [ ! -d "$RUNNER_TEMP/latest/package" ]; then
@@ -110,6 +114,13 @@ jobs:
             npm pack "$PACKAGE@$LATEST" --pack-destination "$RUNNER_TEMP/latest" >/dev/null
             tar -xzf "$RUNNER_TEMP"/latest/*.tgz -C "$RUNNER_TEMP/latest"
           fi
+
+      # No token in this step: it runs a tool fetched at run time.
+      - name: Changelog since the last published SDK
+        if: steps.version.outputs.version != '' && steps.version.outputs.latest != ''
+        env:
+          LATEST: ${{ steps.version.outputs.latest }}
+        run: |
           {
             echo "## Contract changes since $PACKAGE@$LATEST"
             echo
@@ -120,6 +131,7 @@ jobs:
       - name: Publish
         if: steps.version.outputs.version != ''
         env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VERSION: ${{ steps.version.outputs.version }}
           TAG: ${{ steps.version.outputs.tag }}
         working-directory: sdk

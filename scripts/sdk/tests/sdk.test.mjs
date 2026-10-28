@@ -57,11 +57,14 @@ test('versionOf reads info.version from the YAML, not a nested one', () => {
   const yaml = 'openapi: 3.1.0\n\ninfo:\n  title: X\n  version: 0.13.2\n  contact:\n    version: 9.9.9\n\npaths: {}\n';
   assert.equal(versionOf(yaml), '0.13.2');
   assert.equal(versionOf('info:\n  title: X\n'), null);
+  assert.equal(versionOf('info:\n  contact:\n    version: 9.9.9\n  version: 0.13.2\n'), '0.13.2');
   assert.equal(versionOf(readFileSync('api/openapi.yaml', 'utf8')), JSON.parse(readFileSync('sdk/package.json', 'utf8')).version);
 });
 
 test('bumpsBreaking wants a minor while 0.x and a major from 1.0', () => {
   assert.deepEqual(parseVersion('0.13.2'), [0, 13, 2]);
+  assert.equal(parseVersion('0.14.0-rc'), null);
+  assert.equal(parseVersion('v0.14.0'), null);
   assert.equal(bumpsBreaking('0.13.2', '0.14.0'), true);
   assert.equal(bumpsBreaking('0.13.2', '0.13.3'), false);
   assert.equal(bumpsBreaking('0.13.2', '1.0.0'), true);

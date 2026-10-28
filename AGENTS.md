@@ -69,7 +69,8 @@ conflict to know: the skill teaches the pre-18
 - No new dependency without a stated reason in the PR description.
 - Never commit secrets. `.env.example` stays current; `.env` stays ignored.
 - **Never hand-edit generated code.** `server/gen/openapi/`, `server/gen/contract/` and
-  the SDK in `sdk/` (all but `index.*` and `README.md`) come from
+  the SDK in `sdk/` (all but `index.*`, `README.md` and `package.json`'s
+  fields other than `version`) come from
   `api/openapi.yaml`. Change the contract and run `make gen`. CI fails on drift.
 - **The contract is the SDK** (`@quizzivy/sdk`, D-080). Keep a change additive:
   a breaking one (`make sdk-check` says) needs the `contract-breaking` label,

@@ -10,4 +10,4 @@ validated against this schema with `ajv`. CI regenerates and fails on drift.
 
 Change the contract here first, then `make gen`. `make sdk-check` reports what
 the change does to a client, and `oasdiff-ignore.txt` holds the checker's false
-alarms. `info.version` changes only in the release PR (`sdk/README.md`).
+alarms (one rule per line, no comments: `sdk/README.md`). `info.version` changes only in the release PR (`sdk/README.md`).

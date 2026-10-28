@@ -2,7 +2,9 @@
 
 The Quizzivy API contract as a package: `api/openapi.yaml` and what is generated
 from it, for any client of the API. Types and constants only; it has no
-runtime client and no dependencies. Decision D-080.
+runtime client and no dependencies. ESM only (`"type": "module"`), so a
+CommonJS TypeScript project imports it with `import type` or a dynamic
+`import()`. Decisions D-080 and D-081.
 
 | File | What it is |
 |---|---|
@@ -26,12 +28,14 @@ X or later**. A release that has to break the contract bumps the minor while
 | Branch | Published as | dist-tag |
 |---|---|---|
 | `main`, once production serves it | the release, when the version and the contract are new | `latest` |
-| `develop` | `0.13.3-dev.202610281200.gabc1234`, on pushes that change the contract | `next` |
+| `develop` | for example `0.13.3-dev.202610281200.gabc1234`, on pushes that change `api/openapi.yaml` | `next` |
 
 `.github/workflows/sdk-publish.yml` publishes to GitHub Packages, only from the
 Quizzivy org. A release publishes from `deploy.yml`, after the API is live, so no
-client adopts a contract production does not serve yet (D-081). A `-dev` version's `CONTRACT_VERSION` is still the release it
-builds on.
+client adopts a contract production does not serve yet (D-081). A `-dev`
+version's `CONTRACT_VERSION` is still the release it builds on. The first
+release after the SDK landed is the first under `latest`; until then the
+registry may show a `-dev` as `latest`, so pin `next` or wait for it.
 
 ## In this repository
 
@@ -49,7 +53,7 @@ types through `web/src/lib/api/schema.ts`, so a contract change is one PR and
 
 ```jsonc
 // package.json
-"devDependencies": { "@quizzivy/sdk": "0.13.2" },
+"devDependencies": { "@quizzivy/sdk": "0.14.0" },
 "scripts": {
   // "gen sdk": take the newest release and let the compiler say what changed
   "sdk:sync": "pnpm up @quizzivy/sdk@latest && pnpm typecheck",
@@ -75,21 +79,25 @@ A client in another language pins a version and generates its own code from the
 contract, for example:
 
 ```bash
-npm pack @quizzivy/sdk@0.13.2 && tar -xzf quizzivy-sdk-0.13.2.tgz package/openapi.yaml
+npm pack @quizzivy/sdk@0.14.0 && tar -xzf quizzivy-sdk-0.14.0.tgz package/openapi.yaml
 openapi-generator-cli generate -i package/openapi.yaml -g dart -o lib/api   # or swift5, kotlin, ...
 ```
 
 ## Changing the contract
 
 1. Edit `api/openapi.yaml`, then `make gen`, and commit the generated files.
-2. `make sdk-check` (also run by CI's Contract job on every PR) reports
+2. `make sdk-check` (also run by CI's Contract job on PRs, when the job is not skipped as already passed) reports
    breaking changes since the merge-base with `SDK_BASE` (default
    `origin/develop`), plus the changelog.
 3. A breaking change needs the `contract-breaking` label, a D-entry or the
    owner's approval cited in the PR body, and the release-notes line for tabs
    loaded before the deploy. Prefer expand, then contract: add the new field or
    operation, ship the clients, remove the old one in a later release.
-4. False alarms from oasdiff go in `api/oasdiff-ignore.txt`, with a comment.
+4. False alarms from oasdiff go in `api/oasdiff-ignore.txt`, one per line, as
+   the report prints them: method, path and the change's text, for example
+   `GET /teacher/tests removed the success response with the status 200`.
+   oasdiff has no comment syntax, so every line is a live rule: say why each
+   one is there in the PR that adds it, and keep nothing else in the file.
 
 The gate is report-only until it has been run over the contract's history; it
 then blocks.
