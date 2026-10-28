@@ -28,7 +28,7 @@ func TestAnExplanationReadsTheKeyOfATfngAMatchingAndAnEssayQuestion(t *testing.T
 		want []string
 	}{
 		{"tfng", tfng, []string{"Correct answer: Not given"}},
-		{"matching", matchingQuestion(), []string{"A → ii (Lan works at a hospital. → nurse); B → i (Minh works at a school. → teacher)", "i. teacher", "item by item"}},
+		{"matching", matchingQuestion(), []string{"A: ii (Lan works at a hospital. = nurse); B: i (Minh works at a school. = teacher)", "i. teacher", "item by item"}},
 		{"essay", essay, []string{"What a strong answer covers: Names the city", "how it is organised"}},
 	}
 	for _, c := range cases {
@@ -79,7 +79,7 @@ func TestTheCheckPromptSendsMatchingKeysChooseNAndRubricCriteria(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, want := range []string{
-		"i. teacher", "ii. nurse", "Item A. Lan works at a hospital. → ii", "Item B. Minh works at a school. → (no answer)",
+		"i. teacher", "ii. nurse", "Item A. Lan works at a hospital. Answer: ii", "Item B. Minh works at a school. Answer: (no answer)",
 		"Choose exactly 2 options", "Rubric criteria: Task response | Coherence",
 		"a matching item keyed to an option that does not fit it",
 	} {

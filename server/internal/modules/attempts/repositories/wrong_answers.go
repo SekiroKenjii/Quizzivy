@@ -46,7 +46,7 @@ var wrongAnswersSQL = `
 	             (SELECT string_agg(CASE l.ordinal WHEN 0 THEN 'True' WHEN 1 THEN 'False' ELSE 'Not given' END, ', ' ORDER BY l.ordinal)
 	                FROM lettered l WHERE l.question_id = n.id AND l.is_correct)
 	           WHEN 'matching' THEN
-	             (SELECT string_agg(chr(65 + mi.ordinal) || ' → ' || lower(btrim(to_char(l.ordinal + 1, 'RN'))), '; ' ORDER BY mi.ordinal)
+	             (SELECT string_agg(chr(65 + mi.ordinal) || ': ' || lower(btrim(to_char(l.ordinal + 1, 'RN'))), '; ' ORDER BY mi.ordinal)
 	                FROM app.test_version_match_items mi
 	                JOIN lettered l ON l.question_id = n.id AND l.id = mi.correct_option_id
 	               WHERE mi.test_version_question_id = n.id)
@@ -76,7 +76,7 @@ var wrongAnswersSQL = `
 	             END
 	           WHEN 'matching' THEN
 	             CASE WHEN jsonb_typeof(ans.payload->'pairs') = 'object' THEN
-	               (SELECT string_agg(chr(65 + mi.ordinal) || ' → ' || coalesce(lower(btrim(to_char(l.ordinal + 1, 'RN'))), '–'), '; ' ORDER BY mi.ordinal)
+	               (SELECT string_agg(chr(65 + mi.ordinal) || ': ' || coalesce(lower(btrim(to_char(l.ordinal + 1, 'RN'))), '–'), '; ' ORDER BY mi.ordinal)
 	                  FROM app.test_version_match_items mi
 	                  LEFT JOIN lettered l ON l.question_id = n.id AND l.id::text = lower(ans.payload->'pairs'->>mi.id::text)
 	                 WHERE mi.test_version_question_id = n.id)

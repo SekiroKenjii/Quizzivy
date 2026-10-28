@@ -59,7 +59,7 @@ func writeQuestion(b *strings.Builder, q domain.PaperQuestion, passages map[stri
 		fmt.Fprintf(b, "Choose exactly %d options\n", q.SelectCount)
 	}
 	for i, item := range q.MatchItems {
-		fmt.Fprintf(b, "Item %s. %s → %s\n", matchkey.Item(i), clip(oneLine(item.Text), 300), matchKey(item, len(q.Options)))
+		fmt.Fprintf(b, "Item %s. %s Answer: %s\n", matchkey.Item(i), clip(oneLine(item.Text), 300), matchKey(item, len(q.Options)))
 	}
 	for i, bl := range q.Blanks {
 		fmt.Fprintf(b, "Blank %d accepts: %s\n", i+1, strings.Join(bl.Accepted, " | "))

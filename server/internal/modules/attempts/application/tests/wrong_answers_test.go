@@ -219,7 +219,7 @@ func TestTheWrongAnswersOfATfngAndAMatchingQuestionReadInTheirOwnWords(t *testin
 		}
 		return []byte(`{"type":"matching","pairs":{` + strings.Join(parts, ",") + `}}`)
 	}
-	// The key is A → iii, B → i.
+	// The key is A: iii, B: i.
 	paper(w.student, func(session domain.Session) []domain.Answer {
 		return []domain.Answer{
 			{QuestionID: w.tfng, Payload: []byte(fmt.Sprintf(`{"type":"choice","optionIds":[%q]}`, questionOf(t, session, w.tfng).Options[0].ID))},
@@ -245,7 +245,7 @@ func TestTheWrongAnswersOfATfngAndAMatchingQuestionReadInTheirOwnWords(t *testin
 		wrong []string
 	}{
 		w.tfng:     {"Not given", []string{"False", "True"}},
-		w.matching: {"A → iii; B → i", []string{"A → ii; B → –", "A → iii; B → ii"}},
+		w.matching: {"A: iii; B: i", []string{"A: ii; B: –", "A: iii; B: ii"}},
 	}
 	for _, q := range got.Questions {
 		expected, ok := want[q.QuestionID]

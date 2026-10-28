@@ -56,7 +56,7 @@ func matchingKeyText(q domain.Question) string {
 		if item.Option < 0 || item.Option >= len(q.Options) {
 			return ""
 		}
-		pairs[i] = fmt.Sprintf("%s → %s (%s → %s)", matchkey.Item(i), matchkey.Option(item.Option), clip(oneLine(item.Text), 200), clip(oneLine(q.Options[item.Option].Text), 200))
+		pairs[i] = fmt.Sprintf("%s: %s (%s = %s)", matchkey.Item(i), matchkey.Option(item.Option), clip(oneLine(item.Text), 200), clip(oneLine(q.Options[item.Option].Text), 200))
 	}
 	return strings.Join(pairs, "; ")
 }
