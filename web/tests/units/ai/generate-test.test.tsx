@@ -463,6 +463,12 @@ describe("Generate for the whole test", () => {
   });
 });
 
+function typeChips(scope: HTMLElement) {
+  return within(within(scope).getByRole("group", { name: ai.generate.types }))
+    .getAllByRole("button")
+    .map((button) => button.textContent);
+}
+
 describe("True / False / Not given", () => {
   const tfngQuestion: AiGeneratedQuestion = {
     type: "tfng",
@@ -472,12 +478,6 @@ describe("True / False / Not given", () => {
     explanation: "",
   };
   const tfngChip = vi_.questionEditor.type.tfng;
-
-  function chips(scope: HTMLElement) {
-    return within(within(scope).getByRole("group", { name: ai.generate.types }))
-      .getAllByRole("button")
-      .map((button) => button.textContent);
-  }
 
   it("is offered from a passage, names its options in the reader's language, and is never sent standalone", async () => {
     const bodies: Record<string, unknown>[] = [];
@@ -491,10 +491,10 @@ describe("True / False / Not given", () => {
       }),
     );
     const { dialog, user } = await openPanel(context({ section: reading }));
-    expect(chips(dialog)).toContain(tfngChip);
+    expect(typeChips(dialog)).toContain(tfngChip);
     await user.click(within(dialog).getByRole("button", { name: tfngChip }));
     await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
-    expect(chips(dialog)).not.toContain(tfngChip);
+    expect(typeChips(dialog)).not.toContain(tfngChip);
     await user.click(within(dialog).getByRole("radio", { name: /^Theo bài đọc/ }));
     expect(
       within(dialog).getByRole("button", { name: tfngChip, pressed: true }),
@@ -545,7 +545,7 @@ describe("True / False / Not given", () => {
       context({ section: tfngOnly, sections: [tfngOnly, reading, blank] }),
     );
     expect(within(dialog).getByRole("radio", { name: /^Câu độc lập/ })).toBeChecked();
-    expect(chips(dialog)).not.toContain(tfngChip);
+    expect(typeChips(dialog)).not.toContain(tfngChip);
     expect(within(dialog).getByText(ai.generate.needType)).toBeVisible();
   });
 
@@ -593,12 +593,6 @@ describe("matching and essay", () => {
   const matchingChip = vi_.questionEditor.type.matching;
   const essayChip = vi_.questionEditor.type.essay;
 
-  function chips(scope: HTMLElement) {
-    return within(within(scope).getByRole("group", { name: ai.generate.types }))
-      .getAllByRole("button")
-      .map((button) => button.textContent);
-  }
-
   it("are offered standalone and from a passage, sent, and drawn with their key", async () => {
     const bodies: Record<string, unknown>[] = [];
     server.use(
@@ -611,9 +605,13 @@ describe("matching and essay", () => {
       }),
     );
     const { dialog, user } = await openPanel(context({ section: reading }));
-    expect(chips(dialog)).toEqual(expect.arrayContaining([matchingChip, essayChip]));
+    expect(typeChips(dialog)).toEqual(
+      expect.arrayContaining([matchingChip, essayChip]),
+    );
     await user.click(within(dialog).getByRole("radio", { name: /^Câu độc lập/ }));
-    expect(chips(dialog)).toEqual(expect.arrayContaining([matchingChip, essayChip]));
+    expect(typeChips(dialog)).toEqual(
+      expect.arrayContaining([matchingChip, essayChip]),
+    );
     await user.click(within(dialog).getByRole("button", { name: matchingChip }));
     await user.click(within(dialog).getByRole("button", { name: essayChip }));
     await user.click(within(dialog).getByRole("button", { name: ai.generate.run }));
