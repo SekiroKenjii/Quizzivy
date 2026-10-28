@@ -441,6 +441,35 @@ output matches what it holds. The `GITHUB_TOKEN` of the run writes to the
 wiki, which needs the wiki to exist: GitHub creates its repository when
 someone saves a first page in the browser.
 
+## The project board
+
+Tasks and progress live on the Quizzivy org's GitHub Project (number 2).
+`.github/workflows/project-sync.yml` keeps it in step with this repository, so
+nobody has to edit the board to report progress: they label the issue and
+write the pull request body. It runs `scripts/ci/project-sync.mjs`, whose tests
+are in `scripts/ci/tests/` and run in the plan job.
+
+| On | Writes |
+|---|---|
+| An issue opened, edited, reopened or labelled | Adds it to the board. A label `status:`, `next:`, `priority:`, `release:` or `workstream:` sets that field: `status:in-progress`, `next:owner`, `priority:p1`, `release:v0.14.0`, `workstream:product`. A line `Thread: <title>` or `Plan ID: <id>` in the body sets that text field. A new issue with no status label is Todo |
+| An issue closed | Status Done |
+| A pull request opened or edited | Each issue its body names in a line `Task: #N` (or `Closes #N`, `Fixes #N`) or `Part of: #N` goes to In Progress |
+| A pull request merged | Its `Task:` issues go to Done; `Part of:` issues stay where they are |
+
+A label value names an option by its first words, so `p1` is "P1 high"; a
+value two options start with names neither, and the run logs a warning. A
+removed label clears nothing. The workflow never closes an issue: `main` is
+the default branch, so a `Closes #N` in a pull request into `develop` does not
+close it either, and closing stays the owner's.
+
+It needs the secret `PROJECT_TOKEN`: a fine-grained token, or a GitHub App,
+with read and write on the org's Projects and read on this repository's issues
+and pull requests. Without it the run only logs a notice. `vars.PROJECT_OWNER`
+and `vars.PROJECT_NUMBER` override the board (default `Quizzivy`, 2). Issue and
+`pull_request_target` events run the workflow from `main`, so it acts once the
+release that carries it is on `main`. `pull_request_target` is safe here
+because the job checks out the base branch and reads only the event.
+
 ## Deploy
 
 `.github/workflows/deploy.yml` runs when CI succeeds for a **push** to `main`,

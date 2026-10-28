@@ -498,6 +498,10 @@ Gitflow. `main` is released only and tagged; `develop` is integration.
   commit, and `develop` and `work/**` also need **CI result** to pass
   (`docs/setup/ci.md`, "Branch rules").
 
+Tasks are issues on the org's GitHub Project (`docs/setup/ci.md`, "The project
+board"). A pull request names its issue in a line `Task: #N` (or `Part of: #N`),
+and progress is reported with `status:` and `next:` labels on the issue.
+
 **A behavioural change never rides along in a formatting sweep.** A commit that
 reformats or restrips comments across many files must contain nothing else — the
 diff a reviewer opens is thousands of lines, and a real change inside it is
