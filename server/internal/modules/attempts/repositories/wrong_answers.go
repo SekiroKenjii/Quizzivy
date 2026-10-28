@@ -46,7 +46,7 @@ var wrongAnswersSQL = `
 	             (SELECT string_agg(CASE l.ordinal WHEN 0 THEN 'True' WHEN 1 THEN 'False' ELSE 'Not given' END, ', ' ORDER BY l.ordinal)
 	                FROM lettered l WHERE l.question_id = n.id AND l.is_correct)
 	           WHEN 'matching' THEN
-	             (SELECT string_agg((mi.ordinal + 1)::text || ': ' || l.letter, '; ' ORDER BY mi.ordinal)
+	             (SELECT string_agg(chr(65 + mi.ordinal) || ' → ' || lower(btrim(to_char(l.ordinal + 1, 'RN'))), '; ' ORDER BY mi.ordinal)
 	                FROM app.test_version_match_items mi
 	                JOIN lettered l ON l.question_id = n.id AND l.id = mi.correct_option_id
 	               WHERE mi.test_version_question_id = n.id)
@@ -76,7 +76,7 @@ var wrongAnswersSQL = `
 	             END
 	           WHEN 'matching' THEN
 	             CASE WHEN jsonb_typeof(ans.payload->'pairs') = 'object' THEN
-	               (SELECT string_agg((mi.ordinal + 1)::text || ': ' || coalesce(l.letter, '-'), '; ' ORDER BY mi.ordinal)
+	               (SELECT string_agg(chr(65 + mi.ordinal) || ' → ' || coalesce(lower(btrim(to_char(l.ordinal + 1, 'RN'))), '–'), '; ' ORDER BY mi.ordinal)
 	                  FROM app.test_version_match_items mi
 	                  LEFT JOIN lettered l ON l.question_id = n.id AND l.id::text = lower(ans.payload->'pairs'->>mi.id::text)
 	                 WHERE mi.test_version_question_id = n.id)
@@ -89,7 +89,8 @@ var wrongAnswersSQL = `
 	   CROSS JOIN papers p
 	    JOIN app.attempt_answers ans ON ans.attempt_id = p.id AND ans.question_id = n.id
 	   WHERE ans.final_score < n.points
-	     AND ` + answered.SaysSomething("ans") + `
+	     AND (` + answered.SaysSomething("ans") + `
+	          OR (n.type = 'matching' AND jsonb_typeof(ans.payload->'pairs') = 'object' AND ans.payload->'pairs' <> '{}'::jsonb))
 	), counted AS (
 	  SELECT g.question_id, left(g.text, 200) AS text, count(*) AS papers
 	    FROM given g
@@ -106,7 +107,7 @@ var wrongAnswersSQL = `
 	  LEFT JOIN ranked r ON r.question_id = n.id AND r.rank <= ` + fmt.Sprint(domain.MaxWrongAnswers) + `
 	 ORDER BY n.number, r.rank`
 
-// WrongAnswers reads, for each question of an assignment the scope reaches, its key and the distinct answer texts that did not earn full points over the papers handed in by the students the scope reaches: the same papers ItemAnalysis counts. Another teacher's assignment answers ErrNotFound, exactly as a missing one does.
+// WrongAnswers reads, for each question of an assignment the scope reaches, its key and the distinct answer texts that did not earn full points (a tfng answer in words, a matching answer as each item's D-063 key and the choice it was given, "–" for one left blank, a partly answered matching question included) over the papers handed in by the students the scope reaches: the same papers ItemAnalysis counts. Another teacher's assignment answers ErrNotFound, exactly as a missing one does.
 func (s *Postgres) WrongAnswers(ctx context.Context, scope access.Scope, assignmentID string) (domain.WrongAnswers, error) {
 	reached, err := s.reachesAll(ctx, scope, []string{assignmentID})
 	if err != nil {

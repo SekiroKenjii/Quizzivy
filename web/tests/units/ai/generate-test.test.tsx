@@ -618,7 +618,12 @@ describe("matching and essay", () => {
     expect(
       await within(dialog).findByText("Match each word with its meaning."),
     ).toBeVisible();
-    expect(within(dialog).getByText("school → A · doctor → B")).toBeVisible();
+    expect(within(dialog).getByText("school → i · doctor → ii")).toBeVisible();
+    expect(
+      within(dialog).getByText(
+        "i. a place to learn · ii. a person who cures · iii. a vehicle",
+      ),
+    ).toBeVisible();
     expect(
       within(dialog).getByText("Names the job and gives two reasons."),
     ).toBeVisible();

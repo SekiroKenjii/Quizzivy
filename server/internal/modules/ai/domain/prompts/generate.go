@@ -245,15 +245,18 @@ func withKey(out Question, q rawQuestion) (Question, bool) {
 	return out, true
 }
 
-// withMatches keeps a matching draft whose items each name one of its choices: the choices are distinct, an item that names no choice or repeats an earlier item is dropped, and the draft needs at least two items and two choices. AnswerKey is the choices the items use, in the order of the choices.
+// withMatches keeps a matching draft only as the model wrote it, with nothing repaired (D-079 (i)): 2 to MaxDraftMatchChoices choices and 2 to MaxDraftMatchItems items, every text non-empty, no two choices and no two items the same once trimmed and compared without case or extra spaces, and each item's answer the text of exactly one choice under the same comparison. AnswerKey is the choices the items use, in the order of the choices.
 func withMatches(out Question, q rawQuestion) (Question, bool) {
-	out.Options = distinct(q.Options, MaxDraftMatchChoices, 500)
+	options, ok := uniqueTexts(q.Options, MaxDraftMatchChoices)
+	if !ok || len(q.Items) < 2 || len(q.Items) > MaxDraftMatchItems {
+		return out, false
+	}
+	out.Options = options
 	for _, item := range q.Items {
 		text := clip(oneLine(item.Text), 500)
 		at := slices.IndexFunc(out.Options, func(o string) bool { return sameText(o, item.Answer) })
-		if text == "" || at < 0 || len(out.MatchItems) == MaxDraftMatchItems ||
-			slices.ContainsFunc(out.MatchItems, func(p MatchPair) bool { return sameText(p.Text, text) }) {
-			continue
+		if text == "" || at < 0 || slices.ContainsFunc(out.MatchItems, func(p MatchPair) bool { return sameText(p.Text, text) }) {
+			return out, false
 		}
 		out.MatchItems = append(out.MatchItems, MatchPair{Text: text, Answer: out.Options[at]})
 	}
@@ -262,7 +265,23 @@ func withMatches(out Question, q rawQuestion) (Question, bool) {
 			out.AnswerKey = append(out.AnswerKey, option)
 		}
 	}
-	return out, len(out.Options) >= 2 && len(out.MatchItems) >= 2
+	return out, true
+}
+
+// uniqueTexts reads 2 to limit texts as one line each, and is false when one is empty or two are the same without case or extra spaces.
+func uniqueTexts(texts []string, limit int) ([]string, bool) {
+	if len(texts) < 2 || len(texts) > limit {
+		return nil, false
+	}
+	out := make([]string, 0, len(texts))
+	for _, text := range texts {
+		text = clip(oneLine(text), 500)
+		if text == "" || slices.ContainsFunc(out, func(kept string) bool { return sameText(kept, text) }) {
+			return nil, false
+		}
+		out = append(out, text)
+	}
+	return out, true
 }
 
 func choiceKeyHolds(q Question) bool {

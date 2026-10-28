@@ -6,6 +6,7 @@ import (
 	"strings"
 
 	"quizzivy/internal/modules/ai/domain"
+	"quizzivy/internal/shared/matchkey"
 )
 
 // ExplanationInput is what "Write an explanation" sends: the stored question with its key, the language to write in and whether to write one sentence.
@@ -55,15 +56,18 @@ func matchingKeyText(q domain.Question) string {
 		if item.Option < 0 || item.Option >= len(q.Options) {
 			return ""
 		}
-		pairs[i] = fmt.Sprintf("%d. %s -> %s. %s", i+1, clip(oneLine(item.Text), 200), letter(item.Option), clip(oneLine(q.Options[item.Option].Text), 200))
+		pairs[i] = fmt.Sprintf("%s → %s (%s → %s)", matchkey.Item(i), matchkey.Option(item.Option), clip(oneLine(item.Text), 200), clip(oneLine(q.Options[item.Option].Text), 200))
 	}
 	return strings.Join(pairs, "; ")
 }
 
-// Explanation builds the request for "Write an explanation". It answers domain.ErrNoKey for a question with no answer key.
+// Explanation builds the request for "Write an explanation". It answers domain.ErrNoSample for an essay with no sample answer and domain.ErrNoKey for any other question with no answer key.
 func Explanation(in ExplanationInput) (Prompt, error) {
 	key := KeyText(in.Question)
 	if key == "" {
+		if in.Question.Type == Essay {
+			return Prompt{}, domain.ErrNoSample
+		}
 		return Prompt{}, domain.ErrNoKey
 	}
 	var b strings.Builder
@@ -71,7 +75,7 @@ func Explanation(in ExplanationInput) (Prompt, error) {
 	if len(in.Question.Options) > 0 {
 		b.WriteString("Options:\n")
 		for i, o := range in.Question.Options {
-			fmt.Fprintf(&b, "%s. %s\n", letter(i), clip(oneLine(o.Text), 300))
+			fmt.Fprintf(&b, "%s. %s\n", optionLabel(in.Question.Type, i), clip(oneLine(o.Text), 300))
 		}
 	}
 	if in.Question.Type == Essay {
