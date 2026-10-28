@@ -1,0 +1,119 @@
+name: SDK publish
+
+# Publishes sdk/ as @quizzivy/sdk to GitHub Packages (D-080). The package is
+# what `make gen` committed; the PR's Contract job proved it matches the
+# contract, so nothing is regenerated here.
+#
+#   main     @quizzivy/sdk@<info.version> under `latest`, only when that version
+#            is not published yet and the contract differs from the last one
+#   develop  <major>.<minor>.<patch+1>-dev.<UTC yyyymmddHHMM>.g<sha> under
+#            `next`, on pushes that change the contract
+#
+# Nothing publishes from work/*, release/* or pull requests, and this workflow
+# makes no tags or releases: tags stay the owner's. The @quizzivy scope belongs
+# to the Quizzivy org, so the jobs are skipped anywhere else (a fork, or the
+# repository before its transfer).
+on:
+  push:
+    branches: [main, develop]
+    paths:
+      - api/openapi.yaml
+      - sdk/**
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sdk-publish-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  NODE_VERSION: "24"
+  OASDIFF_VERSION: v1.33.0
+  PACKAGE: "@quizzivy/sdk"
+
+jobs:
+  publish:
+    name: Publish
+    if: github.repository_owner == 'Quizzivy' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/develop')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      packages: write
+    env:
+      NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          registry-url: https://npm.pkg.github.com
+          scope: "@quizzivy"
+
+      - name: Decide the version
+        id: version
+        run: |
+          release=$(node -p "require('./sdk/package.json').version")
+          latest=$(npm view "$PACKAGE" dist-tags.latest 2>/dev/null || true)
+          echo "latest=$latest" >> "$GITHUB_OUTPUT"
+          if [ "$GITHUB_REF" = refs/heads/main ]; then
+            if npm view "$PACKAGE@$release" version >/dev/null 2>&1; then
+              echo "$PACKAGE@$release is already published; nothing to do." | tee -a "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            if [ -n "$latest" ]; then
+              mkdir -p "$RUNNER_TEMP/latest"
+              npm pack "$PACKAGE@$latest" --pack-destination "$RUNNER_TEMP/latest" >/dev/null
+              tar -xzf "$RUNNER_TEMP"/latest/*.tgz -C "$RUNNER_TEMP/latest"
+              if cmp -s "$RUNNER_TEMP/latest/package/openapi.json" sdk/openapi.json; then
+                echo "The contract is the same as $PACKAGE@$latest; nothing to do." | tee -a "$GITHUB_STEP_SUMMARY"
+                exit 0
+              fi
+            fi
+            echo "version=$release" >> "$GITHUB_OUTPUT"
+            echo "tag=latest" >> "$GITHUB_OUTPUT"
+          else
+            IFS=. read -r major minor patch <<< "$release"
+            stamp=$(date -u +%Y%m%d%H%M)
+            # The g keeps an all-digit short sha from reading as a number,
+            # which semver refuses with a leading zero.
+            echo "version=$major.$minor.$((patch + 1))-dev.$stamp.g$(git rev-parse --short=7 HEAD)" >> "$GITHUB_OUTPUT"
+            echo "tag=next" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-go@v7
+        if: steps.version.outputs.version != '' && steps.version.outputs.latest != ''
+        with:
+          go-version: "1.27"
+          cache: false
+
+      - name: Changelog since the last published SDK
+        if: steps.version.outputs.version != '' && steps.version.outputs.latest != ''
+        env:
+          LATEST: ${{ steps.version.outputs.latest }}
+        run: |
+          if [ ! -d "$RUNNER_TEMP/latest/package" ]; then
+            mkdir -p "$RUNNER_TEMP/latest"
+            npm pack "$PACKAGE@$LATEST" --pack-destination "$RUNNER_TEMP/latest" >/dev/null
+            tar -xzf "$RUNNER_TEMP"/latest/*.tgz -C "$RUNNER_TEMP/latest"
+          fi
+          {
+            echo "## Contract changes since $PACKAGE@$LATEST"
+            echo
+            go run "github.com/oasdiff/oasdiff@$OASDIFF_VERSION" changelog \
+              "$RUNNER_TEMP/latest/package/openapi.yaml" api/openapi.yaml --format markdown
+          } >> "$GITHUB_STEP_SUMMARY" || echo "::warning::the changelog could not be written"
+
+      - name: Publish
+        if: steps.version.outputs.version != ''
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+          TAG: ${{ steps.version.outputs.tag }}
+        working-directory: sdk
+        run: |
+          npm version "$VERSION" --no-git-tag-version --allow-same-version >/dev/null
+          npm publish --tag "$TAG"
+          echo "Published $PACKAGE@$VERSION under \`$TAG\`." | tee -a "$GITHUB_STEP_SUMMARY"

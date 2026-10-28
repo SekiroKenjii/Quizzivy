@@ -19,6 +19,10 @@ SPECTRAL_VERSION ?= 6.16.3
 OPENAPI_TS_VERSION ?= 7.13.0
 # Same pin as .github/workflows/ci.yml's golangci-lint step.
 GOLANGCI_VERSION ?= v2.14.0
+# The SDK gate's breaking-change checker (D-080). Run with `go run` rather than
+# as a go.mod tool: it depends on kin-openapi, which the server validates
+# requests with, and sharing the module graph would let a tool bump move it.
+OASDIFF_VERSION ?= v1.33.0
 
 MIGRATE_DSN ?= postgres://quizzivy_migrate:$(or $(QUIZZIVY_MIGRATE_PASSWORD),migrate)@localhost:5432/quizzivy?sslmode=disable
 APP_DSN     ?= postgres://quizzivy_app:$(or $(QUIZZIVY_APP_PASSWORD),app)@localhost:5432/quizzivy?sslmode=disable
@@ -26,7 +30,7 @@ MAINTENANCE_DSN ?= postgres://quizzivy_maintenance:$(or $(QUIZZIVY_MAINTENANCE_P
 SUPERUSER_DSN ?= postgres://postgres:$(or $(POSTGRES_SUPERUSER_PASSWORD),postgres)@localhost:5432/postgres?sslmode=disable
 
 .PHONY: help doctor up down reset db-shell migrate migrate-down migrate-redo \
-        seed gen contract verify-google verify-r2 verify-r2-imports dev dev-web dev-api test test-web test-api \
+        seed gen contract sdk-check verify-google verify-r2 verify-r2-imports dev dev-web dev-api test test-web test-api \
         test-api-unit test-api-integration test-api-e2e test-api-all e2e lint
 
 help: ## Show this help
@@ -92,19 +96,26 @@ contract: ## Lint api/openapi.yaml and assert its invariants
 	# the interim Python checker). Run just those, not the whole suite.
 	cd web && pnpm vitest run tests/units/contract
 
-gen: contract ## Regenerate Go + TS from api/openapi.yaml
+gen: contract ## Regenerate Go + the SDK (sdk/, which the web links) from api/openapi.yaml
 	cd server && go tool oapi-codegen --config ../api/oapi-codegen.yaml ../api/openapi.yaml
 	cd server && go run ./cmd/gencontract ../api/openapi.yaml gen/contract
-	npx --yes openapi-typescript@$(OPENAPI_TS_VERSION) api/openapi.yaml -o web/src/lib/api/schema.d.ts
+	node scripts/sdk/gen.mjs api/openapi.yaml server/gen/contract/openapi.json sdk
+	npx --yes openapi-typescript@$(OPENAPI_TS_VERSION) api/openapi.yaml -o sdk/schema.d.ts
 	cd server && go build ./... && go test ./gen/...
-	@echo "generated: server/gen/openapi/openapi.gen.go, server/gen/contract/, web/src/lib/api/schema.d.ts"
+	@echo "generated: server/gen/openapi/openapi.gen.go, server/gen/contract/, sdk/"
 
 gen-check: gen ## Fail if generated output drifts from the contract (what CI runs)
-	@git diff --exit-code -- server/gen web/src/lib/api/schema.d.ts \
+	@git diff --exit-code -- server/gen sdk \
 		|| (echo ""; \
 		    echo "Generated code is out of date. Run 'make gen' and commit the result."; \
 		    exit 1)
+	@untracked=$$(git ls-files --others --exclude-standard -- server/gen sdk); \
+		[ -z "$$untracked" ] || { echo "Generated files not committed: $$untracked"; exit 1; }
 	@echo "generated code matches api/openapi.yaml"
+
+sdk-check: ## Report breaking contract changes since the merge-base with SDK_BASE (default origin/develop)
+	node --test "scripts/sdk/tests/*.test.mjs"
+	OASDIFF="go run github.com/oasdiff/oasdiff@$(OASDIFF_VERSION)" node scripts/sdk/check.mjs
 
 dev: ## Run web and api together, plus the Word import worker when imports are configured
 	$(MAKE) -j3 dev-api dev-web $(if $(IMPORT_S3_BUCKET),dev-worker IMPORT_PROCESSING_ENABLED=true IMPORT_WORKER_WAKE_URL=http://localhost:8091/wake)

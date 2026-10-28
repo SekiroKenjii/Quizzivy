@@ -64,6 +64,7 @@ Reference the spec by section number (`§13.3`), never by quoting it back.
 
 ```bash
 make gen        # if api/openapi.yaml changed — commit the generated files
+make sdk-check  # if it changed: what a client of the SDK would see (sdk/README.md)
 make test
 make lint
 ```
@@ -83,7 +84,7 @@ page: the next run overwrites it.
 
 ## Things that will get a PR sent back
 
-- A generated file edited by hand (`server/gen/`, `web/src/lib/api/schema.d.ts`)
+- A generated file edited by hand (`server/gen/`, `sdk/`)
 - A new dependency with no reason in the description
 - English-only user-facing text
 - A public endpoint without both §6.5 boxes ticked in the same PR

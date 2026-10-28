@@ -157,6 +157,12 @@ git fetch origin && git tag v0.9.0 origin/main && git push origin v0.9.0
 gh pr create --base develop --head main                        # back-merge; its CI run does not deploy
 ```
 
+The release PR sets the version in two places, to the same value: `web/package.json`
+and `info.version` in `api/openapi.yaml`, then `make gen` (which writes it into
+`sdk/`). The Contract job checks they agree on a PR into `main`, and that a
+release breaking the contract bumps the minor (D-080). Merging it publishes
+`@quizzivy/sdk` at that version (`sdk/README.md`).
+
 Merge back into `develop` too, or fixes made on the release branch are lost from
 the next one. `main` and `develop` take changes only by pull request
 (`ci.md`, "Branch rules").

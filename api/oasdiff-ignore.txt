@@ -1,0 +1,10 @@
+# Changes the SDK gate (`make sdk-check`, D-080) must not report, one per line.
+# oasdiff matches a line when it holds the method, the path and the change's
+# text as the report prints them, case-insensitively, so a trailing comment on
+# the same line is allowed:
+#
+#   GET /teacher/tests removed the success response with the status `200`  # why
+#
+# Use it only for oasdiff misreading the contract (OpenAPI 3.1 type arrays,
+# `const`), never to wave a real breaking change through: that takes the
+# contract-breaking label.

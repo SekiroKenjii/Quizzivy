@@ -4,7 +4,10 @@
 API. Spec §15 documents it; this file is what both sides are generated from.
 
 Nothing here is hand-written twice: `oapi-codegen` produces the Go server
-interfaces, `openapi-typescript` produces the TS types, and MSW fixtures are
+interfaces, `openapi-typescript` produces the TS types in the SDK package
+(`sdk/`, `@quizzivy/sdk`, which the web links and other clients install), and MSW fixtures are
 validated against this schema with `ajv`. CI regenerates and fails on drift.
 
-Change the contract here first, then `make gen`.
+Change the contract here first, then `make gen`. `make sdk-check` reports what
+the change does to a client, and `oasdiff-ignore.txt` holds the checker's false
+alarms. `info.version` changes only in the release PR (`sdk/README.md`).
